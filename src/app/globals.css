@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
+/* ========== Global Variables ========== */
 :root {
+  /* Base theme */
   --background: #ffffff;
   --foreground: #171717;
-}
 
-@theme inline {
+  /* PrepMint Branding Colors */
+  --prepmint-primary: #15803D;         /* Main green */
+  --prepmint-hover: #0e6f31;           /* Hover state */
+  --prepmint-light: #41D786;           /* Accent (optional use) */
+  --prepmint-accent: #059669;          /* Optional alt hover */
+  --prepmint-muted: #9ca3af;           /* For borders / low text */
+  --prepmint-danger: #dc2626;          /* Error / delete */
+  --prepmint-bg: #f9fafb;              /* Light panel backgrounds */
+
+  /* Fonts (can be linked from Google or local setup) */
+  --font-sans: var(--font-geist-sans, Arial, sans-serif);
+  --font-mono: var(--font-geist-mono, monospace);
+
+  /* Tailwind theme override compatibility */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
+/* ========== Dark Mode ========== */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --prepmint-primary: #22c55e;      /* Lighter green for dark bg */
+    --prepmint-hover: #15803D;
+    --prepmint-bg: #1f2937;
+    --prepmint-muted: #6b7280;
   }
 }
 
+/* ========== Global Styles ========== */
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Scrollbar (optional) */
+body::-webkit-scrollbar {
+  width: 8px;
+}
+body::-webkit-scrollbar-thumb {
+  background: var(--prepmint-muted);
+  border-radius: 10px;
+}
+
+/* ========== Utility Classes (optional if not using Tailwind) ========== */
+.bg-prepmint {
+  background-color: var(--prepmint-primary);
+}
+.text-prepmint {
+  color: var(--prepmint-primary);
+}
+.hover\:bg-prepmint:hover {
+  background-color: var(--prepmint-hover);
 }
