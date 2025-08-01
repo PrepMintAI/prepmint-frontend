@@ -1,7 +1,7 @@
 // src/components/dashboard/b2b/AutoPaperChecker.tsx
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 
 interface EvaluationResult {
   score: number;
@@ -21,7 +21,7 @@ const AutoPaperChecker: React.FC = () => {
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isTestMode, setIsTestMode] = useState<boolean>(false); // ✅ Toggle for test-based answers
+  const [isTestMode, setIsTestMode] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,33 +37,15 @@ const AutoPaperChecker: React.FC = () => {
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && (file.type === 'application/pdf' || file.type.startsWith('image/'))) {
-      setUploadedFile(file);
-      setError(null);
-    } else {
-      setError('Please upload a PDF or image file');
-    }
-  }, []);
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    console.log(file.name);
+    // Later, you can use `file` to send it to backend OCR
+    return new Promise((resolve) =>
+      setTimeout(() => resolve('Simulated OCR extracted answer text.'), 1000)
+    );
+  };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
-
-  // Simulated backend call (Replace this with real fetch to /api/evaluate)
   const evaluateAnswer = async (): Promise<EvaluationResult> => {
-    /* 
-      🟡 TODO: Replace this mock with real API call:
-      await fetch('/api/evaluate', {
-        method: 'POST',
-        body: JSON.stringify({
-          inputMode,
-          studentAnswer,
-          referenceAnswer,
-          isTestMode,
-        })
-      })
-    */
     return new Promise((resolve) =>
       setTimeout(() => {
         resolve({
@@ -76,19 +58,6 @@ const AutoPaperChecker: React.FC = () => {
           remarks: 'Solid response, but could benefit from deeper technical analysis.',
         });
       }, 2000)
-    );
-  };
-
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    /*
-      🟡 TODO: Backend OCR integration
-      Endpoint suggestion: POST /api/ocr
-      Content-Type: multipart/form-data
-      Payload: file
-      Returns: extractedText: string
-    */
-    return new Promise((resolve) =>
-      setTimeout(() => resolve('Simulated OCR extracted answer text.'), 1000)
     );
   };
 
@@ -107,15 +76,13 @@ const AutoPaperChecker: React.FC = () => {
       let answerText = studentAnswer;
 
       if (inputMode === 'file' && uploadedFile) {
-        // 🔄 Step 1: Extract student answer from file using OCR
         answerText = await extractTextFromFile(uploadedFile);
-        setStudentAnswer(answerText); // Optional: Show extracted text
+        setStudentAnswer(answerText);
       }
 
-      // 🔄 Step 2: Evaluate answer
       const result = await evaluateAnswer();
       setEvaluationResult(result);
-    } catch (err) {
+    } catch {
       setError('Evaluation failed. Please try again.');
     } finally {
       setIsEvaluating(false);
@@ -128,7 +95,7 @@ const AutoPaperChecker: React.FC = () => {
     setReferenceAnswer('');
     setEvaluationResult(null);
     setError(null);
-    fileInputRef.current && (fileInputRef.current.value = '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const loadSampleData = () => {
@@ -145,7 +112,6 @@ const AutoPaperChecker: React.FC = () => {
         </div>
 
         <div className="p-6">
-          {/* Toggle Test Mode */}
           <div className="flex items-center mb-4">
             <input
               type="checkbox"
@@ -159,7 +125,6 @@ const AutoPaperChecker: React.FC = () => {
             </label>
           </div>
 
-          {/* Input Type Selection */}
           <div className="flex mb-6">
             <button
               className={`flex-1 py-3 px-4 rounded-l-lg font-medium transition-colors ${
@@ -179,16 +144,20 @@ const AutoPaperChecker: React.FC = () => {
             </button>
           </div>
 
-          {/* FORM */}
           <form onSubmit={handleSubmit}>
-            {/* File Input */}
             {inputMode === 'file' && (
               <div className="mb-6">
-                {/* 🟡 File upload - triggers OCR on backend */}
+                <label className="block font-medium text-gray-700 mb-2">Upload PDF or Image</label>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="block w-full"
+                />
               </div>
             )}
 
-            {/* Text Input */}
             {inputMode === 'text' && (
               <div className="mb-6">
                 <label className="block font-medium text-gray-700 mb-2">Student Answer</label>
@@ -202,7 +171,6 @@ const AutoPaperChecker: React.FC = () => {
               </div>
             )}
 
-            {/* Reference Answer */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-gray-700 font-medium">Reference Answer</label>
@@ -219,10 +187,8 @@ const AutoPaperChecker: React.FC = () => {
               />
             </div>
 
-            {/* Error */}
             {error && <p className="text-red-600 mb-4">{error}</p>}
 
-            {/* Buttons */}
             <div className="flex gap-3">
               <button
                 type="submit"
@@ -241,11 +207,30 @@ const AutoPaperChecker: React.FC = () => {
             </div>
           </form>
 
-          {/* Results */}
           {evaluationResult && (
             <div className="mt-8 border-t pt-8">
-              {/* 🟢 Show evaluation results – backend driven */}
-              {/* Score, Grade, Feedback */}
+              <h2 className="text-lg font-semibold">Result</h2>
+              <p className="text-gray-800 mt-2">Score: {evaluationResult.score}</p>
+              <p className="text-gray-800">Grade: {evaluationResult.suggestedGrade}</p>
+              <p className="mt-4 text-sm text-gray-600">{evaluationResult.remarks}</p>
+
+              <div className="mt-4">
+                <h3 className="font-medium">Strengths</h3>
+                <ul className="list-disc list-inside text-green-700">
+                  {evaluationResult.feedback.strengths.map((s, i) => (
+                    <li key={`s-${i}`}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-2">
+                <h3 className="font-medium">Weaknesses</h3>
+                <ul className="list-disc list-inside text-red-700">
+                  {evaluationResult.feedback.weaknesses.map((w, i) => (
+                    <li key={`w-${i}`}>{w}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
         </div>
@@ -255,14 +240,3 @@ const AutoPaperChecker: React.FC = () => {
 };
 
 export default AutoPaperChecker;
-
-
-/*
-
-🔌 Summary of Backend Integration Points:
-Task	Comment Tag	Backend Endpoint Suggestion
-File Text Extraction	extractTextFromFile	POST /api/ocr (multipart)
-Evaluation of Answer	evaluateAnswer	POST /api/evaluate (JSON)
-Test Mode Support	isTestMode state	Extend evaluation API input
-
-*/

@@ -5,7 +5,14 @@ import { ChevronRight, Users, Award, Zap } from 'lucide-react';
 
 export default function App() {
   const [, setIsScrolled] = useState(false);
-  const [particles, setParticles] = useState([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
+type Particle = {
+    left: string;
+    top: string;
+    x: number;
+    duration: number;
+    delay: number;
+  };
 
 
   useEffect(() => {
@@ -20,6 +27,7 @@ export default function App() {
       duration: Math.random() * 3 + 2,
       delay: Math.random() * 2,
     }));
+
     setParticles(generatedParticles);
 
 

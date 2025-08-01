@@ -2,7 +2,7 @@
 
 'use client';
 
-import { BarChart, LineChart, PieChart } from "recharts";
+import { PieChart } from "recharts";
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Line, LineChart as RechartsLineChart, Pie, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const performanceData = [
@@ -117,7 +117,7 @@ export default function AnalyticsDashboard() {
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {subjectDistribution.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
