@@ -17,15 +17,19 @@ export default function B2BDashboardLayout({
     <div className="flex h-screen bg-gray-50">
       {/* Mobile sidebar toggle */}
       <button
-        className="fixed top-4 left-4 z-20 rounded-md bg-[#41D786] p-2 text-white md:hidden"
+        className="fixed top-4 left-4 z-20 rounded-md bg-emerald-600 p-2 text-white md:hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
         onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-expanded={sidebarOpen}
+        aria-controls="sidebar"
       >
-        <Menu size={24} />
+        <Menu size={24} aria-hidden="true" />
+        <span className="sr-only">Toggle sidebar</span>
       </button>
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-10 h-full w-64 transform bg-[#41D786] transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        id="sidebar"
+        className={`fixed left-0 top-0 z-10 h-full w-64 transform bg-emerald-700 text-white transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -45,6 +49,7 @@ export default function B2BDashboardLayout({
         <div
           className="fixed inset-0 z-0 bg-black bg-opacity-50 md:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         ></div>
       )}
     </div>

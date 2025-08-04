@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart,
+  //BarChart,
   BookCheck,
   CheckCircle,
   FileText,
@@ -17,18 +17,13 @@ const menuItems = [
   { name: "Dashboard", href: "/dashboard/b2b", icon: Home },
   {
     name: "Question Generator",
-    href: "/dashboard/b2b/question-generator",
+    href: "/dashboard/b2b/question-paper-generator",
     icon: FileText,
   },
   {
     name: "Paper Checking",
     href: "/dashboard/b2b/paper-checking",
     icon: CheckCircle,
-  },
-  {
-    name: "Analytics",
-    href: "/dashboard/b2b/analytics",
-    icon: BarChart,
   },
   {
     name: "Student Manager",
@@ -47,24 +42,25 @@ export default function B2BDashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col bg-[#047857] text-white">
+    <div className="flex h-full flex-col bg-emerald-700 text-white">
       <div className="p-6">
         <h1 className="text-2xl font-bold">PrepMint Hub</h1>
-        <p className="text-sm opacity-80">Institution Dashboard</p>
+        <p className="text-sm text-emerald-100">Institution Dashboard</p>
       </div>
-      
+
       <nav className="flex-1 px-4">
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <li key={item.name}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-colors ${
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-200 ${
                     isActive
-                      ? "bg-white text-[#41D786] shadow-md"
-                      : "hover:bg-[#3ac574]"
+                      ? "bg-blue-50 text-blue-700 font-semibold border-l-4 border-blue-500"
+                      : "text-white hover:bg-emerald-600"
                   }`}
                 >
                   <item.icon size={20} />
@@ -75,8 +71,8 @@ export default function B2BDashboardSidebar() {
           })}
         </ul>
       </nav>
-      
-      <div className="p-4 text-center text-sm opacity-80">
+
+      <div className="p-4 text-center text-sm text-emerald-100">
         © PrepMint {new Date().getFullYear()}
       </div>
     </div>
