@@ -1,17 +1,16 @@
 // src/components/dashboard/b2b/BulkPaperChecker.tsx
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   FileText,
   Upload,
   Loader2,
   AlertCircle,
-  CheckCircle,
-  XCircle,
   Download,
   Trash2,
 } from 'lucide-react';
+import clsx from 'clsx';
 
 interface EvaluationResult {
   studentName: string;
@@ -20,17 +19,18 @@ interface EvaluationResult {
   remarks: string;
 }
 
-const BulkPaperChecker = () => {
+const BulkPaperChecker: React.FC = () => {
   const [questionPaper, setQuestionPaper] = useState<File | null>(null);
   const [answerSheets, setAnswerSheets] = useState<File[]>([]);
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [results, setResults] = useState<EvaluationResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload');
+
   const qpInputRef = useRef<HTMLInputElement>(null);
   const asInputRef = useRef<HTMLInputElement>(null);
 
-  const handleQPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQPChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
@@ -41,26 +41,28 @@ const BulkPaperChecker = () => {
         setError('Question paper must be a PDF file.');
       }
     }
-  };
+  }, []);
 
-  const handleASChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleASChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const validFiles = Array.from(files).filter(
-        (file) => file.type === 'application/pdf' || file.type.startsWith('image/')
-      );
-      if (validFiles.length !== files.length) {
-        setError('Some files were skipped. Only PDF and images are allowed.');
-      }
-      setAnswerSheets((prev) => [...prev, ...validFiles]);
+    if (!files) return;
+
+    const validFiles = Array.from(files).filter(
+      (file) => file.type === 'application/pdf' || file.type.startsWith('image/')
+    );
+
+    if (validFiles.length !== files.length) {
+      setError('Some files were skipped. Only PDF and images are allowed.');
     }
-  };
 
-  const removeAnswerSheet = (index: number) => {
+    setAnswerSheets((prev) => [...prev, ...validFiles]);
+  }, []);
+
+  const removeAnswerSheet = useCallback((index: number) => {
     setAnswerSheets((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setQuestionPaper(null);
     setAnswerSheets([]);
     setResults([]);
@@ -68,47 +70,47 @@ const BulkPaperChecker = () => {
     setActiveTab('upload');
     if (qpInputRef.current) qpInputRef.current.value = '';
     if (asInputRef.current) asInputRef.current.value = '';
-  };
+  }, []);
 
   const extractTextFromFiles = async (files: File[]): Promise<string[]> => {
-    return new Promise((resolve) =>
-      setTimeout(
-        () =>
-          files.map((file, i) => `Extracted text from ${file.name}. Student performed well on Q1 and Q3.`),
-        1500
-      )
-    );
+    // Simulate OCR/text extraction
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return files.map((file) => `Extracted text from ${file.name}. Student performed well on Q1 and Q3.`);
   };
 
   const evaluateBulkAnswers = async (
     extractedAnswers: string[],
-    qpText: string
+    qpText: string,
+    answerSheetFiles: File[]
   ): Promise<EvaluationResult[]> => {
-    return new Promise((resolve) =>
-      setTimeout(() => {
-        resolve(
-          answerSheets.map((file, i) => {
-            const score = Math.floor(Math.random() * 40) + 60;
-            const grade = ['A', 'A-', 'B+', 'B', 'C+'][Math.floor(Math.random() * 5)];
-            return {
-              studentName: file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
-              score,
-              suggestedGrade: grade,
-              remarks:
-                score > 75
-                  ? 'Strong understanding of concepts. Minor improvements needed in explanation clarity.'
-                  : 'Meets expectations. Focus on deeper analysis and structured responses.',
-            };
-          })
-        );
-      }, 2500)
-    );
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    return answerSheetFiles.map((file) => {
+      const score = Math.floor(Math.random() * 40) + 60;
+      const grade = ['A', 'A-', 'B+', 'B', 'C+'][Math.floor(Math.random() * 5)];
+      const name = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
+
+      return {
+        studentName: name || 'Unknown Student',
+        score,
+        suggestedGrade: grade,
+        remarks:
+          score > 75
+            ? 'Strong understanding of concepts. Minor improvements needed in explanation clarity.'
+            : 'Meets expectations. Focus on deeper analysis and structured responses.',
+      };
+    });
   };
 
   const handleEvaluate = async () => {
     setError(null);
-    if (!questionPaper) return setError('Please upload the question paper.');
-    if (answerSheets.length === 0) return setError('Please upload at least one answer sheet.');
+    if (!questionPaper) {
+      setError('Please upload the question paper.');
+      return;
+    }
+    if (answerSheets.length === 0) {
+      setError('Please upload at least one answer sheet.');
+      return;
+    }
 
     setIsEvaluating(true);
     setResults([]);
@@ -116,21 +118,27 @@ const BulkPaperChecker = () => {
     try {
       const extractedAnswers = await extractTextFromFiles(answerSheets);
       const qpText = 'Simulated question paper content with expected answers...';
-      const evaluationResults = await evaluateBulkAnswers(extractedAnswers, qpText);
+      const evaluationResults = await evaluateBulkAnswers(extractedAnswers, qpText, answerSheets);
       setResults(evaluationResults);
       setActiveTab('results');
-    } catch (err: any) {
-      setError(err.message || 'Evaluation failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Evaluation failed. Please try again.';
+      setError(message);
     } finally {
       setIsEvaluating(false);
     }
   };
 
-  const exportResults = () => {
+  const exportResults = useCallback(() => {
     const headers = ['Student Name', 'Score', 'Grade', 'Remarks'];
-    const csvContent =
-      [headers.join(','), ...results.map((r) => `"${r.studentName}",${r.score},${r.suggestedGrade},"${r.remarks}"`)]
-        .join('\n');
+    const csvContent = [
+      headers.join(','),
+      ...results.map((r) => {
+        const escapedName = `"${r.studentName.replace(/"/g, '""')}"`;
+        const escapedRemarks = `"${r.remarks.replace(/"/g, '""')}"`;
+        return `${escapedName},${r.score},${r.suggestedGrade},${escapedRemarks}`;
+      }),
+    ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -141,7 +149,12 @@ const BulkPaperChecker = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+    URL.revokeObjectURL(url); // Prevent memory leak
+  }, [results]);
+
+  // Generate unique keys for file inputs to allow re-uploading same file
+  const qpInputKey = questionPaper ? 'qp-uploaded' : 'qp-empty';
+  const asInputKey = `as-${answerSheets.length}`;
 
   return (
     <>
@@ -163,11 +176,10 @@ const BulkPaperChecker = () => {
             <div>
               <label className="block font-semibold text-gray-800 mb-2">Upload Question Paper (PDF)</label>
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  questionPaper
-                    ? 'border-emerald-400 bg-emerald-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
+                className={clsx(
+                  'border-2 border-dashed rounded-lg p-6 text-center transition-colors',
+                  questionPaper ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300 hover:border-gray-400'
+                )}
               >
                 <input
                   type="file"
@@ -176,6 +188,7 @@ const BulkPaperChecker = () => {
                   onChange={handleQPChange}
                   className="hidden"
                   id="qp-upload"
+                  key={qpInputKey}
                 />
                 <label htmlFor="qp-upload" className="flex flex-col items-center cursor-pointer">
                   <Upload className="text-gray-500 mb-2" size={32} />
@@ -193,11 +206,10 @@ const BulkPaperChecker = () => {
                 Upload Student Answer Sheets (PDF/Images)
               </label>
               <div
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  answerSheets.length > 0
-                    ? 'border-emerald-400 bg-emerald-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
+                className={clsx(
+                  'border-2 border-dashed rounded-lg p-6 text-center transition-colors',
+                  answerSheets.length > 0 ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300 hover:border-gray-400'
+                )}
               >
                 <input
                   type="file"
@@ -207,13 +219,12 @@ const BulkPaperChecker = () => {
                   className="hidden"
                   id="as-upload"
                   multiple
+                  key={asInputKey}
                 />
                 <label htmlFor="as-upload" className="flex flex-col items-center cursor-pointer">
                   <Upload className="text-gray-500 mb-2" size={32} />
                   <span className="text-gray-600 font-medium">
-                    {answerSheets.length > 0
-                      ? `${answerSheets.length} files added`
-                      : 'Click to upload or drag and drop'}
+                    {answerSheets.length > 0 ? `${answerSheets.length} files added` : 'Click to upload or drag and drop'}
                   </span>
                   <span className="text-sm text-gray-500 mt-1">PDF, JPG, PNG (Multiple allowed)</span>
                 </label>
@@ -222,12 +233,16 @@ const BulkPaperChecker = () => {
               {answerSheets.length > 0 && (
                 <ul className="mt-4 space-y-2">
                   {answerSheets.map((file, i) => (
-                    <li key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                    <li
+                      key={i}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm"
+                    >
                       <span className="text-gray-800">{file.name}</span>
                       <button
                         type="button"
                         onClick={() => removeAnswerSheet(i)}
                         className="text-red-500 hover:text-red-700"
+                        aria-label={`Remove ${file.name}`}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -251,7 +266,12 @@ const BulkPaperChecker = () => {
                 type="button"
                 disabled={isEvaluating || !questionPaper || answerSheets.length === 0}
                 onClick={handleEvaluate}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white py-2.5 px-6 rounded-lg font-medium transition"
+                className={clsx(
+                  'flex items-center gap-2 py-2.5 px-6 rounded-lg font-medium transition',
+                  isEvaluating || !questionPaper || answerSheets.length === 0
+                    ? 'bg-emerald-400 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                )}
               >
                 {isEvaluating ? (
                   <>
@@ -262,6 +282,7 @@ const BulkPaperChecker = () => {
                   'Evaluate All Answer Sheets'
                 )}
               </button>
+
               <button
                 type="button"
                 onClick={handleReset}
@@ -278,6 +299,7 @@ const BulkPaperChecker = () => {
               <button
                 onClick={exportResults}
                 className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition"
+                disabled={results.length === 0}
               >
                 <Download size={16} />
                 Export as CSV

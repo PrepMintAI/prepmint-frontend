@@ -1,5 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 // src/components/dashboard/b2b/QuestionPaperGenerator.tsx
-
 'use client';
 import { useState, useEffect } from "react";
 import { 
@@ -15,8 +15,6 @@ import {
   AlertCircle,
   BarChart2,
   Clock,
-  Grid,
-  List,
   Settings
 } from "lucide-react";
 
@@ -112,6 +110,7 @@ const mockQuestions: Question[] = [
 
 const EXAM_TYPES = ['JEE', 'NEET', 'CBSE', 'State Boards', 'Custom'];
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'English', 'History', 'Geography'];
+
 const TOPICS = {
   Physics: ['Kinematics', 'Electromagnetism', 'Optics', 'Thermodynamics', 'Modern Physics'],
   Chemistry: ['Organic Chemistry', 'Inorganic Chemistry', 'Physical Chemistry', 'Chemical Bonding'],
@@ -122,11 +121,6 @@ const TOPICS = {
   Geography: ['Physical Geography', 'Human Geography', 'Economic Geography', 'Environmental Geography']
 };
 
-const MARK_OPTIONS = {
-  objective: [1, 2, 3, 4, 5, 6],
-  theory: [3, 4, 5, 6, 7, 8, 9, 10]
-};
-
 export default function QuestionPaperGenerator() {
   const [isConfigOpen, setIsConfigOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -135,6 +129,7 @@ export default function QuestionPaperGenerator() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+  
   const [config, setConfig] = useState<ExamConfig>({
     totalQuestions: 10,
     questionTypes: ['mixed'],
@@ -155,12 +150,6 @@ export default function QuestionPaperGenerator() {
     timeLimit: 180,
     marksDistribution: {}
   });
-
-  const difficultyDistribution = {
-    easy: 40,
-    medium: 40,
-    hard: 20
-  };
 
   const getMarksPerQuestion = (sectionId: string) => {
     const section = config.sections.find(s => s.id === sectionId);
@@ -214,25 +203,18 @@ export default function QuestionPaperGenerator() {
     }));
   }, [totalQuestions]);
 
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      generateMockPaper();
-      setIsLoading(false);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [config]);
-
   const generateMockPaper = () => {
     const sections: {[key: string]: Question[]} = {};
     let questionIndex = 0;
+    
     config.sections.forEach(section => {
       const sectionQuestions: Question[] = [];
       const questionsForSection = mockQuestions.filter(q => 
         (config.questionTypes.includes('mixed') || config.questionTypes.includes(q.type)) &&
-        config.difficulty.includes(q.difficulty) &&
+        config.difficulty.some(d => d === q.difficulty) &&
         config.topics.includes(q.topic)
       );
+      
       const marksPerQuestion = getMarksPerQuestion(section.id);
       
       for (let i = 0; i < section.numberOfQuestions && questionIndex < questionsForSection.length; i++) {
@@ -240,15 +222,28 @@ export default function QuestionPaperGenerator() {
         const adjustedQuestion = marksPerQuestion !== question.marks 
           ? { ...question, marks: marksPerQuestion }
           : question;
+          
         sectionQuestions.push(adjustedQuestion);
         questionIndex++;
       }
+      
       sections[section.id] = sectionQuestions;
     });
+    
     setGeneratedPaper(sections);
   };
 
-  const handleConfigChange = (key: keyof ExamConfig, value: ExamConfig[K]) => {
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      generateMockPaper();
+      setIsLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [config, generateMockPaper]);
+
+  const handleConfigChange = (key: keyof ExamConfig, value: ExamConfig[keyof ExamConfig]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
@@ -270,10 +265,12 @@ export default function QuestionPaperGenerator() {
           ? { ...q, question: `${q.question} (replaced)` } 
           : q
       );
+      
       setGeneratedPaper(prev => ({
         ...prev,
         [section]: updatedQuestions
       }));
+      
       setIsLoading(false);
     }, 800);
   };
@@ -291,6 +288,7 @@ export default function QuestionPaperGenerator() {
           q.id === isEditing ? { ...q, question: editContent } : q
         );
       });
+      
       setGeneratedPaper(updatedPaper);
       setIsEditing(null);
       setEditContent('');
@@ -306,6 +304,7 @@ export default function QuestionPaperGenerator() {
     console.log("Generating mock PDF...");
     console.log("Configuration:", config);
     console.log("Generated Paper:", generatedPaper);
+    
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -324,6 +323,7 @@ export default function QuestionPaperGenerator() {
       marks: marksPerQuestion || 5,
       question: 'Enter your custom question here...'
     };
+    
     setGeneratedPaper(prev => ({
       ...prev,
       [section]: [...prev[section], newQuestion]
@@ -376,13 +376,15 @@ export default function QuestionPaperGenerator() {
             <button
               onClick={() => setIsConfigOpen(!isConfigOpen)}
               className={`transform transition-transform duration-200 ${isConfigOpen ? 'rotate-180' : ''}`}
+              aria-expanded={isConfigOpen}
+              aria-label={isConfigOpen ? "Collapse configuration" : "Expand configuration"}
             >
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
           </div>
-
+          
           {isConfigOpen && (
             <>
               {/* Tab Navigation */}
@@ -394,6 +396,8 @@ export default function QuestionPaperGenerator() {
                       ? 'border-emerald-600 text-emerald-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
+                  role="tab"
+                  aria-selected={activeTab === 'basic'}
                 >
                   Basic Settings
                 </button>
@@ -404,11 +408,13 @@ export default function QuestionPaperGenerator() {
                       ? 'border-emerald-600 text-emerald-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
+                  role="tab"
+                  aria-selected={activeTab === 'advanced'}
                 >
                   Advanced Settings
                 </button>
               </div>
-
+              
               {activeTab === 'basic' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
                   {/* Exam Details */}
@@ -464,6 +470,7 @@ export default function QuestionPaperGenerator() {
                                 ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                             }`}
+                            aria-pressed={config.topics.includes(topic)}
                           >
                             {topic}
                           </button>
@@ -489,7 +496,7 @@ export default function QuestionPaperGenerator() {
                         <input
                           type="number"
                           value={config.timeLimit}
-                          onChange={(e) => handleConfigChange('timeLimit', parseInt(e.target.value))}
+                          onChange={(e) => handleConfigChange('timeLimit', parseInt(e.target.value) || 30)}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                           min="30"
                           max="360"
@@ -526,12 +533,13 @@ export default function QuestionPaperGenerator() {
                         {['objective', 'theory', 'mixed'].map((type) => (
                           <button
                             key={type}
-                            onClick={() => handleConfigChange('questionTypes', [type as any])}
+                            onClick={() => handleConfigChange('questionTypes', [type as 'objective' | 'theory' | 'mixed'])}
                             className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-all ${
-                              config.questionTypes.includes(type as any)
+                              config.questionTypes.includes(type as 'objective' | 'theory' | 'mixed')
                                 ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`}
+                            aria-pressed={config.questionTypes.includes(type as 'objective' | 'theory' | 'mixed')}
                           >
                             {type.charAt(0).toUpperCase() + type.slice(1)}
                           </button>
@@ -547,10 +555,10 @@ export default function QuestionPaperGenerator() {
                           <label key={level} className="flex items-center">
                             <input
                               type="checkbox"
-                              checked={config.difficulty.includes(level as any)}
+                              checked={config.difficulty.includes(level as 'easy' | 'medium' | 'hard')}
                               onChange={(e) => {
                                 const newDifficulties = e.target.checked
-                                  ? [...config.difficulty, level as any]
+                                  ? [...config.difficulty, level as 'easy' | 'medium' | 'hard']
                                   : config.difficulty.filter(d => d !== level);
                                 handleConfigChange('difficulty', newDifficulties);
                               }}
@@ -573,9 +581,8 @@ export default function QuestionPaperGenerator() {
                     </div>
                     Section Configuration
                   </h3>
-                  
                   <div className="space-y-4">
-                    {config.sections.map((section, index) => (
+                    {config.sections.map((section) => (
                       <div key={section.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h5 className="font-medium text-gray-900">Section {section.id}</h5>
@@ -584,6 +591,7 @@ export default function QuestionPaperGenerator() {
                               onClick={() => removeSection(section.id)}
                               className="text-red-500 hover:text-red-700 p-1"
                               title="Remove section"
+                              aria-label="Remove section"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -620,7 +628,7 @@ export default function QuestionPaperGenerator() {
                             <input
                               type="number"
                               value={section.totalMarks}
-                              onChange={(e) => updateSectionConfig(section.id, 'totalMarks', parseInt(e.target.value))}
+                              onChange={(e) => updateSectionConfig(section.id, 'totalMarks', parseInt(e.target.value) || 1)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
                               min="1"
                             />
@@ -632,7 +640,7 @@ export default function QuestionPaperGenerator() {
                             <input
                               type="number"
                               value={section.numberOfQuestions}
-                              onChange={(e) => updateSectionConfig(section.id, 'numberOfQuestions', parseInt(e.target.value))}
+                              onChange={(e) => updateSectionConfig(section.id, 'numberOfQuestions', parseInt(e.target.value) || 1)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
                               min="1"
                             />
@@ -646,17 +654,16 @@ export default function QuestionPaperGenerator() {
                       </div>
                     ))}
                   </div>
-                  
                   <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
                     <button
                       onClick={addSection}
                       disabled={config.sections.length >= 5}
                       className="flex items-center space-x-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm hover:bg-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Add new section"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add Section</span>
                     </button>
-                    
                     <div className="flex space-x-6 text-sm">
                       <div className="text-gray-600">
                         <span className="font-medium text-emerald-600">Total Questions:</span> {totalQuestions}
@@ -671,7 +678,7 @@ export default function QuestionPaperGenerator() {
             </>
           )}
         </div>
-
+        
         {/* Loading State */}
         {isLoading && (
           <div className="bg-white rounded-lg p-6 mb-6 text-center">
@@ -681,7 +688,7 @@ export default function QuestionPaperGenerator() {
             </div>
           </div>
         )}
-
+        
         {/* Generated Paper Preview */}
         {!isLoading && Object.keys(generatedPaper).length > 0 && (
           <div className="space-y-6 mb-6">
@@ -701,6 +708,7 @@ export default function QuestionPaperGenerator() {
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    aria-pressed={showAnswerKey}
                   >
                     {showAnswerKey ? 'Hide Answer Key' : 'Show Answer Key'}
                   </button>
@@ -729,7 +737,7 @@ export default function QuestionPaperGenerator() {
                 </div>
               </div>
             </div>
-
+            
             {/* Question Paper */}
             {Object.entries(generatedPaper).map(([sectionId, questions]) => {
               const sectionConfig = config.sections.find(s => s.id === sectionId);
@@ -751,7 +759,7 @@ export default function QuestionPaperGenerator() {
                     </div>
                   </div>
                   <div className="p-6 space-y-4">
-                    {questions.map((question, index) => (
+                    {questions.map((question, questionIndex) => (
                       <div 
                         key={question.id} 
                         className={`border rounded-lg p-6 transition-all duration-200 hover:shadow-md ${
@@ -765,6 +773,7 @@ export default function QuestionPaperGenerator() {
                               onChange={(e) => setEditContent(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                               rows={3}
+                              autoFocus
                             />
                             <div className="flex space-x-2">
                               <button
@@ -805,7 +814,7 @@ export default function QuestionPaperGenerator() {
                             </div>
                             <div className="mb-4">
                               <p className="text-gray-900 leading-relaxed">
-                                <span className="font-semibold text-gray-700 mr-2">{index + 1}.</span>
+                                <span className="font-semibold text-gray-700 mr-2">{questionIndex + 1}.</span>
                                 {question.question}
                               </p>
                               {question.options && (
@@ -844,6 +853,7 @@ export default function QuestionPaperGenerator() {
                                 onClick={() => handleEditQuestion(question.id, question.question)}
                                 className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Edit question"
+                                aria-label="Edit question"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
@@ -851,6 +861,7 @@ export default function QuestionPaperGenerator() {
                                 onClick={() => handleReplaceQuestion(sectionId, question.id)}
                                 className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Replace with similar question"
+                                aria-label="Replace question"
                               >
                                 <RefreshCw className="w-4 h-4" />
                               </button>
@@ -858,6 +869,7 @@ export default function QuestionPaperGenerator() {
                                 onClick={() => removeQuestion(sectionId, question.id)}
                                 className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Remove question"
+                                aria-label="Remove question"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -869,6 +881,7 @@ export default function QuestionPaperGenerator() {
                     <button
                       onClick={() => addCustomQuestion(sectionId)}
                       className="w-full mt-4 flex items-center justify-center space-x-2 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                      aria-label="Add custom question"
                     >
                       <Plus className="w-5 h-5" />
                       <span>Add Custom Question</span>
@@ -879,7 +892,7 @@ export default function QuestionPaperGenerator() {
             })}
           </div>
         )}
-
+        
         {/* PDF Generation */}
         <div className="bg-white rounded-lg p-6">
           <div className="flex flex-col sm:flex-row items-center justify-between">
@@ -897,6 +910,7 @@ export default function QuestionPaperGenerator() {
                 onClick={handleGeneratePDF}
                 disabled={isLoading}
                 className="flex-1 sm:flex-none px-6 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Generate PDF"
               >
                 <FileText className="w-5 h-5" />
                 <span>Generate PDF</span>
@@ -904,6 +918,7 @@ export default function QuestionPaperGenerator() {
               <button
                 disabled={isLoading}
                 className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                aria-label="Download question paper"
               >
                 <Download className="w-5 h-5" />
                 <span>Download Question Paper</span>
@@ -911,6 +926,7 @@ export default function QuestionPaperGenerator() {
               <button
                 disabled={isLoading}
                 className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                aria-label="Download answer key"
               >
                 <Download className="w-5 h-5" />
                 <span>Download Answer Key</span>
@@ -918,7 +934,7 @@ export default function QuestionPaperGenerator() {
             </div>
           </div>
         </div>
-
+        
         {/* XP Rewards Preview */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border border-green-200">
           <div className="flex items-center space-x-3 mb-4">

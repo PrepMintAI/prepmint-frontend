@@ -1,6 +1,6 @@
 // src/components/dashboard/b2b/AutoPaperChecker.tsx
-'use client';
 
+'use client';
 import React, { useState, useRef } from 'react';
 import { FileText, MessageSquare, CheckCircle, XCircle, Loader2, Upload, AlertCircle } from 'lucide-react';
 
@@ -39,17 +39,27 @@ const AutoPaperChecker = () => {
     }
   };
 
-  const extractTextFromFile = async (: File): Promise<string> => {
-    return new Promise((resolve) =>
-      setTimeout(() => resolve('Simulated OCR extracted answer text based on the uploaded document.'), 1000)
-    );
+  const extractTextFromFile = async (_file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      // Simulate OCR processing
+      setTimeout(() => {
+        resolve('Simulated OCR extracted answer text based on the uploaded document.');
+      }, 1000);
+    });
   };
 
-  const evaluateAnswer = async (: string, : string): Promise<EvaluationResult> => {
-    return new Promise((resolve) =>
+  const evaluateAnswer = async (_studentText: string, _referenceText: string): Promise<EvaluationResult> => {
+    return new Promise((resolve) => {
+      // Simulate AI evaluation process
       setTimeout(() => {
+        const scores = [60, 70, 80, 90];
+        const randomScore = scores[Math.floor(Math.random() * scores.length)] + Math.floor(Math.random() * 10);
+        
+        const grades = ['A', 'A-', 'B+', 'B'];
+        const randomGrade = grades[Math.floor(Math.random() * grades.length)];
+        
         resolve({
-          score: Math.floor(Math.random() * 40) + 60,
+          score: randomScore,
           feedback: {
             strengths: [
               'Clear understanding of core concepts',
@@ -62,32 +72,46 @@ const AutoPaperChecker = () => {
               'Conclusion could be stronger',
             ],
           },
-          suggestedGrade: ['A', 'A-', 'B+', 'B'][Math.floor(Math.random() * 4)],
+          suggestedGrade: randomGrade,
           remarks: 'Solid response overall. Demonstrates good knowledge but could benefit from deeper analysis and more detailed examples.',
         });
-      }, 2000)
-    );
+      }, 2000);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setEvaluationResult(null);
-    if (inputMode === 'file' && !uploadedFile) return setError('Please upload a file');
-    if (inputMode === 'text' && !studentAnswer.trim()) return setError('Please enter the student answer');
-    if (!referenceAnswer.trim()) return setError('Please enter the reference answer');
-
+    
+    if (inputMode === 'file' && !uploadedFile) {
+      setError('Please upload a file');
+      return;
+    }
+    
+    if (inputMode === 'text' && !studentAnswer.trim()) {
+      setError('Please enter the student answer');
+      return;
+    }
+    
+    if (!referenceAnswer.trim()) {
+      setError('Please enter the reference answer');
+      return;
+    }
+    
     setIsEvaluating(true);
-
+    
     try {
       let answerText = studentAnswer;
+      
       if (inputMode === 'file' && uploadedFile) {
         answerText = await extractTextFromFile(uploadedFile);
         setStudentAnswer(answerText);
       }
+      
       const result = await evaluateAnswer(answerText, referenceAnswer);
       setEvaluationResult(result);
-    } catch {
+    } catch (_err) {
       setError('Evaluation failed. Please try again.');
     } finally {
       setIsEvaluating(false);
@@ -100,7 +124,9 @@ const AutoPaperChecker = () => {
     setReferenceAnswer('');
     setEvaluationResult(null);
     setError(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const loadSampleData = () => {
@@ -109,7 +135,7 @@ const AutoPaperChecker = () => {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-green-700 px-6 py-8 text-white rounded-t-2xl">
         <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
@@ -120,8 +146,8 @@ const AutoPaperChecker = () => {
           AI-powered evaluation of student responses against reference answers
         </p>
       </div>
-
-      <div className="p-6 space-y-6">
+      
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
         {/* Test Mode Toggle */}
         <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
           <input
@@ -135,7 +161,7 @@ const AutoPaperChecker = () => {
             Enable Test Evaluation Mode (Simulated Results)
           </label>
         </div>
-
+        
         {/* Input Mode Tabs */}
         <div className="flex rounded-lg border border-gray-300 overflow-hidden bg-gray-50">
           <button
@@ -163,7 +189,7 @@ const AutoPaperChecker = () => {
             Type Answer
           </button>
         </div>
-
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* File Upload */}
           {inputMode === 'file' && (
@@ -194,7 +220,7 @@ const AutoPaperChecker = () => {
               </div>
             </div>
           )}
-
+          
           {/* Text Input */}
           {inputMode === 'text' && (
             <div>
@@ -211,7 +237,7 @@ const AutoPaperChecker = () => {
               />
             </div>
           )}
-
+          
           {/* Reference Answer */}
           <div>
             <div className="flex justify-between items-center mb-2">
@@ -235,7 +261,7 @@ const AutoPaperChecker = () => {
               placeholder="Enter the model or expected answer for comparison..."
             />
           </div>
-
+          
           {/* Error Message */}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -245,7 +271,7 @@ const AutoPaperChecker = () => {
               </p>
             </div>
           )}
-
+          
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 pt-2">
             <button
@@ -271,7 +297,7 @@ const AutoPaperChecker = () => {
             </button>
           </div>
         </form>
-
+        
         {/* Evaluation Result */}
         {evaluationResult && (
           <div className="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200">
@@ -325,7 +351,7 @@ const AutoPaperChecker = () => {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
