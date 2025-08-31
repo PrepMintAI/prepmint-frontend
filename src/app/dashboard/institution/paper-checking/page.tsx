@@ -1,9 +1,9 @@
-// src/app/dashboard/b2b/paper-checking/page.tsx
+// src/app/dashboard/institution/paper-checking/page.tsx
 
 'use client';
 
-import AutoPaperChecker from "@/components/dashboard/b2b/AutoPaperChecker";
-import BulkPaperChecker from "@/components/dashboard/b2b/BulkPaperChecker";
+import AutoPaperChecker from "@/components/dashboard/institution/AutoPaperChecker";
+import BulkPaperChecker from "@/components/dashboard/institution/BulkPaperChecker";
 import { useState } from "react";
 import { BookOpen, Upload } from "lucide-react";
 

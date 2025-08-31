@@ -1,4 +1,4 @@
-// src/components/dashboard/b2b/BulkPaperChecker.tsx
+// src/components/dashboard/institution/BulkPaperChecker.tsx
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';

@@ -1,4 +1,4 @@
-//src/components/dashboard/b2b/AnalyticsDashboard.tsx
+//src/components/dashboard/institution/AnalyticsDashboard.tsx
 
 'use client';
 

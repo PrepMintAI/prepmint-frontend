@@ -1,4 +1,4 @@
-// src/components/dashboard/b2b/CurriculumAlignment.tsx
+// src/components/dashboard/institution/CurriculumAlignment.tsx
 
 'use client';
 

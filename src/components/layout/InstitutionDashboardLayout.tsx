@@ -1,12 +1,12 @@
-// src/components/layout/B2BDashboardLayout.tsx
+// src/components/layout/InstitutionDashboardLayout.tsx
 "use client";
 
 import { useState } from "react";
-import B2BDashboardSidebar from "./B2BDashboardSidebar";
-import B2BDashboardHeader from "./B2BDashboardHeader";
+import InstitutionDashboardSidebar from "./InstitutionDashboardSidebar";
+import InstitutionDashboardHeader from "./InstitutionDashboardHeader";
 import { Menu } from "lucide-react";
 
-export default function B2BDashboardLayout({
+export default function InstitutionDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -33,12 +33,12 @@ export default function B2BDashboardLayout({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <B2BDashboardSidebar />
+        <InstitutionDashboardSidebar />
       </aside>
 
       {/* Main content */}
       <div className="flex flex-1 flex-col md:ml-0">
-        <B2BDashboardHeader />
+        <InstitutionDashboardHeader />
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           {children}
         </main>

@@ -4,7 +4,7 @@ import HeroSection from "@/components/landing/HeroSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import GamifiedXP from "@/components/landing/GamifiedXP";
 import HowItWorks from "@/components/landing/HowItWorks";
-import B2BSection from "@/components/landing/B2BSection";
+import InstitutionSection from "@/components/landing/InstitutionSection";
 import Testimonials from "@/components/landing/Testimonials";
 import LandingFooter from "@/components/layout/LandingFooter";
 
@@ -18,9 +18,10 @@ export default function HomePage() {
         <HowItWorks />
         <GamifiedXP />            
         <Testimonials />
-        <B2BSection />
+        <InstitutionSection />
       </main>
       <LandingFooter />
     </div>
   );
 }
+

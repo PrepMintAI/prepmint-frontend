@@ -1,4 +1,4 @@
-// src/components/dashboard/b2b/BulkStudentManager.tsx
+// src/components/dashboard/institution/BulkStudentManager.tsx
 
 'use client';
 

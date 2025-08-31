@@ -1,4 +1,4 @@
-// src/components/dashboard/b2b/AutoPaperChecker.tsx
+// src/components/dashboard/institution/AutoPaperChecker.tsx
 
 'use client';
 import React, { useState, useRef } from 'react';

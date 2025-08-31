@@ -1,4 +1,4 @@
-// src/components/landing/B2BSection.tsx
+// src/components/landing/InstitutionSection.tsx
 'use client';
 import React from 'react';
 import { motion } from 'framer-motion';

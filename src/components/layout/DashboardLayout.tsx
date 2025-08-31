@@ -1,4 +1,8 @@
 // /src/components/layout/DashboardLayout.tsx
+
+"use client";
+
+
 import React, { useState, useEffect } from 'react';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardHeader from './DashboardHeader';

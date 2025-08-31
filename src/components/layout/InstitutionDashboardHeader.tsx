@@ -1,4 +1,4 @@
-// src/components/layout/B2BDashboardHeader.tsx
+// src/components/layout/InstitutionDashboardHeader.tsx
 "use client";
 
 import { Bell, User, LogOut, Settings as SettingsIcon } from "lucide-react";
@@ -13,7 +13,7 @@ type Notification = {
   read: boolean;
 };
 
-export default function B2BDashboardHeader() {
+export default function InstitutionDashboardHeader() {
   // State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -212,7 +212,7 @@ export default function B2BDashboardHeader() {
                 <ul>
                   <motion.li whileHover={{ backgroundColor: "#f3f4f6" }} className="overflow-hidden">
                     <a
-                      href="/dashboard/b2b/profile"
+                      href="/dashboard/institution/profile"
                       className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700"
                       role="menuitem"
                     >
@@ -222,7 +222,7 @@ export default function B2BDashboardHeader() {
                   </motion.li>
                   <motion.li whileHover={{ backgroundColor: "#f3f4f6" }} className="overflow-hidden">
                     <a
-                      href="/dashboard/b2b/settings"
+                      href="/dashboard/institution/settings"
                       className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700"
                       role="menuitem"
                     >

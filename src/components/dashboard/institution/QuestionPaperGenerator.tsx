@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-// src/components/dashboard/b2b/QuestionPaperGenerator.tsx
+// src/components/dashboard/institution/QuestionPaperGenerator.tsx
 'use client';
 import { useState, useEffect } from "react";
 import { 

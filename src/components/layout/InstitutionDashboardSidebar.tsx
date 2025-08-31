@@ -1,4 +1,4 @@
-// src/components/layout/B2BDashboardSidebar.tsx
+// src/components/layout/InstitutionDashboardSidebar.tsx
 "use client";
 
 import Link from "next/link";
@@ -14,31 +14,31 @@ import {
 } from "lucide-react";
 
 const menuItems = [
-  { name: "Dashboard", href: "/dashboard/b2b", icon: Home },
+  { name: "Dashboard", href: "/dashboard/institution", icon: Home },
   {
     name: "Question Generator",
-    href: "/dashboard/b2b/question-paper-generator",
+    href: "/dashboard/institution/question-paper-generator",
     icon: FileText,
   },
   {
     name: "Paper Checking",
-    href: "/dashboard/b2b/paper-checking",
+    href: "/dashboard/institution/paper-checking",
     icon: CheckCircle,
   },
   {
     name: "Student Manager",
-    href: "/dashboard/b2b/student-manager",
+    href: "/dashboard/institution/student-manager",
     icon: UserPlus,
   },
   {
     name: "Curriculum Tools",
-    href: "/dashboard/b2b/curriculum",
+    href: "/dashboard/institution/curriculum",
     icon: BookCheck,
   },
-  { name: "Settings", href: "/dashboard/b2b/settings", icon: Settings },
+  { name: "Settings", href: "/dashboard/institution/settings", icon: Settings },
 ];
 
-export default function B2BDashboardSidebar() {
+export default function InstitutionDashboardSidebar() {
   const pathname = usePathname();
 
   return (

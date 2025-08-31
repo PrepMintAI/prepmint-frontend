@@ -39,7 +39,7 @@ export default function LandingHeader() {
         </nav>
 
         <div className="flex space-x-4">
-          <Link href="/auth/login">
+          <Link href="/login">
             <motion.button
               className="px-4 py-2 rounded-full font-medium text-gray-600 hover:text-blue-500 transition-colors"
               whileHover={{ scale: 1.05 }}
@@ -48,7 +48,7 @@ export default function LandingHeader() {
               Log in
             </motion.button>
           </Link>
-          <Link href="/auth/signup">
+          <Link href="/signup">
             <motion.button
               className="px-4 py-2 rounded-full font-medium bg-gradient-to-r from-blue-500 to-green-500 text-white shadow-lg hover:shadow-xl transition-shadow"
               whileHover={{ scale: 1.05 }}
