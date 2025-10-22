@@ -1,30 +1,35 @@
-// src/app/dashboard/page.tsx
+// src/app/dashboard/student/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth } from '@/lib/firebase.admin';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { DashboardClient } from './DashboardClient';
+import { StudentDashboardClient } from './DashboardClient';
 
-export default async function DashboardPage() {
+export default async function StudentDashboardPage() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
-  let userId: string | null = null;
-  let userEmail: string | null = null;
-
-  try {
-    if (sessionCookie) {
-      const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-      userId = decoded.uid;
-      userEmail = decoded.email ?? null;
-    }
-  } catch (error) {
-    console.error('Session verification failed:', error);
-    // Invalid/expired session - redirect to login
+  if (!sessionCookie) {
     redirect('/login');
   }
 
-  // If no valid session, redirect to login
+  let userId: string | null = null;
+  let userRole: string | null = null;
+
+  try {
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    userId = decoded.uid;
+    userRole = decoded.role || 'student';
+
+    // Redirect if not a student
+    if (userRole !== 'student') {
+      redirect(`/dashboard/${userRole}`);
+    }
+  } catch (error) {
+    console.error('Session verification failed:', error);
+    redirect('/login');
+  }
+
   if (!userId) {
     redirect('/login');
   }
@@ -43,7 +48,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Client-side dashboard components */}
-        <DashboardClient userId={userId} />
+        <StudentDashboardClient userId={userId} />
       </div>
     </DashboardLayout>
   );

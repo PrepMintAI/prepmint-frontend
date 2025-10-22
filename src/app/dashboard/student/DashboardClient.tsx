@@ -1,4 +1,4 @@
-// src/app/dashboard/DashboardClient.tsx
+// src/app/dashboard/student/DashboardClient.tsx
 'use client';
 
 import React, { useState, Suspense } from 'react';
@@ -32,11 +32,11 @@ const cardVariants = {
   }),
 };
 
-interface DashboardClientProps {
+interface StudentDashboardClientProps {
   userId: string;
 }
 
-export function DashboardClient({ userId }: DashboardClientProps) {
+export function StudentDashboardClient({ userId }: StudentDashboardClientProps) {
   const { user, loading } = useAuth();
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -46,9 +46,8 @@ export function DashboardClient({ userId }: DashboardClientProps) {
   const currentLevel = calculateLevel(currentXp);
   const nextLevelXp = xpForNextLevel(currentLevel);
   const progress = levelProgress(currentXp);
-  const xpNeeded = nextLevelXp - currentXp;
 
-  // Mock data - replace with real API calls
+  // Mock data - TODO: Replace with real API calls
   const stats = {
     testsCompleted: 23,
     avgScore: 87,
@@ -63,7 +62,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="primary"
           leftIcon={<UploadIcon size={20} />}
@@ -158,9 +157,10 @@ export function DashboardClient({ userId }: DashboardClientProps) {
       {/* Time Range Filter */}
       <div className="flex justify-end">
         <select
-          className="appearance-none bg-white border border-gray-300 rounded-lg py-2 pl-4 pr-10 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="appearance-none bg-white border border-gray-300 rounded-lg py-2 pl-4 pr-10 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           value={timeRange}
           onChange={(e) => setTimeRange(e.target.value as 'week' | 'month' | 'year')}
+          aria-label="Select time range"
         >
           <option value="week">This Week</option>
           <option value="month">This Month</option>
@@ -234,7 +234,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
                 { action: 'Maintained streak', detail: '7 days in a row', time: '1 day ago', icon: '🔥' },
                 { action: 'Unlocked badge', detail: 'First Perfect Score', time: '3 days ago', icon: '🏆' },
               ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                   <span className="text-2xl">{item.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900">{item.action}</p>
@@ -254,13 +254,15 @@ export function DashboardClient({ userId }: DashboardClientProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">Upload Answer Sheet</h2>
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                className="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors"
+                aria-label="Close modal"
               >
                 ×
               </button>
@@ -269,7 +271,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
               onSuccess={(result) => {
                 console.log('Upload success:', result);
                 setShowUploadModal(false);
-                // Optionally refresh dashboard data or show success toast
+                // TODO: Refresh dashboard data or show success toast
               }}
               onError={(error) => {
                 console.error('Upload error:', error);
