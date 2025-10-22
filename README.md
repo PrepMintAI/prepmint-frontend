@@ -608,4 +608,4 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## 📞 Support
 
-For support, email teja.kg@prepmint.com.
+For support, email teja.kg@prepmint.in
