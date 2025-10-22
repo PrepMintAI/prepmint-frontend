@@ -1,55 +1,64 @@
-// /src/components/layout/DashboardLayout.tsx
-
+// src/components/layout/DashboardLayout.tsx
 "use client";
 
-
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardHeader from './DashboardHeader';
+import Spinner from '@/components/common/Spinner';
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [userName, setUserName] = useState(''); // 👈 dynamic user name
+  const { user, loading } = useAuth();
+  
+  // Persist sidebar state in localStorage
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarCollapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
 
-  // 👇 TODO: Replace with real API call to fetch authenticated user details
+  // Save sidebar state to localStorage when it changes
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        // Example:
-        // const res = await fetch('/api/user/profile');
-        // const data = await res.json();
-        // setUserName(data.name);
-        
-        setUserName('Alex'); // Fallback/demo name
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        setUserName('User'); // Default fallback
-      }
-    };
+    localStorage.setItem('sidebarCollapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
-    fetchUserProfile();
-  }, []);
+  // Show loading state while auth is initializing
+  // In loading state:
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="text-gray-600 mt-4">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get user display name with fallback
+  const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
 
   return (
     <div className="flex h-screen">
-      <DashboardSidebar collapsed={isSidebarCollapsed} setCollapsed={setIsSidebarCollapsed} />
+      <DashboardSidebar 
+        collapsed={isSidebarCollapsed} 
+        setCollapsed={setIsSidebarCollapsed}
+        userRole={user?.role}
+      />
       <div className="flex-1 flex flex-col">
-        <DashboardHeader isSidebarCollapsed={isSidebarCollapsed} userName={userName} />
+        <DashboardHeader 
+          isSidebarCollapsed={isSidebarCollapsed} 
+          userName={userName}
+          userRole={user?.role}
+          userXp={user?.xp}
+        />
         <main className="flex-1 p-4 overflow-y-auto bg-gray-50">
-          {/* 👇 Main content will be rendered here */}
           {children}
         </main>
       </div>
     </div>
   );
 }
-
-
-/*
-
-🔌 Suggested Backend Linking Points
-Feature	Endpoint	Usage
-Authenticated user	/api/user/profile	For userName in header
-Layout preferences	/api/user/preferences	Sidebar state, themes, etc.
-
-*/
