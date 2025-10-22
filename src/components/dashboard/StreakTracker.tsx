@@ -1,7 +1,8 @@
+// src/components/dashboard/StreakTracker.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, MoreVertical, RefreshCw, Star } from 'lucide-react';
 
 interface StreakTrackerProps {
@@ -10,94 +11,172 @@ interface StreakTrackerProps {
 
 export default function StreakTracker({ streak }: StreakTrackerProps) {
   const [showOptions, setShowOptions] = useState(false);
+  const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowOptions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleClaimReward = () => {
-    // TODO: Implement claim reward backend call
     console.log('Claiming streak reward...');
+    setShowOptions(false);
   };
 
   const handleResetStreak = () => {
-    // TODO: Confirm and send reset request to backend
-    console.log('Resetting streak...');
+    if (confirm('Are you sure you want to reset your streak? This cannot be undone.')) {
+      console.log('Resetting streak...');
+      setShowOptions(false);
+    }
+  };
+
+  // Flame flicker animation variants
+  const flameVariants = {
+    flicker: {
+      scale: [1, 1.05, 0.95, 1.03, 1],
+      rotate: [0, 2, -2, 1, 0],
+      opacity: [1, 0.9, 1, 0.85, 1],
+      transition: {
+        duration: 1.5,
+        ease: 'easeInOut',
+        repeat: Infinity,
+        repeatType: 'loop',
+      },
+    },
+  };
+
+  // Tooltip text based on streak length
+  const getMotivationalText = () => {
+    if (streak >= 30) return "🔥 Legend status! Keep dominating!";
+    if (streak >= 14) return "💪 Almost a month! Don’t stop now!";
+    if (streak >= 7) return "🌟 Weekly warrior! Keep the fire alive!";
+    if (streak >= 3) return "✨ Nice momentum! 1 more day to level up!";
+    return "🌱 Great start! Come back tomorrow to grow your streak!";
   };
 
   return (
-    <motion.div 
-      className="relative bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg"
-      whileHover={{ y: -5 }}
-      transition={{ type: "spring", stiffness: 300 }}
+    <motion.div
+      className="relative bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg w-full focus:outline-none focus:ring-2 focus:ring-orange-300 focus:ring-offset-2 focus:ring-offset-orange-500"
+      whileHover={{ scale: 1.02, y: -5, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      tabIndex={0}
+      role="region"
+      aria-label={`Current learning streak: ${streak} days`}
     >
-      <div className="flex items-center justify-between">
+      {/* Header & Streak Display */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h3 className="text-xl font-bold mb-2">Learning Streak</h3>
-          <div className="flex items-center">
-            <Flame className="w-8 h-8 mr-2 text-yellow-300" />
-            <span className="text-4xl font-bold">{streak}</span>
-            <span className="text-xl ml-1">days</span>
+          <div className="flex items-center gap-2">
+            <motion.div
+              variants={flameVariants}
+              animate="flicker"
+              className="text-yellow-300"
+              aria-hidden="true"
+            >
+              <Flame className="w-8 h-8" />
+            </motion.div>
+            <span className="text-4xl font-bold tabular-nums" aria-live="polite">
+              {streak}
+            </span>
+            <span className="text-xl">days</span>
           </div>
         </div>
 
-        {/* Animated Icon */}
+        {/* Animated Flame Icon (larger, floating) */}
         <motion.div
-          animate={{ 
-            scale: [1, 1.1, 1],
-            textShadow: ["0 0 0px #fff", "0 0 10px #fff", "0 0 0px #fff"]
-          }}
-          transition={{ 
-            duration: 2,
-            repeat: Infinity,
-            repeatType: "reverse"
-          }}
+          variants={flameVariants}
+          animate="flicker"
+          className="hidden sm:block text-yellow-300 self-start"
+          aria-hidden="true"
         >
-          <Flame className="w-16 h-16 text-yellow-300" />
+          <Flame className="w-16 h-16" />
         </motion.div>
+      </div>
 
-        {/* Options Dropdown */}
-        <div className="absolute top-4 right-4">
-          <button
-            onClick={() => setShowOptions(!showOptions)}
-            className="p-1 rounded hover:bg-white/20"
+      {/* Tooltip Trigger Area */}
+      <div
+        className="mt-4 p-3 rounded-lg bg-white/10 cursor-help"
+        onMouseEnter={() => setIsTooltipVisible(true)}
+        onMouseLeave={() => setIsTooltipVisible(false)}
+        onFocus={() => setIsTooltipVisible(true)}
+        onBlur={() => setIsTooltipVisible(false)}
+        tabIndex={0}
+        role="button"
+        aria-label={getMotivationalText()}
+      >
+        <p className="text-sm opacity-90 text-center">
+          Keep learning daily to earn bonus XP!
+        </p>
+      </div>
+
+      {/* Tooltip */}
+      <AnimatePresence>
+        {isTooltipVisible && (
+          <motion.div
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-10 whitespace-nowrap"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            role="tooltip"
+            aria-live="assertive"
           >
-            <MoreVertical className="w-5 h-5 text-white" />
-          </button>
+            {getMotivationalText()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Options Dropdown */}
+      <div className="absolute top-4 right-4" ref={dropdownRef}>
+        <button
+          onClick={() => setShowOptions(!showOptions)}
+          className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-500 transition-colors"
+          aria-label="Streak options"
+          aria-expanded={showOptions}
+          aria-haspopup="true"
+        >
+          <MoreVertical className="w-5 h-5 text-white" aria-hidden="true" />
+        </button>
+
+        <AnimatePresence>
           {showOptions && (
-            <div className="absolute right-0 mt-2 bg-white text-gray-800 rounded-lg shadow-lg w-40 z-10">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 mt-2 bg-white text-gray-800 rounded-lg shadow-xl w-48 z-20 overflow-hidden"
+              role="menu"
+            >
               <button
-                onClick={() => {
-                  handleClaimReward();
-                  setShowOptions(false);
-                }}
-                className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 w-full text-left"
+                onClick={handleClaimReward}
+                className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-yellow-50 w-full text-left transition-colors focus:outline-none focus:bg-yellow-100"
+                role="menuitem"
               >
-                <Star className="w-4 h-4 mr-2 text-yellow-500" />
+                <Star className="w-4 h-4 text-yellow-500" aria-hidden="true" />
                 Claim Reward
               </button>
               <button
-                onClick={() => {
-                  handleResetStreak();
-                  setShowOptions(false);
-                }}
-                className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 w-full text-left text-red-600"
+                onClick={handleResetStreak}
+                className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-red-50 w-full text-left text-red-600 transition-colors focus:outline-none focus:bg-red-100"
+                role="menuitem"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 Reset Streak
               </button>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
-
-      <p className="mt-4 text-sm opacity-90">Keep learning daily to earn bonus XP!</p>
     </motion.div>
   );
 }
-
-
-/*
-🧠 Backend TODO Summary:
-✅ Claim Reward: POST /api/streak/claim
-
-✅ Reset Streak: DELETE /api/streak/reset
-
-Add backend streak metadata like lastUpdated, bonusEligible, etc.
-*/
