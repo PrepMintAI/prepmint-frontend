@@ -599,10 +599,6 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - [ ] Social features (friends, groups)
 - [ ] Mobile app (React Native)
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 Acknowledgments
 
 - Built with [Next.js](https://nextjs.org/) and [Firebase](https://firebase.google.com/)[web:6][web:9]
@@ -612,8 +608,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@prepmint.com or join our Discord community.
-
----
-
-**Made with ❤️ by the PrepMint Team**
+For support, email teja.kg@prepmint.com.
