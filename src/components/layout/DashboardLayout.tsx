@@ -28,14 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Show loading state while auth is initializing
   // In loading state:
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="text-gray-600 mt-4">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+  return <Spinner fullScreen label="Loading dashboard..." />;
   }
 
   // Get user display name with fallback

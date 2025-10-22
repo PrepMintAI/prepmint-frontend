@@ -1,36 +1,125 @@
-// /src/components/layout/DashboardSidebar.tsx
+// src/components/layout/DashboardSidebar.tsx
+"use client";
+
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard, BookOpen, Trophy, Gift, Users, Settings,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, FileCheck, GraduationCap, BarChart,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
+
 
 interface NavItem {
   name: string;
   icon: React.ReactNode;
   href: string;
+  roles?: string[]; // Which roles can see this item
 }
 
 interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (val: boolean) => void;
+  userRole?: string;
 }
 
-export default function DashboardSidebar({ collapsed, setCollapsed }: SidebarProps) {
-  const [activeItem, setActiveItem] = React.useState('Dashboard');
+export default function DashboardSidebar({ collapsed, setCollapsed, userRole }: SidebarProps) {
+  const { user } = useAuth();
+  const pathname = usePathname();
 
-  // 👇 TODO: Optionally fetch sidebar items from backend based on user role
+  // Role-based navigation items
   const navItems: NavItem[] = [
-    { name: 'Dashboard', icon: <LayoutDashboard size={20} />, href: '/dashboard' },
-    { name: 'Practice', icon: <BookOpen size={20} />, href: '/practice' },
-    { name: 'Leaderboard', icon: <Trophy size={20} />, href: '/leaderboard' },
-    { name: 'Rewards', icon: <Gift size={20} />, href: '/rewards' },
-    { name: 'Community', icon: <Users size={20} />, href: '/community' },
-    { name: 'Settings', icon: <Settings size={20} />, href: '/settings' },
-    // 👇 TODO: Add dynamic entries for test-related pages if needed
-    // { name: 'Tests', icon: <FileCheck size={20} />, href: '/tests' },
+    // Common for all roles
+    { 
+      name: 'Dashboard', 
+      icon: <LayoutDashboard size={20} />, 
+      href: '/dashboard',
+      roles: ['student', 'teacher', 'admin', 'institution'],
+    },
+    
+    // Student-specific
+    { 
+      name: 'Practice', 
+      icon: <BookOpen size={20} />, 
+      href: '/practice',
+      roles: ['student'],
+    },
+    { 
+      name: 'Tests', 
+      icon: <FileCheck size={20} />, 
+      href: '/tests',
+      roles: ['student'],
+    },
+    { 
+      name: 'Leaderboard', 
+      icon: <Trophy size={20} />, 
+      href: '/leaderboard',
+      roles: ['student'],
+    },
+    { 
+      name: 'Rewards', 
+      icon: <Gift size={20} />, 
+      href: '/rewards',
+      roles: ['student'],
+    },
+    
+    // Teacher-specific
+    { 
+      name: 'Evaluations', 
+      icon: <FileCheck size={20} />, 
+      href: '/teacher/evaluations',
+      roles: ['teacher'],
+    },
+    { 
+      name: 'Students', 
+      icon: <Users size={20} />, 
+      href: '/teacher/students',
+      roles: ['teacher'],
+    },
+    { 
+      name: 'Analytics', 
+      icon: <BarChart size={20} />, 
+      href: '/teacher/analytics',
+      roles: ['teacher'],
+    },
+    
+    // Admin-specific
+    { 
+      name: 'Users', 
+      icon: <Users size={20} />, 
+      href: '/admin/users',
+      roles: ['admin'],
+    },
+    { 
+      name: 'Institutions', 
+      icon: <GraduationCap size={20} />, 
+      href: '/admin/institutions',
+      roles: ['admin'],
+    },
+    
+    // Common for all
+    { 
+      name: 'Community', 
+      icon: <Users size={20} />, 
+      href: '/community',
+      roles: ['student', 'teacher', 'admin', 'institution'],
+    },
+    { 
+      name: 'Settings', 
+      icon: <Settings size={20} />, 
+      href: '/settings',
+      roles: ['student', 'teacher', 'admin', 'institution'],
+    },
   ];
+
+  // Filter nav items based on user role
+  const visibleNavItems = navItems.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole || user?.role || 'student');
+  });
 
   return (
     <motion.div
@@ -51,64 +140,80 @@ export default function DashboardSidebar({ collapsed, setCollapsed }: SidebarPro
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-2 rounded-lg hover:bg-blue-400 transition-colors"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4">
+      <nav className="flex-1 py-4 overflow-y-auto">
         <ul className="space-y-2">
-          {navItems.map((item) => (
-            <li key={item.name}>
-              <a
-                href={item.href}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveItem(item.name);
-                  // 👇 TODO: Optionally track sidebar click event (analytics/logging)
-                }}
-                className={`flex items-center px-4 py-3 transition-colors ${
-                  collapsed ? 'justify-center' : 'gap-4'
-                } ${
-                  activeItem === item.name
-                    ? 'bg-white text-[#3AB5E5] font-medium'
-                    : 'hover:bg-blue-400'
-                }`}
-              >
-                <span>{item.icon}</span>
-                {!collapsed && <span>{item.name}</span>}
-              </a>
-            </li>
-          ))}
+          {visibleNavItems.map((item) => {
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+            
+            return (
+              <li key={item.name}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center px-4 py-3 transition-colors ${
+                    collapsed ? 'justify-center' : 'gap-4'
+                  } ${
+                    isActive
+                      ? 'bg-white text-[#3AB5E5] font-medium'
+                      : 'hover:bg-blue-400'
+                  }`}
+                  title={collapsed ? item.name : undefined}
+                >
+                  <span>{item.icon}</span>
+                  {!collapsed && <span>{item.name}</span>}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
       {/* Footer Profile */}
-      <div className="p-4 border-t border-blue-400">
+      {/* Footer Profile with XP */}
+    <div className="p-4 border-t border-blue-400">
+      <Link 
+        href="/settings/profile" 
+        className="block hover:opacity-80 transition-opacity"
+      >
         <div className="flex items-center">
-          <div className="bg-gray-200 border-2 border-dashed rounded-xl w-10 h-10" />
+          {/* Avatar */}
+          {user?.photoURL ? (
+            <Image 
+              src={user.photoURL}
+              width={40}
+              height={40}
+              alt={user.displayName || 'User'} 
+              className="rounded-full object-cover border-2 border-white"
+            />
+          ) : (
+            <div className="bg-white/20 rounded-full w-10 h-10 flex items-center justify-center border-2 border-white">
+              <span className="text-lg font-bold">
+                {(user?.displayName || user?.email || 'U')[0].toUpperCase()}
+              </span>
+            </div>
+          )}
+          
           {!collapsed && (
-            <div className="ml-3">
-              {/* 👇 TODO: Replace static data with real user info from backend */}
-              <p className="text-sm font-medium">Student Name</p>
-              <p className="text-xs text-blue-100">student@example.com</p>
+            <div className="ml-3 flex-1 overflow-hidden">
+              <p className="text-sm font-medium truncate">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-xs text-blue-100 truncate">
+                {user?.role && <span className="capitalize">{user.role}</span>}
+                {user?.xp !== undefined && <span> • {user.xp} XP</span>}
+              </p>
             </div>
           )}
         </div>
-      </div>
+      </Link>
+    </div>
+
     </motion.div>
   );
 }
-
-
-/*
-
-🔌 Suggested Backend Links
-Feature	Endpoint Suggestion	Notes
-User Info (name, email, pic)	/api/user/profile	For sidebar footer
-Sidebar Navigation (optional)	/api/user/nav	For dynamic or role-based nav
-Active section tracking	POST /api/activity/sidebar	For analytics or session history
-Test modules or states	/api/tests/summary	To add test-related nav items
-
-*/
