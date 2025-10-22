@@ -1,7 +1,7 @@
 // src/app/dashboard/student/DashboardClient.tsx
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import { calculateLevel, xpForNextLevel, levelProgress } from '@/lib/gamify';
@@ -9,14 +9,12 @@ import Card, { StatCard, ProgressCard, CardHeader, CardBody } from '@/components
 import Spinner from '@/components/common/Spinner';
 import Button from '@/components/common/Button';
 import UploadForm from '@/components/upload/UploadForm';
+import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap'; // ✅ Direct import
+import SubjectProgress from '@/components/dashboard/SubjectProgress'; // ✅ Direct import
 import { 
   Trophy, Target, Flame, BookOpen, TrendingUp, Award, 
   Upload as UploadIcon, Calendar, Clock 
 } from 'lucide-react';
-
-// Lazy-load heavy components
-const ActivityHeatmap = React.lazy(() => import('@/components/dashboard/ActivityHeatmap'));
-const SubjectProgress = React.lazy(() => import('@/components/dashboard/SubjectProgress'));
 
 // Animation variants
 const cardVariants = {
@@ -184,9 +182,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
               icon={<Calendar size={20} />}
             />
             <CardBody>
-              <Suspense fallback={<Spinner size="lg" label="Loading activity..." />}>
-                <ActivityHeatmap activity={{}} />
-              </Suspense>
+              <ActivityHeatmap activity={{}} />
             </CardBody>
           </Card>
         </motion.div>
@@ -205,9 +201,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
               icon={<BookOpen size={20} />}
             />
             <CardBody>
-              <Suspense fallback={<Spinner size="lg" label="Loading progress..." />}>
-                <SubjectProgress subjectProgress={[]} />
-              </Suspense>
+              <SubjectProgress subjectProgress={[]} />
             </CardBody>
           </Card>
         </motion.div>
@@ -271,7 +265,6 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
               onSuccess={(result) => {
                 console.log('Upload success:', result);
                 setShowUploadModal(false);
-                // TODO: Refresh dashboard data or show success toast
               }}
               onError={(error) => {
                 console.error('Upload error:', error);

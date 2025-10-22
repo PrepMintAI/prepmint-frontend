@@ -1,38 +1,55 @@
 // src/app/dashboard/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth } from '@/lib/firebase.admin';
+'use client';
 
-export default async function DashboardPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase.client';
+import { doc, getDoc } from 'firebase/firestore';
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+export default function DashboardPage() {
+  const [isChecking, setIsChecking] = useState(true);
+  const router = useRouter();
 
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    
-    // Get role from custom claims (you should set this during user creation)
-    // Or fetch from Firestore if not in claims
-    const userRole = decoded.role || 'student'; // Fallback to student
+  useEffect(() => {
+    console.log('[Dashboard Router] Checking user role...');
 
-    // Redirect to role-specific dashboard
-    switch (userRole) {
-      case 'student':
-        redirect('/dashboard/student');
-      case 'teacher':
-        redirect('/dashboard/teacher');
-      case 'admin':
-        redirect('/dashboard/admin');
-      case 'institution':
-        redirect('/dashboard/institution');
-      default:
-        redirect('/dashboard/student');
-    }
-  } catch (error) {
-    console.error('Session verification failed:', error);
-    redirect('/login');
-  }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        console.log('[Dashboard Router] No user, redirecting to login');
+        router.replace('/login');
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        if (!userDoc.exists()) {
+          console.error('[Dashboard Router] User profile not found');
+          router.replace('/login');
+          return;
+        }
+
+        const userData = userDoc.data();
+        const role = userData.role || 'student';
+        
+        console.log('[Dashboard Router] Redirecting to:', `/dashboard/${role}`);
+        router.replace(`/dashboard/${role}`);
+      } catch (error) {
+        console.error('[Dashboard Router] Error:', error);
+        router.replace('/login');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-300 text-sm">Redirecting to your dashboard...</p>
+      </div>
+    </div>
+  );
 }

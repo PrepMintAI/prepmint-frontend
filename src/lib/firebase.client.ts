@@ -13,6 +13,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
 
+// Debug: Check if config is loaded
+console.log('[Firebase Client] Config loaded:', {
+  apiKey: firebaseConfig.apiKey ? '✓ Set' : '✗ Missing',
+  authDomain: firebaseConfig.authDomain ? '✓ Set' : '✗ Missing',
+  projectId: firebaseConfig.projectId ? '✓ Set' : '✗ Missing',
+  storageBucket: firebaseConfig.storageBucket ? '✓ Set' : '✗ Missing',
+  messagingSenderId: firebaseConfig.messagingSenderId ? '✓ Set' : '✗ Missing',
+  appId: firebaseConfig.appId ? '✓ Set' : '✗ Missing',
+});
+
+// Check if any required config is missing
+const missingConfig = Object.entries(firebaseConfig).filter(([_, value]) => !value);
+if (missingConfig.length > 0) {
+  console.error('[Firebase Client] Missing configuration:', missingConfig.map(([key]) => key));
+  throw new Error(`Firebase configuration is incomplete. Missing: ${missingConfig.map(([key]) => key).join(', ')}`);
+}
+
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+console.log('[Firebase Client] Initialized successfully');
+console.log('[Firebase Client] Auth instance:', auth ? '✓ Ready' : '✗ Failed');
+console.log('[Firebase Client] Firestore instance:', db ? '✓ Ready' : '✗ Failed');
