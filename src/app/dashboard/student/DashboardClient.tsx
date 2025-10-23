@@ -1,22 +1,22 @@
 // src/app/dashboard/student/DashboardClient.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { calculateLevel, xpForNextLevel, levelProgress } from '@/lib/gamify';
-import Card, { StatCard, ProgressCard, CardHeader, CardBody } from '@/components/common/Card';
-import Spinner from '@/components/common/Spinner';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase.client';
+import { doc, getDoc } from 'firebase/firestore';
+import { calculateLevel, xpForNextLevel } from '@/lib/gamify';
+import Card, { StatCard, ProgressCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import UploadForm from '@/components/upload/UploadForm';
-import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap'; // ✅ Direct import
-import SubjectProgress from '@/components/dashboard/SubjectProgress'; // ✅ Direct import
+import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap';
+import SubjectProgress from '@/components/dashboard/SubjectProgress';
 import { 
   Trophy, Target, Flame, BookOpen, TrendingUp, Award, 
-  Upload as UploadIcon, Calendar, Clock 
+  Zap, Sparkles, Upload, ArrowRight, ChevronRight
 } from 'lucide-react';
 
-// Animation variants
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -35,51 +35,178 @@ interface StudentDashboardClientProps {
 }
 
 export function StudentDashboardClient({ userId }: StudentDashboardClientProps) {
-  const { user, loading } = useAuth();
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
-  // Calculate user stats
-  const currentXp = user?.xp ?? 0;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData({ ...userDoc.data(), uid: user.uid });
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const currentXp = userData?.xp || 2500;
   const currentLevel = calculateLevel(currentXp);
   const nextLevelXp = xpForNextLevel(currentLevel);
-  const progress = levelProgress(currentXp);
+  const xpProgress = ((currentXp % 100) / 100) * 100;
 
-  // Mock data - TODO: Replace with real API calls
   const stats = {
     testsCompleted: 23,
     avgScore: 87,
-    streak: user?.streak ?? 0,
-    badges: user?.badges?.length ?? 0,
+    streak: userData?.streak || 7,
+    badges: userData?.badges?.length || 5,
+    rank: 42,
+    weeklyXP: 350,
   };
 
-  if (loading) {
-    return <Spinner fullScreen label="Loading dashboard..." />;
-  }
+  // Generate mock activity data (last 90 days)
+  const generateActivityData = () => {
+    const data = [];
+    const today = new Date();
+    
+    for (let i = 89; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const xp = Math.random() > 0.3 ? Math.floor(Math.random() * 50) : 0;
+      
+      data.push({
+        date: date.toISOString().split('T')[0],
+        xp: xp,
+      });
+    }
+    
+    return data;
+  };
+
+  const activityData = generateActivityData();
+
+  // Mock subject progress
+  const subjectProgress = [
+    { subject: 'Mathematics', percent: 85, color: '#3B82F6' },
+    { subject: 'Physics', percent: 72, color: '#8B5CF6' },
+    { subject: 'Chemistry', percent: 68, color: '#10B981' },
+    { subject: 'Biology', percent: 90, color: '#EF4444' },
+    { subject: 'English', percent: 78, color: '#F59E0B' },
+  ];
+
+  const recentActivities = [
+    { 
+      action: 'Crushed Math Test #5', 
+      detail: 'Score: 92% 🎯', 
+      time: '2 hours ago', 
+      icon: '🔥',
+      color: 'from-orange-400 to-red-500'
+    },
+    { 
+      action: 'Level Up! Earned 50 XP', 
+      detail: 'Test completion bonus', 
+      time: '2 hours ago', 
+      icon: '⚡',
+      color: 'from-yellow-400 to-orange-500'
+    },
+    { 
+      action: 'Streak Power! 🔥', 
+      detail: '7 days in a row', 
+      time: '1 day ago', 
+      icon: '🌟',
+      color: 'from-purple-400 to-pink-500'
+    },
+    { 
+      action: 'New Badge Unlocked!', 
+      detail: 'First Perfect Score', 
+      time: '3 days ago', 
+      icon: '🏆',
+      color: 'from-yellow-500 to-orange-600'
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Quick Actions */}
-      <div className="flex flex-wrap gap-3">
-        <Button
-          variant="primary"
-          leftIcon={<UploadIcon size={20} />}
-          onClick={() => setShowUploadModal(true)}
-        >
-          Upload Answer Sheet
-        </Button>
-        <Button variant="outline" leftIcon={<BookOpen size={20} />}>
-          Start Practice Test
-        </Button>
-      </div>
+    <div className="space-y-8">
+      {/* Welcome Hero - FIXED TEXT VISIBILITY */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-8 text-white shadow-2xl"
+      >
+        {/* Subtle pattern overlay */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
+            backgroundSize: '32px 32px'
+          }}></div>
+        </div>
+        
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-6">
+            <div className="flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white drop-shadow-md">
+                Hey {userData?.displayName?.split(' ')[0] || 'Champion'}! 👋
+              </h1>
+              <p className="text-white text-lg mb-6 drop-shadow-sm">
+                You're on fire! Keep up the amazing work 🚀
+              </p>
+              
+              {/* Level Progress */}
+              <div className="bg-white/20 backdrop-blur-md rounded-xl p-4 max-w-md border border-white/30">
+                <div className="flex items-center justify-between mb-2 text-white">
+                  <span className="font-semibold">Level {currentLevel}</span>
+                  <span className="text-sm">Level {currentLevel + 1}</span>
+                </div>
+                <div className="w-full bg-white/30 rounded-full h-3 mb-2">
+                  <motion.div
+                    className="bg-white h-3 rounded-full shadow-sm"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${xpProgress}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
+                </div>
+                <p className="text-sm text-white">
+                  {currentXp.toLocaleString()} / {nextLevelXp.toLocaleString()} XP
+                </p>
+              </div>
+            </div>
 
-      {/* Stats Overview */}
+            {/* Quick Actions - FIXED BUTTON STYLES */}
+            <div className="flex flex-row md:flex-col gap-3 w-full md:w-auto">
+              <button
+                onClick={() => router.push('/score-check')}
+                className="flex-1 md:flex-none px-6 py-3 bg-white text-purple-600 hover:bg-gray-50 font-semibold shadow-lg rounded-lg transition-all flex items-center justify-center gap-2 hover:scale-105"
+              >
+                <Upload size={20} />
+                <span>Get Score ⚡</span>
+              </button>
+              <button
+                onClick={() => router.push('/leaderboard')}
+                className="flex-1 md:flex-none px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-2 border-white/30 font-semibold rounded-lg transition-all flex items-center justify-center gap-2 hover:scale-105"
+              >
+                <Trophy size={20} />
+                <span>Leaderboard</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Quick Stats Grid */}
       <motion.div
         custom={0}
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
         <StatCard
           label="Current Level"
@@ -89,34 +216,34 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
         />
         
         <StatCard
-          label="Total XP"
-          value={currentXp.toLocaleString()}
-          change={12}
-          changeLabel="from last week"
+          label="Global Rank"
+          value={`#${stats.rank}`}
+          change={5}
+          changeLabel="this week"
           trend="up"
-          icon={<Award size={24} />}
+          icon={<TrendingUp size={24} />}
+          variant="gradient"
         />
         
         <StatCard
-          label="Tests Completed"
+          label="Streak Fire"
+          value={`${stats.streak} 🔥`}
+          icon={<Flame size={24} />}
+          variant="gradient"
+        />
+        
+        <StatCard
+          label="Tests Done"
           value={stats.testsCompleted}
           change={5}
           changeLabel="this week"
           trend="up"
           icon={<Target size={24} />}
-        />
-        
-        <StatCard
-          label="Average Score"
-          value={`${stats.avgScore}%`}
-          change={3}
-          changeLabel="improvement"
-          trend="up"
-          icon={<TrendingUp size={24} />}
+          variant="gradient"
         />
       </motion.div>
 
-      {/* Progress Cards */}
+      {/* Progress Trackers */}
       <motion.div
         custom={1}
         variants={cardVariants}
@@ -124,155 +251,205 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
         animate="visible"
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
-        <ProgressCard
-          title="XP to Next Level"
-          current={currentXp}
-          total={nextLevelXp}
-          icon={<Award size={20} />}
-          color="blue"
-          suffix=" XP"
-        />
-        
-        <ProgressCard
-          title="Current Streak"
-          current={stats.streak}
-          total={30}
-          icon={<Flame size={20} />}
-          color="orange"
-          suffix=" days"
-        />
-        
-        <ProgressCard
-          title="Weekly Goal"
-          current={5}
-          total={10}
-          icon={<Target size={20} />}
-          color="green"
-          suffix=" tests"
-        />
-      </motion.div>
-
-      {/* Time Range Filter */}
-      <div className="flex justify-end">
-        <select
-          className="appearance-none bg-white border border-gray-300 rounded-lg py-2 pl-4 pr-10 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-          value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value as 'week' | 'month' | 'year')}
-          aria-label="Select time range"
-        >
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="year">This Year</option>
-        </select>
-      </div>
-
-      {/* Activity and Progress */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Heatmap */}
-        <motion.div
-          custom={2}
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <Card variant="elevated" padding="lg">
-            <CardHeader
-              title="Activity"
-              subtitle={`Your ${timeRange} overview`}
-              icon={<Calendar size={20} />}
-            />
-            <CardBody>
-              <ActivityHeatmap activity={{}} />
-            </CardBody>
-          </Card>
-        </motion.div>
-
-        {/* Subject Progress */}
-        <motion.div
-          custom={3}
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <Card variant="elevated" padding="lg">
-            <CardHeader
-              title="Subject Progress"
-              subtitle="Track your improvement"
-              icon={<BookOpen size={20} />}
-            />
-            <CardBody>
-              <SubjectProgress subjectProgress={[]} />
-            </CardBody>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Recent Activity */}
-      <motion.div
-        custom={4}
-        variants={cardVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <Card variant="elevated" padding="lg">
-          <CardHeader
-            title="Recent Activity"
-            icon={<Clock size={20} />}
-            action={<Button size="sm" variant="ghost">View All</Button>}
-          />
-          <CardBody>
-            <div className="space-y-3">
-              {[
-                { action: 'Completed Math Test #5', detail: 'Score: 92%', time: '2 hours ago', icon: '✅' },
-                { action: 'Earned 50 XP', detail: 'Test completion bonus', time: '2 hours ago', icon: '⭐' },
-                { action: 'Maintained streak', detail: '7 days in a row', time: '1 day ago', icon: '🔥' },
-                { action: 'Unlocked badge', detail: 'First Perfect Score', time: '3 days ago', icon: '🏆' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                  <span className="text-2xl">{item.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{item.action}</p>
-                    <p className="text-xs text-gray-500">{item.detail}</p>
-                  </div>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">{item.time}</span>
-                </div>
-              ))}
+        <Card variant="elevated" padding="lg" className="bg-gradient-to-br from-blue-50 to-cyan-50">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Award className="text-white" size={20} />
             </div>
-          </CardBody>
+            <div>
+              <p className="text-sm text-gray-600">XP to Level Up</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(nextLevelXp - currentXp).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${xpProgress}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-600 mt-2">{xpProgress.toFixed(0)}% Complete</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="bg-gradient-to-br from-orange-50 to-red-50">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <Flame className="text-white" size={20} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Daily Streak</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.streak} days</p>
+            </div>
+          </div>
+          <div className="w-full bg-orange-200 rounded-full h-2">
+            <div
+              className="bg-orange-600 h-2 rounded-full"
+              style={{ width: `${(stats.streak / 30) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-600 mt-2">{30 - stats.streak} days to 30-day milestone!</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="bg-gradient-to-br from-green-50 to-emerald-50">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+              <Target className="text-white" size={20} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Weekly Goal</p>
+              <p className="text-2xl font-bold text-gray-900">7/10</p>
+            </div>
+          </div>
+          <div className="w-full bg-green-200 rounded-full h-2">
+            <div className="bg-green-600 h-2 rounded-full" style={{ width: '70%' }} />
+          </div>
+          <p className="text-xs text-gray-600 mt-2">3 more tests to crush it! 💪</p>
         </Card>
       </motion.div>
 
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Upload Answer Sheet</h2>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-3xl leading-none transition-colors"
-                aria-label="Close modal"
-              >
-                ×
-              </button>
+      {/* Activity Heatmap */}
+      <motion.div 
+        custom={2} 
+        variants={cardVariants} 
+        initial="hidden" 
+        animate="visible"
+      >
+        <ActivityHeatmap activity={activityData} />
+      </motion.div>
+
+      {/* Subject Progress - FIXED BUTTON */}
+      <motion.div 
+        custom={3} 
+        variants={cardVariants} 
+        initial="hidden" 
+        animate="visible"
+      >
+        <SubjectProgress subjectProgress={subjectProgress} />
+      </motion.div>
+
+      {/* Recent Activity Feed */}
+      <motion.div 
+        custom={4} 
+        variants={cardVariants} 
+        initial="hidden" 
+        animate="visible"
+      >
+        <Card variant="elevated" padding="lg">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Sparkles className="text-purple-600" size={20} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Recent Wins 🎉</h3>
+                <p className="text-sm text-gray-600">Your latest achievements</p>
+              </div>
             </div>
-            <UploadForm
-              onSuccess={(result) => {
-                console.log('Upload success:', result);
-                setShowUploadModal(false);
-              }}
-              onError={(error) => {
-                console.error('Upload error:', error);
-              }}
-            />
-          </motion.div>
-        </div>
-      )}
+            <button 
+              onClick={() => router.push('/history')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span>View All</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {recentActivities.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 + i * 0.1 }}
+                className="group relative overflow-hidden rounded-xl p-4 hover:shadow-md transition-all cursor-pointer bg-white border border-gray-100 hover:border-gray-200"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-2xl shadow-lg flex-shrink-0`}>
+                    {item.icon}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-base mb-1">
+                      {item.action}
+                    </p>
+                    <p className="text-sm text-gray-600">{item.detail}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      {item.time}
+                    </span>
+                    <ChevronRight 
+                      className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" 
+                      size={16} 
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </Card>
+      </motion.div>
+
+      {/* CTA Cards */}
+      <motion.div
+        custom={5}
+        variants={cardVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <button
+          onClick={() => router.push('/score-check')}
+          className="text-left"
+        >
+          <Card 
+            variant="elevated" 
+            padding="lg"
+            hover
+            className="bg-gradient-to-br from-purple-500 to-pink-600 text-white cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-2 text-white">Ready for More? ⚡</h3>
+                <p className="text-white/90 text-sm mb-4">
+                  Upload your answer sheet and get instant AI feedback!
+                </p>
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-white text-purple-600 hover:bg-gray-50 font-semibold rounded-lg transition-colors">
+                  Get Score Now →
+                </span>
+              </div>
+              <Upload size={64} className="opacity-20" />
+            </div>
+          </Card>
+        </button>
+
+        <button
+          onClick={() => router.push('/rewards')}
+          className="text-left"
+        >
+          <Card 
+            variant="elevated" 
+            padding="lg"
+            hover
+            className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold mb-2 text-white">Claim Rewards! 🎁</h3>
+                <p className="text-white/90 text-sm mb-4">
+                  {stats.badges} badges earned. Unlock more achievements!
+                </p>
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-white text-orange-600 hover:bg-gray-50 font-semibold rounded-lg transition-colors">
+                  View Rewards →
+                </span>
+              </div>
+              <Trophy size={64} className="opacity-20" />
+            </div>
+          </Card>
+        </button>
+      </motion.div>
     </div>
   );
 }

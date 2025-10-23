@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth } from '@/lib/firebase.admin';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import AppLayout from '@/components/layout/AppLayout';;
 import { StudentDashboardClient } from './DashboardClient';
 
 export default async function StudentDashboardPage() {
@@ -35,7 +35,7 @@ export default async function StudentDashboardPage() {
   }
 
   return (
-    <DashboardLayout>
+    <AppLayout>
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -50,6 +50,6 @@ export default async function StudentDashboardPage() {
         {/* Client-side dashboard components */}
         <StudentDashboardClient userId={userId} />
       </div>
-    </DashboardLayout>
+    </AppLayout>
   );
 }

@@ -1,8 +1,9 @@
 // src/components/dashboard/ActivityHeatmap.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, TrendingUp } from 'lucide-react';
 
 interface ActivityData {
   date: string;
@@ -15,148 +16,120 @@ interface ActivityHeatmapProps {
 
 export default function ActivityHeatmap({ activity }: ActivityHeatmapProps) {
   const [hoveredDay, setHoveredDay] = useState<ActivityData | null>(null);
-  const [tooltipStyles, setTooltipStyles] = useState({ left: 0, top: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredPosition, setHoveredPosition] = useState({ x: 0, y: 0 });
 
-  // Color mapping — returns Tailwind class
   const getColorClass = (xp: number) => {
-    if (xp === 0) return 'bg-gray-100';
-    if (xp < 10) return 'bg-blue-200';
-    if (xp < 20) return 'bg-blue-300';
-    if (xp < 30) return 'bg-blue-400';
-    if (xp < 40) return 'bg-blue-500';
-    return 'bg-blue-600';
+    if (xp === 0) return 'bg-gray-100 hover:bg-gray-200';
+    if (xp < 10) return 'bg-emerald-200 hover:bg-emerald-300';
+    if (xp < 20) return 'bg-emerald-300 hover:bg-emerald-400';
+    if (xp < 30) return 'bg-emerald-400 hover:bg-emerald-500';
+    if (xp < 40) return 'bg-emerald-500 hover:bg-emerald-600';
+    return 'bg-emerald-600 hover:bg-emerald-700';
   };
 
-  // For screen readers — returns descriptive label
-  const getAriaLabel = (xp: number) => {
+  const getIntensityLabel = (xp: number) => {
     if (xp === 0) return 'No activity';
-    if (xp < 10) return 'Low activity';
-    if (xp < 20) return 'Moderate activity';
-    if (xp < 30) return 'Good activity';
-    if (xp < 40) return 'High activity';
-    return 'Very high activity';
+    if (xp < 10) return 'Light';
+    if (xp < 20) return 'Moderate';
+    if (xp < 30) return 'Good';
+    if (xp < 40) return 'Great';
+    return 'Amazing';
   };
 
-  const handleDayClick = (day: ActivityData) => {
-    console.log(`Clicked on ${day.date} with ${day.xp} XP`);
-    // TODO: Open modal or navigate to daily report
-  };
-
-  const handleMouseMove = (e: React.MouseEvent, day: ActivityData) => {
-    if (!containerRef.current) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const containerRect = containerRef.current.getBoundingClientRect();
-
-    // Position tooltip relative to container (prevents page-scroll issues)
-    setTooltipStyles({
-      left: rect.left + rect.width / 2 - containerRect.left,
-      top: rect.top - containerRect.top - 8,
-    });
-
-    setHoveredDay(day);
-  };
-
-  // Responsive cell size
-  const getCellSize = () => {
-    if (typeof window === 'undefined') return 16;
-    return window.innerWidth < 640 ? 12 : 16; // sm breakpoint
-  };
+  const totalXP = activity.reduce((sum, day) => sum + day.xp, 0);
+  const avgXP = Math.round(totalXP / activity.length);
+  const activeDays = activity.filter(day => day.xp > 0).length;
 
   return (
     <motion.div
-      ref={containerRef}
-      className="bg-white rounded-2xl p-6 shadow-lg relative overflow-hidden"
+      className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      role="region"
-      aria-label="Activity heatmap showing your daily XP over time"
     >
-      <h3 className="text-xl font-bold mb-4 text-gray-800">Activity Heatmap</h3>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+            <Calendar className="text-emerald-600" size={20} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Activity Overview 📊</h3>
+            <p className="text-sm text-gray-600">Last 90 days of learning</p>
+          </div>
+        </div>
 
-      {/* Grid Container */}
-      <div
-        className="flex flex-wrap gap-1 justify-center sm:justify-start"
-        role="grid"
-        aria-label="Daily activity grid"
-      >
-        {activity.map((day, index) => (
-          <motion.div
-            key={index}
-            className={`rounded-sm cursor-pointer ${getColorClass(day.xp)} transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2`}
-            style={{
-              width: getCellSize(),
-              height: getCellSize(),
-            }}
-            whileHover={{ scale: 1.8, zIndex: 10 }}
-            whileTap={{ scale: 1.5 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-            onClick={() => handleDayClick(day)}
-            onMouseEnter={(e) => handleMouseMove(e, day)}
-            onMouseLeave={() => setHoveredDay(null)}
-            onFocus={() => setHoveredDay(day)}
-            onBlur={() => setHoveredDay(null)}
-            tabIndex={0}
-            role="gridcell"
-            aria-label={`${getAriaLabel(day.xp)} on ${new Date(day.date).toLocaleDateString()}. ${day.xp} XP.`}
-          />
-        ))}
+        {/* Quick Stats */}
+        <div className="hidden md:flex items-center gap-6 text-sm">
+          <div className="text-center">
+            <p className="font-bold text-gray-900 text-lg">{activeDays}</p>
+            <p className="text-gray-600">Active Days</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold text-gray-900 text-lg">{avgXP}</p>
+            <p className="text-gray-600">Avg XP/Day</p>
+          </div>
+        </div>
       </div>
 
-      {/* Tooltip — positioned relative to container */}
-      <AnimatePresence>
-        {hoveredDay && (
-          <motion.div
-            className="absolute z-50 pointer-events-none bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{
-              opacity: 1,
-              scale: 1,
-              x: tooltipStyles.left,
-              y: tooltipStyles.top,
-            }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              transform: 'translateX(-50%) translateY(-100%)',
-            }}
-            role="tooltip"
-            aria-live="polite"
-          >
-            {new Date(hoveredDay.date).toLocaleDateString(undefined, {
-              weekday: 'long',
-              month: 'short',
-              day: 'numeric',
-            })} • {hoveredDay.xp} XP
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Fixed Legend — matches actual color thresholds */}
-      <div className="flex justify-between items-center mt-6 text-xs text-gray-600">
-        <span>Less Activity</span>
-        <div className="flex items-center gap-1">
-          {[
-            { label: '0', class: 'bg-gray-100' },
-            { label: '1-9', class: 'bg-blue-200' },
-            { label: '10-19', class: 'bg-blue-300' },
-            { label: '20-29', class: 'bg-blue-400' },
-            { label: '30-39', class: 'bg-blue-500' },
-            { label: '40+', class: 'bg-blue-600' },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <div
-                className={`w-3 h-3 rounded-sm ${item.class}`}
-                role="img"
-                aria-label={`${item.label} XP range`}
-              />
-              <span className="text-[10px] mt-1">{item.label}</span>
-            </div>
+      {/* Heatmap Grid */}
+      <div className="relative">
+        <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start">
+          {activity.map((day, index) => (
+            <motion.div
+              key={index}
+              className={`w-3 h-3 sm:w-4 sm:h-4 rounded cursor-pointer transition-all duration-200 ${getColorClass(day.xp)}`}
+              whileHover={{ scale: 1.5 }}
+              onMouseEnter={(e) => {
+                setHoveredDay(day);
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredPosition({ x: rect.left + rect.width / 2, y: rect.top });
+              }}
+              onMouseLeave={() => setHoveredDay(null)}
+            />
           ))}
         </div>
-        <span>More Activity</span>
+
+        {/* Tooltip */}
+        <AnimatePresence>
+          {hoveredDay && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="fixed z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none"
+              style={{
+                left: `${hoveredPosition.x}px`,
+                top: `${hoveredPosition.y - 60}px`,
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <p className="font-semibold">
+                {new Date(hoveredDay.date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+              <p className="text-emerald-300">{hoveredDay.xp} XP • {getIntensityLabel(hoveredDay.xp)}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+        <span className="text-xs text-gray-600">Less</span>
+        <div className="flex items-center gap-1">
+          {[0, 5, 15, 25, 35, 45].map((xp, i) => (
+            <div
+              key={i}
+              className={`w-4 h-4 rounded ${getColorClass(xp).split(' ')[0]}`}
+              title={`${xp}+ XP`}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-gray-600">More</span>
       </div>
     </motion.div>
   );
