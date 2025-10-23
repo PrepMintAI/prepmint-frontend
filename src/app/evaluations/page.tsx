@@ -1,11 +1,11 @@
-// src/app/dashboard/teacher/page.tsx
+// src/app/evaluations/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
-import { TeacherDashboardClient } from './DashboardClient';
+import { EvaluationsClient } from './EvaluationsClient';
 
-export default async function TeacherDashboardPage() {
+export default async function EvaluationsPage() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
@@ -23,29 +23,25 @@ export default async function TeacherDashboardPage() {
     const userDoc = await adminDb.collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
-      console.error('[Teacher Dashboard] User document not found');
       redirect('/login');
     }
 
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
-
-    console.log('[Teacher Dashboard] User role:', userRole);
   } catch (error) {
-    console.error('[Teacher Dashboard] Session verification failed:', error);
+    console.error('[Evaluations Page] Session verification failed:', error);
     redirect('/login');
   }
 
-  // Check role OUTSIDE try-catch
-  if (userRole !== 'teacher') {
-    console.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+  // Only teachers, admins, and institutions can access
+  if (!['teacher', 'admin', 'institution'].includes(userRole)) {
     redirect(`/dashboard/${userRole}`);
   }
 
   return (
     <AppLayout>
       <div className="p-6">
-        <TeacherDashboardClient userId={userId} />
+        <EvaluationsClient userId={userId} userRole={userRole} />
       </div>
     </AppLayout>
   );

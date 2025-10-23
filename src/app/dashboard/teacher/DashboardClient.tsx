@@ -1,19 +1,21 @@
 // src/app/dashboard/teacher/DashboardClient.tsx
 'use client';
 
-import React, { useState, Suspense } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Card, { StatCard, CardHeader, CardBody, CardFooter } from '@/components/common/Card';
-import Spinner from '@/components/common/Spinner';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase.client';
+import { doc, getDoc } from 'firebase/firestore';
+import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { 
-  Users, FileCheck, Clock, TrendingUp, AlertCircle, 
-  CheckCircle, Eye, Download, Filter, Search
+  Users, CheckCircle, Clock, TrendingUp, 
+  BookOpen, AlertCircle, Calendar,
+  ChevronRight, FileText, MessageSquare,
+  BarChart3, ClipboardList, Bell, Filter
 } from 'lucide-react';
 
-// Animation variants
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -31,385 +33,467 @@ interface TeacherDashboardClientProps {
   userId: string;
 }
 
-// Mock data types
-interface PendingEvaluation {
-  id: string;
-  studentName: string;
-  studentId: string;
-  testName: string;
-  submittedAt: string;
-  status: 'pending' | 'processing' | 'ready';
-  priority: 'high' | 'medium' | 'low';
-}
-
-interface RecentActivity {
-  id: string;
-  type: 'graded' | 'submitted' | 'reviewed';
-  studentName: string;
-  testName: string;
-  score?: number;
-  timestamp: string;
-}
-
 export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) {
-  const { user, loading } = useAuth();
+  const [userData, setUserData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedClass, setSelectedClass] = useState('all');
   const router = useRouter();
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'ready'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock data - TODO: Replace with real API calls
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData({ ...userDoc.data(), uid: user.uid });
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Mock data - Replace with real Firestore queries
   const stats = {
-    totalStudents: 156,
+    totalStudents: 150,
     pendingEvaluations: 23,
-    evaluatedToday: 12,
-    avgProcessingTime: '3.5 min',
+    completedThisWeek: 89,
+    avgClassScore: 87,
+    activeClasses: 4,
+    attendanceRate: 94,
   };
 
-  const pendingEvaluations: PendingEvaluation[] = [
-    {
-      id: '1',
-      studentName: 'John Doe',
-      studentId: 'STU001',
-      testName: 'Math Test #5',
-      submittedAt: '10 mins ago',
-      status: 'ready',
-      priority: 'high',
-    },
-    {
-      id: '2',
-      studentName: 'Jane Smith',
-      studentId: 'STU002',
-      testName: 'Science Test #3',
-      submittedAt: '25 mins ago',
-      status: 'processing',
-      priority: 'medium',
-    },
-    {
-      id: '3',
-      studentName: 'Alex Johnson',
-      studentId: 'STU003',
-      testName: 'English Test #7',
-      submittedAt: '1 hour ago',
-      status: 'ready',
-      priority: 'high',
-    },
-    {
-      id: '4',
-      studentName: 'Sarah Williams',
-      studentId: 'STU004',
-      testName: 'History Test #2',
+  const classes = [
+    { id: 'all', name: 'All Classes', students: 150 },
+    { id: '10a', name: 'Class 10-A Mathematics', students: 35 },
+    { id: '10b', name: 'Class 10-B Mathematics', students: 38 },
+    { id: '11a', name: 'Class 11-A Physics', students: 40 },
+    { id: '11b', name: 'Class 11-B Physics', students: 37 },
+  ];
+
+  const pendingEvaluations = [
+    { 
+      id: 1, 
+      student: 'Aarav Sharma',
+      rollNo: '10A-23',
+      test: 'Mathematics Midterm Exam', 
+      subject: 'Mathematics',
+      class: 'Class 10-A',
       submittedAt: '2 hours ago',
-      status: 'pending',
-      priority: 'low',
+      maxMarks: 100,
+      priority: 'high'
+    },
+    { 
+      id: 2, 
+      student: 'Priya Patel',
+      rollNo: '10B-15',
+      test: 'Physics Unit Test - Chapter 5', 
+      subject: 'Physics',
+      class: 'Class 11-A',
+      submittedAt: '3 hours ago',
+      maxMarks: 50,
+      priority: 'medium'
+    },
+    { 
+      id: 3, 
+      student: 'Rohan Kumar',
+      rollNo: '11A-08',
+      test: 'Chemistry Lab Report', 
+      subject: 'Chemistry',
+      class: 'Class 11-B',
+      submittedAt: '5 hours ago',
+      maxMarks: 30,
+      priority: 'low'
     },
   ];
 
-  const recentActivity: RecentActivity[] = [
-    {
-      id: '1',
-      type: 'graded',
-      studentName: 'Mike Brown',
-      testName: 'Math Test #4',
-      score: 92,
-      timestamp: '30 mins ago',
+  const upcomingDeadlines = [
+    { title: 'Physics Midterm', class: 'Class 11-A', date: 'Oct 28, 2025', type: 'Exam' },
+    { title: 'Math Assignment #5', class: 'Class 10-B', date: 'Oct 26, 2025', type: 'Assignment' },
+    { title: 'Lab Report Submission', class: 'Class 11-B', date: 'Oct 25, 2025', type: 'Assignment' },
+  ];
+
+  const recentActivity = [
+    { 
+      action: 'Graded Mathematics Midterm', 
+      detail: 'Class 10-A • 35 students', 
+      time: '1 hour ago', 
+      type: 'evaluation'
     },
-    {
-      id: '2',
-      type: 'submitted',
-      studentName: 'Emily Davis',
-      testName: 'Science Test #2',
-      timestamp: '1 hour ago',
+    { 
+      action: 'Created Physics Quiz', 
+      detail: 'Chapter 5: Thermodynamics', 
+      time: '3 hours ago', 
+      type: 'creation'
     },
-    {
-      id: '3',
-      type: 'reviewed',
-      studentName: 'Chris Wilson',
-      testName: 'English Test #6',
-      score: 88,
-      timestamp: '2 hours ago',
+    { 
+      action: 'Published Results', 
+      detail: 'Chemistry Test - Class 11-B', 
+      time: '5 hours ago', 
+      type: 'publication'
+    },
+    { 
+      action: 'Sent Class Announcement', 
+      detail: 'Upcoming test schedule', 
+      time: '1 day ago', 
+      type: 'communication'
     },
   ];
 
-  const filteredEvaluations = pendingEvaluations.filter(eval => {
-    if (filterStatus !== 'all' && eval.status !== filterStatus) return false;
-    if (searchQuery && !eval.studentName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
-
-  if (loading) {
-    return <Spinner fullScreen label="Loading dashboard..." />;
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ready': return 'text-green-600 bg-green-50';
-      case 'processing': return 'text-blue-600 bg-blue-50';
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
+  const classPerformance = [
+    { class: 'Class 10-A', subject: 'Mathematics', average: 87, students: 35, trend: 'up' },
+    { class: 'Class 10-B', subject: 'Mathematics', average: 82, students: 38, trend: 'up' },
+    { class: 'Class 11-A', subject: 'Physics', average: 79, students: 40, trend: 'down' },
+    { class: 'Class 11-B', subject: 'Physics', average: 85, students: 37, trend: 'up' },
+  ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50 border-red-200';
-      case 'medium': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'low': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'high': return 'bg-red-100 text-red-700 border-red-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-700 border-green-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
+      {/* Professional Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+      >
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {userData?.displayName || 'Teacher'}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => router.push('/evaluations')}
+              variant="primary"
+              leftIcon={<CheckCircle size={18} />}
+            >
+              Review Submissions ({stats.pendingEvaluations})
+            </Button>
+            <Button
+              onClick={() => router.push('/students')}
+              variant="outline"
+              leftIcon={<Users size={18} />}
+            >
+              Manage Students
+            </Button>
+          </div>
+        </div>
+
+        {/* Class Filter */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-2">
+            <Filter size={18} className="text-gray-500" />
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900 bg-white"
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name} ({cls.students} students)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Stats Grid */}
       <motion.div
         custom={0}
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
       >
-        <StatCard
-          label="Total Students"
-          value={stats.totalStudents}
-          icon={<Users size={24} />}
-          variant="gradient"
-        />
-        
-        <StatCard
-          label="Pending Evaluations"
-          value={stats.pendingEvaluations}
-          change={-15}
-          changeLabel="from yesterday"
-          trend="up"
-          icon={<Clock size={24} />}
-        />
-        
-        <StatCard
-          label="Evaluated Today"
-          value={stats.evaluatedToday}
-          change={8}
-          changeLabel="from yesterday"
-          trend="up"
-          icon={<CheckCircle size={24} />}
-        />
-        
-        <StatCard
-          label="Avg Processing Time"
-          value={stats.avgProcessingTime}
-          change={-12}
-          changeLabel="improvement"
-          trend="up"
-          icon={<TrendingUp size={24} />}
-        />
+        <Card variant="elevated" padding="lg" className="text-center">
+          <Users className="mx-auto mb-2 text-blue-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.totalStudents}</p>
+          <p className="text-xs text-gray-600 mt-1">Total Students</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="text-center">
+          <Clock className="mx-auto mb-2 text-orange-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.pendingEvaluations}</p>
+          <p className="text-xs text-gray-600 mt-1">Pending Reviews</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="text-center">
+          <CheckCircle className="mx-auto mb-2 text-green-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.completedThisWeek}</p>
+          <p className="text-xs text-gray-600 mt-1">Graded This Week</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="text-center">
+          <TrendingUp className="mx-auto mb-2 text-purple-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.avgClassScore}%</p>
+          <p className="text-xs text-gray-600 mt-1">Class Average</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="text-center">
+          <BookOpen className="mx-auto mb-2 text-indigo-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.activeClasses}</p>
+          <p className="text-xs text-gray-600 mt-1">Active Classes</p>
+        </Card>
+
+        <Card variant="elevated" padding="lg" className="text-center">
+          <Users className="mx-auto mb-2 text-teal-600" size={24} />
+          <p className="text-2xl font-bold text-gray-900">{stats.attendanceRate}%</p>
+          <p className="text-xs text-gray-600 mt-1">Attendance Rate</p>
+        </Card>
       </motion.div>
 
-      {/* Pending Evaluations Section */}
-      <motion.div
-        custom={1}
-        variants={cardVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <Card variant="elevated" padding="lg">
-          <CardHeader
-            title="Pending Evaluations"
-            subtitle={`${filteredEvaluations.length} evaluations waiting`}
-            icon={<FileCheck size={20} />}
-            action={
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pending Evaluations - Priority */}
+        <motion.div
+          custom={1}
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          className="lg:col-span-2"
+        >
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <AlertCircle className="text-red-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Pending Evaluations</h3>
+                  <p className="text-sm text-gray-600">Requires immediate attention</p>
+                </div>
+              </div>
               <Button 
                 size="sm" 
                 variant="outline"
-                leftIcon={<Download size={16} />}
+                onClick={() => router.push('/evaluations')}
               >
-                Export
+                View All ({stats.pendingEvaluations})
               </Button>
-            }
-          />
-
-          {/* Search and Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search by student name..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
             </div>
-            
-            <div className="flex gap-2">
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-              >
-                <option value="all">All Status</option>
-                <option value="ready">Ready</option>
-                <option value="processing">Processing</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-          </div>
 
-          <CardBody>
             <div className="space-y-3">
-              {filteredEvaluations.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileCheck size={48} className="mx-auto mb-3 text-gray-300" />
-                  <p>No evaluations found</p>
-                </div>
-              ) : (
-                filteredEvaluations.map((evaluation) => (
-                  <div
-                    key={evaluation.id}
-                    className="flex items-center gap-4 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => router.push(`/teacher/evaluations/${evaluation.id}`)}
-                  >
-                    {/* Priority Indicator */}
-                    <div className={`w-1 h-16 rounded-full ${getPriorityColor(evaluation.priority).replace('bg-', 'bg-').split(' ')[0]}`} />
-
-                    {/* Student Info */}
-                    <div className="flex-1 min-w-0">
+              {pendingEvaluations.map((item) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="group p-4 rounded-lg hover:bg-gray-50 transition-all cursor-pointer border border-gray-200 hover:shadow-sm"
+                  onClick={() => router.push(`/evaluations/${item.id}`)}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900">{evaluation.studentName}</h4>
-                        <span className="text-xs text-gray-500">({evaluation.studentId})</span>
+                        <p className="font-semibold text-gray-900">{item.student}</p>
+                        <span className="text-xs text-gray-500">({item.rollNo})</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${getPriorityColor(item.priority)}`}>
+                          {item.priority}
+                        </span>
                       </div>
-                      <p className="text-sm text-gray-600">{evaluation.testName}</p>
-                      <p className="text-xs text-gray-400 mt-1">{evaluation.submittedAt}</p>
+                      <p className="text-sm text-gray-700 font-medium">{item.test}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <BookOpen size={14} />
+                          {item.subject}
+                        </span>
+                        <span>•</span>
+                        <span>{item.class}</span>
+                        <span>•</span>
+                        <span>Max: {item.maxMarks} marks</span>
+                        <span>•</span>
+                        <span className="text-orange-600">{item.submittedAt}</span>
+                      </div>
                     </div>
-
-                    {/* Status Badge */}
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(evaluation.status)}`}>
-                      {evaluation.status.charAt(0).toUpperCase() + evaluation.status.slice(1)}
-                    </div>
-
-                    {/* Priority Badge */}
-                    <div className={`px-3 py-1 rounded border text-xs font-medium ${getPriorityColor(evaluation.priority)}`}>
-                      {evaluation.priority.toUpperCase()}
-                    </div>
-
-                    {/* Action Button */}
-                    <Button
-                      size="sm"
-                      variant={evaluation.status === 'ready' ? 'primary' : 'outline'}
-                      leftIcon={<Eye size={16} />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/teacher/evaluations/${evaluation.id}`);
-                      }}
-                    >
-                      {evaluation.status === 'ready' ? 'Review' : 'View'}
-                    </Button>
+                    <ChevronRight 
+                      className="text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0 ml-4" 
+                      size={20} 
+                    />
                   </div>
-                ))
-              )}
+                </motion.div>
+              ))}
             </div>
-          </CardBody>
 
-          {filteredEvaluations.length > 0 && (
-            <CardFooter>
-              <Button variant="outline" fullWidth>
-                Load More Evaluations
+            <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+              <Button 
+                variant="ghost" 
+                onClick={() => router.push('/evaluations')}
+                rightIcon={<ChevronRight size={16} />}
+              >
+                View All Pending Submissions
               </Button>
-            </CardFooter>
-          )}
-        </Card>
-      </motion.div>
-
-      {/* Recent Activity */}
-      <motion.div
-        custom={2}
-        variants={cardVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <Card variant="elevated" padding="lg">
-          <CardHeader
-            title="Recent Activity"
-            icon={<Clock size={20} />}
-            action={<Button size="sm" variant="ghost">View All</Button>}
-          />
-          <CardBody>
-            <div className="space-y-3">
-              {recentActivity.map((activity) => {
-                const icons = {
-                  graded: '✅',
-                  submitted: '📤',
-                  reviewed: '👁️',
-                };
-
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="text-2xl">{icons[activity.type]}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {activity.type === 'graded' && `Graded ${activity.testName} for ${activity.studentName}`}
-                        {activity.type === 'submitted' && `${activity.studentName} submitted ${activity.testName}`}
-                        {activity.type === 'reviewed' && `Reviewed ${activity.testName} for ${activity.studentName}`}
-                      </p>
-                      {activity.score !== undefined && (
-                        <p className="text-xs text-gray-500">Score: {activity.score}%</p>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{activity.timestamp}</span>
-                  </div>
-                );
-              })}
             </div>
-          </CardBody>
-        </Card>
-      </motion.div>
+          </Card>
+        </motion.div>
 
-      {/* Quick Actions */}
+        {/* Upcoming Deadlines */}
+        <motion.div
+          custom={2}
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Calendar className="text-blue-600" size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Upcoming</h3>
+                <p className="text-sm text-gray-600">Next 7 days</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {upcomingDeadlines.map((deadline, index) => (
+                <div key={index} className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 text-sm">{deadline.title}</p>
+                      <p className="text-xs text-gray-600 mt-1">{deadline.class}</p>
+                    </div>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                      {deadline.type}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <Clock size={12} />
+                    <span>{deadline.date}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Class Performance Overview */}
       <motion.div
         custom={3}
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
-        <Card 
-          variant="bordered" 
-          hover 
-          clickable
-          onClick={() => router.push('/teacher/students')}
-        >
-          <CardBody className="text-center py-6">
-            <Users size={32} className="mx-auto mb-3 text-blue-600" />
-            <h3 className="font-semibold text-gray-900 mb-1">Manage Students</h3>
-            <p className="text-sm text-gray-600">View and manage your students</p>
-          </CardBody>
-        </Card>
+        <Card variant="elevated" padding="lg">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <BarChart3 className="text-purple-600" size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Class Performance Overview</h3>
+                <p className="text-sm text-gray-600">Average scores by class</p>
+              </div>
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => router.push('/analytics')}
+            >
+              Detailed Analytics
+            </Button>
+          </div>
 
-        <Card 
-          variant="bordered" 
-          hover 
-          clickable
-          onClick={() => router.push('/teacher/analytics')}
-        >
-          <CardBody className="text-center py-6">
-            <TrendingUp size={32} className="mx-auto mb-3 text-green-600" />
-            <h3 className="font-semibold text-gray-900 mb-1">Analytics</h3>
-            <p className="text-sm text-gray-600">View performance insights</p>
-          </CardBody>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Class</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Subject</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">Students</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">Average</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">Trend</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {classPerformance.map((cls, index) => (
+                  <tr key={index} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{cls.class}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{cls.subject}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 text-center">{cls.students}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-sm font-semibold ${
+                        cls.average >= 85 ? 'text-green-600' : 
+                        cls.average >= 70 ? 'text-yellow-600' : 
+                        'text-red-600'
+                      }`}>
+                        {cls.average}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {cls.trend === 'up' ? (
+                        <span className="inline-flex items-center text-green-600">
+                          <TrendingUp size={16} />
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-red-600">
+                          <TrendingUp size={16} className="rotate-180" />
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
+      </motion.div>
 
-        <Card 
-          variant="bordered" 
-          hover 
-          clickable
-          onClick={() => router.push('/teacher/tests')}
-        >
-          <CardBody className="text-center py-6">
-            <FileCheck size={32} className="mx-auto mb-3 text-purple-600" />
-            <h3 className="font-semibold text-gray-900 mb-1">Create Test</h3>
-            <p className="text-sm text-gray-600">Set up new assessments</p>
-          </CardBody>
+      {/* Recent Activity */}
+      <motion.div
+        custom={4}
+        variants={cardVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <Card variant="elevated" padding="lg">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <ClipboardList className="text-gray-600" size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
+              <p className="text-sm text-gray-600">Your latest actions</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {recentActivity.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 text-sm">{item.action}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{item.detail}</p>
+                </div>
+                <span className="text-xs text-gray-500 whitespace-nowrap">{item.time}</span>
+              </div>
+            ))}
+          </div>
         </Card>
       </motion.div>
     </div>

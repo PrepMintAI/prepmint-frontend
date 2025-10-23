@@ -1,6 +1,6 @@
 // src/app/api/auth/session/route.ts
 import { cookies } from 'next/headers';
-import { adminAuth } from '@/lib/firebase.admin';
+import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -16,6 +16,25 @@ export async function POST(request: NextRequest) {
 
     // Verify the ID token
     const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const uid = decodedToken.uid;
+
+    console.log('[Session API] Creating session for user:', uid);
+
+    // Get user role from Firestore
+    const userDoc = await adminDb.collection('users').doc(uid).get();
+    
+    if (!userDoc.exists) {
+      console.error('[Session API] User document not found:', uid);
+      return NextResponse.json(
+        { error: 'User profile not found' },
+        { status: 404 }
+      );
+    }
+
+    const userData = userDoc.data();
+    const role = userData?.role || 'student';
+
+    console.log('[Session API] User role:', role);
 
     // Create session cookie (expires in 7 days)
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
@@ -33,12 +52,12 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
 
-    console.log('[Session API] Session created for user:', decodedToken.uid);
+    console.log('[Session API] Session created successfully for:', uid, 'Role:', role);
 
     return NextResponse.json({
       success: true,
-      uid: decodedToken.uid,
-      role: decodedToken.role || 'student',
+      uid: uid,
+      role: role, // Return actual role from Firestore
     });
   } catch (error: any) {
     console.error('[Session API] Error creating session:', error);
@@ -54,6 +73,8 @@ export async function DELETE() {
   try {
     const cookieStore = await cookies();
     cookieStore.delete('__session');
+
+    console.log('[Session API] Session deleted successfully');
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

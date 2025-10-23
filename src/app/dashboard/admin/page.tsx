@@ -1,8 +1,8 @@
 // src/app/dashboard/admin/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { adminAuth } from '@/lib/firebase.admin';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import AppLayout from '@/components/layout/AppLayout';
 import { AdminDashboardClient } from './DashboardClient';
 
 export default async function AdminDashboardPage() {
@@ -13,43 +13,40 @@ export default async function AdminDashboardPage() {
     redirect('/login');
   }
 
-  let userId: string | null = null;
-  let userRole: string | null = null;
+  let userId: string;
+  let userRole: string;
 
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
-    userRole = decoded.role || 'student';
 
-    // Only admins can access this page
-    if (userRole !== 'admin') {
-      redirect(`/dashboard/${userRole}`);
+    const userDoc = await adminDb.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.error('[Admin Dashboard] User document not found');
+      redirect('/login');
     }
+
+    const userData = userDoc.data();
+    userRole = userData?.role || 'student';
+
+    console.log('[Admin Dashboard] User role:', userRole);
   } catch (error) {
-    console.error('Session verification failed:', error);
+    console.error('[Admin Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
-  if (!userId) {
-    redirect('/login');
+  // Check role OUTSIDE try-catch
+  if (userRole !== 'admin') {
+    console.log('[Admin Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+    redirect(`/dashboard/${userRole}`);
   }
 
   return (
-    <DashboardLayout>
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">
-              Manage users, institutions, and system settings
-            </p>
-          </div>
-        </div>
-
-        {/* Client-side dashboard components */}
+    <AppLayout>
+      <div className="p-6">
         <AdminDashboardClient userId={userId} />
       </div>
-    </DashboardLayout>
+    </AppLayout>
   );
 }

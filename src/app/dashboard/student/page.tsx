@@ -1,8 +1,8 @@
 // src/app/dashboard/student/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { adminAuth } from '@/lib/firebase.admin';
-import AppLayout from '@/components/layout/AppLayout';;
+import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import AppLayout from '@/components/layout/AppLayout';
 import { StudentDashboardClient } from './DashboardClient';
 
 export default async function StudentDashboardPage() {
@@ -13,31 +13,41 @@ export default async function StudentDashboardPage() {
     redirect('/login');
   }
 
-  let userId: string | null = null;
-  let userRole: string | null = null;
+  let userId: string;
+  let userRole: string;
 
   try {
+    // Verify session cookie
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
-    userRole = decoded.role || 'student';
 
-    // Redirect if not a student
-    if (userRole !== 'student') {
-      redirect(`/dashboard/${userRole}`);
+    // Get user role from Firestore (server-side)
+    const userDoc = await adminDb.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.error('[Student Dashboard] User document not found');
+      redirect('/login');
     }
+
+    const userData = userDoc.data();
+    userRole = userData?.role || 'student';
+
+    console.log('[Student Dashboard] User role:', userRole);
   } catch (error) {
-    console.error('Session verification failed:', error);
+    // Only catch actual errors, not Next.js redirects
+    console.error('[Student Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
-  if (!userId) {
-    redirect('/login');
+  // Check role OUTSIDE try-catch so redirect works properly
+  if (userRole !== 'student') {
+    console.log('[Student Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+    redirect(`/dashboard/${userRole}`);
   }
 
   return (
     <AppLayout>
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Learning Dashboard</h1>
@@ -47,7 +57,6 @@ export default async function StudentDashboardPage() {
           </div>
         </div>
 
-        {/* Client-side dashboard components */}
         <StudentDashboardClient userId={userId} />
       </div>
     </AppLayout>
