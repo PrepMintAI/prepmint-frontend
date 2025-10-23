@@ -24,13 +24,13 @@ interface AppLayoutProps {
 const roleBasedNavigation = {
   student: [
     { name: 'Dashboard', href: '/dashboard/student', icon: Home },
-    { name: 'Get Score ⚡', href: '/score-check', icon: Upload },
-    { name: 'Rewards', href: '/rewards', icon: Award },
-    { name: 'Leaderboard', href: '/leaderboard', icon: TrendingUp },
-    { name: 'My Journey', href: '/history', icon: Clock },
+    { name: 'Get Score ⚡', href: '/dashboard/student/score-check', icon: Upload },
+    { name: 'Rewards', href: '/dashboard/student/rewards', icon: Award },
+    { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
+    { name: 'My Journey', href: '/dashboard/student/history', icon: Clock },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Settings', href: '/settings', icon: Settings },
-    { name: 'Help', href: '/help', icon: HelpCircle },
+    { name: 'Help', href: '/dashboard/student/help', icon: HelpCircle },
   ],
   teacher: [
     { name: 'Dashboard', href: '/dashboard/teacher', icon: Home },
