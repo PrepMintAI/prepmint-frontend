@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
-import { InstitutionDashboardClient } from './DashboardClient';
+import { DashboardClient } from './DashboardClient';
 
 export default async function InstitutionDashboardPage() {
   const cookieStore = await cookies();
@@ -45,7 +45,7 @@ export default async function InstitutionDashboardPage() {
   return (
     <AppLayout>
       <div className="p-6">
-        <InstitutionDashboardClient userId={userId} />
+        <DashboardClient userId={userId} />
       </div>
     </AppLayout>
   );
