@@ -1,4 +1,4 @@
-// src/app/evaluations/page.tsx
+// src/app/dashboard/teacher/evaluations/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';

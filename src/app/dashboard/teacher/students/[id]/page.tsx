@@ -1,11 +1,11 @@
-// src/app/students/page.tsx
+// src/app/dashboard/teacher/students/[id]/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
-import { StudentsClient } from './StudentsClient';
+import { StudentDetailClient } from './StudentDetailClient';
 
-export default async function StudentsPage() {
+export default async function StudentDetailPage({ params }: { params: { id: string } }) {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
@@ -29,7 +29,7 @@ export default async function StudentsPage() {
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
   } catch (error) {
-    console.error('[Students Page] Session verification failed:', error);
+    console.error('[Student Detail Page] Session verification failed:', error);
     redirect('/login');
   }
 
@@ -41,7 +41,7 @@ export default async function StudentsPage() {
   return (
     <AppLayout>
       <div className="p-6">
-        <StudentsClient userId={userId} userRole={userRole} />
+        <StudentDetailClient studentId={params.id} userId={userId} userRole={userRole} />
       </div>
     </AppLayout>
   );

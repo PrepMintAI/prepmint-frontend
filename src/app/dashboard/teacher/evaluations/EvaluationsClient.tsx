@@ -1,7 +1,7 @@
-// src/app/evaluations/EvaluationsClient.tsx
+// src/app/dashboard/teacher/evaluations/EvaluationsClient.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card from '@/components/common/Card';
@@ -11,7 +11,7 @@ import {
   Filter, Search, Calendar, AlertCircle, Eye,
   TrendingUp, Award, Plus, Zap
 } from 'lucide-react';
-import { getEvaluationSummary } from '@/lib/mockEvaluationData';
+import { getTestsByTeacher, getTeacherById, tests, teachers } from '@/lib/comprehensiveMockData';
 
 interface EvaluationsClientProps {
   userId: string;
@@ -23,28 +23,69 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const router = useRouter();
-  const mockEvaluations = getEvaluationSummary();
 
-  const filteredEvaluations = mockEvaluations.filter(evaluation => {
-    const matchesTab = 
-      activeTab === 'all' ||
-      (activeTab === 'pending' && evaluation.pending > 0) ||
-      (activeTab === 'completed' && evaluation.pending === 0);
-    
-    const matchesSearch = 
-      evaluation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      evaluation.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      evaluation.class.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesTab && matchesSearch;
-  });
+  // Get teacher data
+  const teacher = useMemo(() => {
+    if (userRole === 'teacher') {
+      return teachers.find(t => t.uid === userId) || teachers[0];
+    }
+    return null;
+  }, [userId, userRole]);
 
-  const stats = {
-    total: mockEvaluations.length,
-    pending: mockEvaluations.reduce((sum, e) => sum + e.pending, 0),
-    completed: mockEvaluations.filter(e => e.pending === 0).length,
-    avgScore: Math.round(mockEvaluations.reduce((sum, e) => sum + e.avgScore, 0) / mockEvaluations.length),
-  };
+  // Get evaluations (tests) based on role
+  const allEvaluations = useMemo(() => {
+    if (userRole === 'teacher' && teacher) {
+      return getTestsByTeacher(teacher.id);
+    }
+    // For admin/institution - show all tests
+    return tests;
+  }, [userRole, teacher]);
+
+  // Convert tests to evaluation format
+  const evaluations = useMemo(() => {
+    return allEvaluations.map(test => ({
+      id: test.id,
+      title: test.title,
+      subject: test.subjectName,
+      class: `Class ${test.class}${test.section}`,
+      type: 'bulk' as const, // All tests are bulk for now
+      totalSubmissions: 30, // Mock: 30 students per section
+      evaluated: test.status === 'completed' ? 30 : test.status === 'in-progress' ? 15 : 0,
+      pending: test.status === 'completed' ? 0 : test.status === 'in-progress' ? 15 : 30,
+      createdAt: test.date,
+      dueDate: test.date,
+      status: test.status === 'completed' ? 'completed' : 
+              test.status === 'in-progress' ? 'in-progress' : 'pending',
+      avgScore: test.status === 'completed' ? Math.floor(70 + Math.random() * 20) : 0,
+    }));
+  }, [allEvaluations]);
+
+  const filteredEvaluations = useMemo(() => {
+    return evaluations.filter(evaluation => {
+      const matchesTab = 
+        activeTab === 'all' ||
+        (activeTab === 'pending' && evaluation.pending > 0) ||
+        (activeTab === 'completed' && evaluation.pending === 0);
+      
+      const matchesSearch = 
+        evaluation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        evaluation.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        evaluation.class.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesTab && matchesSearch;
+    });
+  }, [evaluations, activeTab, searchQuery]);
+
+  const stats = useMemo(() => {
+    return {
+      total: evaluations.length,
+      pending: evaluations.reduce((sum, e) => sum + e.pending, 0),
+      completed: evaluations.filter(e => e.pending === 0).length,
+      avgScore: evaluations.filter(e => e.avgScore > 0).length > 0
+        ? Math.round(evaluations.filter(e => e.avgScore > 0).reduce((sum, e) => sum + e.avgScore, 0) / evaluations.filter(e => e.avgScore > 0).length)
+        : 0,
+    };
+  }, [evaluations]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -65,7 +106,12 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Evaluations</h1>
-            <p className="text-gray-600 mt-1">AI-powered automatic grading system</p>
+            <p className="text-gray-600 mt-1">
+              {teacher 
+                ? `Managing evaluations for ${teacher.assignedClasses.length} classes`
+                : 'AI-powered automatic grading system'
+              }
+            </p>
           </div>
           <Button
             onClick={() => setShowCreateModal(true)}
@@ -105,7 +151,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
 
         <Card variant="elevated" padding="lg" className="text-center">
           <TrendingUp className="mx-auto mb-2 text-purple-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{stats.avgScore}%</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.avgScore > 0 ? `${stats.avgScore}%` : 'N/A'}</p>
           <p className="text-sm text-gray-600">Average Score</p>
         </Card>
       </motion.div>
@@ -147,6 +193,10 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
               />
             </div>
           </div>
+
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {filteredEvaluations.length} of {evaluations.length} evaluations
+          </div>
         </Card>
       </motion.div>
 
@@ -169,7 +219,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
               padding="lg"
               hover
               clickable
-              onClick={() => router.push(`/evaluations/${evaluation.id}`)}
+              onClick={() => router.push(`/dashboard/teacher/evaluations/${evaluation.id}`)}
               className="cursor-pointer"
             >
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -201,7 +251,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Calendar size={14} />
-                          Due: {new Date(evaluation.dueDate).toLocaleDateString()}
+                          {new Date(evaluation.dueDate).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -269,6 +319,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
             <div className="text-center py-12">
               <FileText size={48} className="mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600">No evaluations found</p>
+              <p className="text-sm text-gray-500 mt-2">Try adjusting your filters</p>
             </div>
           </Card>
         )}
@@ -303,7 +354,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
                   <button
                     onClick={() => {
                       setShowCreateModal(false);
-                      router.push('/evaluations/new/bulk');
+                      router.push('/dashboard/teacher/evaluations/new/bulk');
                     }}
                     className="w-full p-4 rounded-xl border-2 border-purple-200 hover:border-purple-500 hover:bg-purple-50 transition-all text-left group"
                   >
@@ -326,7 +377,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
                   <button
                     onClick={() => {
                       setShowCreateModal(false);
-                      router.push('/evaluations/new/single');
+                      router.push('/dashboard/teacher/evaluations/new/single');
                     }}
                     className="w-full p-4 rounded-xl border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
                   >

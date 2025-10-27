@@ -1,4 +1,4 @@
-// src/app/evaluations/[id]/EvaluationDetailsClient.tsx
+// src/app/dashboard/teacher/evaluations/[id]/EvaluationDetailsClient.tsx
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -12,80 +12,18 @@ import {
   MessageSquare, CheckCircle, AlertCircle, Calendar,
   BookOpen, Award, BarChart3, Grid, List
 } from 'lucide-react';
-import { getEvaluationById } from '@/lib/mockEvaluationData';
-
+import { 
+  tests, 
+  getStudentsByClass,
+  schoolSubjects,
+  collegeSubjects
+} from '@/lib/comprehensiveMockData';
 
 interface EvaluationDetailsClientProps {
   evaluationId: string;
   userId: string;
   userRole: string;
 }
-
-// Mock evaluation data
-const mockEvaluation = {
-  id: 1,
-  title: 'Mathematics Midterm Exam',
-  subject: 'Mathematics',
-  class: 'Class 10-A',
-  totalMarks: 100,
-  totalStudents: 35,
-  evaluated: 35,
-  pending: 0,
-  createdAt: '2025-10-20',
-  dueDate: '2025-10-25',
-  status: 'completed',
-  avgScore: 82,
-  highestScore: 98,
-  lowestScore: 62,
-};
-
-const mockStudentResults = [
-  {
-    id: 1,
-    name: 'Aarav Sharma',
-    rollNo: '10A-01',
-    score: 87,
-    totalMarks: 100,
-    percentage: 87,
-    status: 'approved',
-    breakdown: [
-      { question: 1, marks: 9, total: 10, aiComment: 'Excellent work!', teacherComment: 'Perfect' },
-      { question: 2, marks: 8, total: 10, aiComment: 'Good approach', teacherComment: '' },
-      { question: 3, marks: 10, total: 10, aiComment: 'Perfect answer', teacherComment: 'Well done' },
-    ],
-    submittedAt: '2025-10-22 10:30 AM',
-  },
-  {
-    id: 2,
-    name: 'Priya Patel',
-    rollNo: '10A-02',
-    score: 92,
-    totalMarks: 100,
-    percentage: 92,
-    status: 'approved',
-    breakdown: [
-      { question: 1, marks: 10, total: 10, aiComment: 'Perfect understanding', teacherComment: 'Excellent!' },
-      { question: 2, marks: 9, total: 10, aiComment: 'Well explained', teacherComment: '' },
-      { question: 3, marks: 10, total: 10, aiComment: 'Outstanding', teacherComment: 'Keep it up!' },
-    ],
-    submittedAt: '2025-10-22 11:15 AM',
-  },
-  {
-    id: 3,
-    name: 'Rohan Kumar',
-    rollNo: '10A-03',
-    score: 78,
-    totalMarks: 100,
-    percentage: 78,
-    status: 'needs-revision',
-    breakdown: [
-      { question: 1, marks: 8, total: 10, aiComment: 'Good but needs detail', teacherComment: 'Add more steps' },
-      { question: 2, marks: 7, total: 10, aiComment: 'Calculation error', teacherComment: 'Check your work' },
-      { question: 3, marks: 9, total: 10, aiComment: 'Nearly perfect', teacherComment: '' },
-    ],
-    submittedAt: '2025-10-22 09:45 AM',
-  },
-];
 
 export function EvaluationDetailsClient({ evaluationId, userId, userRole }: EvaluationDetailsClientProps) {
   const router = useRouter();
@@ -95,11 +33,91 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const evaluationData = useMemo(() => {
-    return getEvaluationById(parseInt(evaluationId));
+
+  // Get test data
+  const test = useMemo(() => {
+    return tests.find(t => t.id === evaluationId);
   }, [evaluationId]);
 
-  if (!evaluationData) {
+  // Get students for this test
+  const students = useMemo(() => {
+    if (!test) return [];
+    return getStudentsByClass(test.institutionId, test.class, test.section);
+  }, [test]);
+
+  // Generate mock student results based on real students
+  const studentResults = useMemo(() => {
+    if (!test || students.length === 0) return [];
+    
+    return students.map((student, index) => {
+      // Generate random but realistic scores
+      const baseScore = student.performance.overallPercentage;
+      const variance = Math.random() * 20 - 10; // -10 to +10
+      const finalPercentage = Math.max(40, Math.min(100, baseScore + variance));
+      const score = Math.round((finalPercentage / 100) * test.totalMarks);
+      
+      // Generate question breakdown (assuming 3 questions)
+      const q1Total = Math.round(test.totalMarks * 0.3);
+      const q2Total = Math.round(test.totalMarks * 0.35);
+      const q3Total = test.totalMarks - q1Total - q2Total;
+      
+      const q1Marks = Math.round((finalPercentage / 100) * q1Total);
+      const q2Marks = Math.round((finalPercentage / 100) * q2Total);
+      const q3Marks = score - q1Marks - q2Marks;
+      
+      return {
+        id: student.id,
+        name: student.name,
+        rollNo: student.rollNo,
+        score: score,
+        totalMarks: test.totalMarks,
+        percentage: Math.round(finalPercentage),
+        status: finalPercentage >= 75 ? 'approved' as const : 
+                finalPercentage >= 60 ? 'needs-revision' as const : 
+                'pending' as const,
+        breakdown: [
+          { 
+            question: 1, 
+            marks: q1Marks, 
+            total: q1Total, 
+            aiComment: q1Marks >= q1Total * 0.9 
+              ? 'Excellent understanding of concepts. Clear explanation with proper steps.'
+              : q1Marks >= q1Total * 0.7
+              ? 'Good approach but minor calculation errors. Overall good understanding.'
+              : 'Needs improvement. Review the basic concepts and practice more.',
+            teacherComment: q1Marks >= q1Total * 0.9 ? 'Perfect!' : ''
+          },
+          { 
+            question: 2, 
+            marks: q2Marks, 
+            total: q2Total, 
+            aiComment: q2Marks >= q2Total * 0.9 
+              ? 'Outstanding work! Clear, concise, and accurate solution.'
+              : q2Marks >= q2Total * 0.7
+              ? 'Solid understanding shown. Formula applied correctly.'
+              : 'Incomplete solution. More practice needed.',
+            teacherComment: ''
+          },
+          { 
+            question: 3, 
+            marks: q3Marks, 
+            total: q3Total, 
+            aiComment: q3Marks >= q3Total * 0.9 
+              ? 'Perfect answer with logical reasoning and proper steps.'
+              : q3Marks >= q3Total * 0.7
+              ? 'Good attempt. Minor gaps in explanation.'
+              : 'Needs significant improvement. Practice similar problems.',
+            teacherComment: q3Marks >= q3Total * 0.9 ? 'Excellent work!' : ''
+          },
+        ],
+        submittedAt: new Date(test.date).toLocaleDateString() + ' ' + 
+                     (9 + Math.floor(Math.random() * 3)) + ':' + 
+                     (Math.floor(Math.random() * 60)).toString().padStart(2, '0') + ' AM',
+      };
+    });
+  }, [test, students]);
+
+  if (!test) {
     return (
       <div className="text-center py-12">
         <AlertCircle size={48} className="mx-auto mb-4 text-gray-400" />
@@ -111,17 +129,31 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
     );
   }
 
-  const filteredResults = evaluationData.students.filter(student => {
-    const matchesSearch = 
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.rollNo.toLowerCase().includes(searchQuery.toLowerCase());
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (studentResults.length === 0) return { avg: 0, highest: 0, lowest: 0 };
     
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      student.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+    const percentages = studentResults.map(s => s.percentage);
+    return {
+      avg: Math.round(percentages.reduce((a, b) => a + b, 0) / percentages.length),
+      highest: Math.max(...percentages),
+      lowest: Math.min(...percentages),
+    };
+  }, [studentResults]);
+
+  const filteredResults = useMemo(() => {
+    return studentResults.filter(student => {
+      const matchesSearch = 
+        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.rollNo.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = 
+        statusFilter === 'all' || 
+        student.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [studentResults, searchQuery, statusFilter]);
 
   const getGradeColor = (percentage: number) => {
     if (percentage >= 90) return 'text-green-600 bg-green-100';
@@ -143,6 +175,25 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
     }
   };
 
+  // Question-wise stats
+  const questionStats = useMemo(() => {
+    if (studentResults.length === 0) return [];
+    
+    return [0, 1, 2].map(qIndex => {
+      const scores = studentResults.map(s => s.breakdown[qIndex]);
+      const percentages = scores.map(q => (q.marks / q.total) * 100);
+      
+      return {
+        questionNum: qIndex + 1,
+        average: Math.round(percentages.reduce((a, b) => a + b, 0) / percentages.length),
+        highest: Math.max(...scores.map(q => q.marks)),
+        lowest: Math.min(...scores.map(q => q.marks)),
+        total: scores[0].total,
+        completion: Math.round((scores.filter(q => q.marks > 0).length / scores.length) * 100),
+      };
+    });
+  }, [studentResults]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -160,18 +211,26 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{mockEvaluation.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{test.title}</h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
               <span className="flex items-center gap-1">
                 <BookOpen size={16} />
-                {mockEvaluation.subject}
+                {test.subjectName}
               </span>
               <span>•</span>
-              <span>{mockEvaluation.class}</span>
+              <span>Class {test.class}{test.section}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Calendar size={16} />
-                {new Date(mockEvaluation.createdAt).toLocaleDateString()}
+                {new Date(test.date).toLocaleDateString()}
+              </span>
+              <span>•</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                test.status === 'completed' ? 'bg-green-100 text-green-700' :
+                test.status === 'in-progress' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-orange-100 text-orange-700'
+              }`}>
+                {test.status}
               </span>
             </div>
           </div>
@@ -195,7 +254,7 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
               variant="primary"
               size="sm"
               leftIcon={<BarChart3 size={16} />}
-              onClick={() => setShowAnalytics(!showAnalytics)}
+              onClick={() => router.push(`/analytics?test=${test.id}`)}
             >
               Analytics
             </Button>
@@ -212,31 +271,31 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
       >
         <Card variant="elevated" padding="lg" className="text-center">
           <Users className="mx-auto mb-2 text-blue-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{mockEvaluation.totalStudents}</p>
+          <p className="text-2xl font-bold text-gray-900">{studentResults.length}</p>
           <p className="text-xs text-gray-600">Students</p>
         </Card>
 
         <Card variant="elevated" padding="lg" className="text-center">
           <CheckCircle className="mx-auto mb-2 text-green-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{mockEvaluation.evaluated}</p>
+          <p className="text-2xl font-bold text-gray-900">{studentResults.length}</p>
           <p className="text-xs text-gray-600">Evaluated</p>
         </Card>
 
         <Card variant="elevated" padding="lg" className="text-center">
           <TrendingUp className="mx-auto mb-2 text-purple-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{mockEvaluation.avgScore}%</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.avg}%</p>
           <p className="text-xs text-gray-600">Average</p>
         </Card>
 
         <Card variant="elevated" padding="lg" className="text-center">
           <Award className="mx-auto mb-2 text-yellow-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{mockEvaluation.highestScore}%</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.highest}%</p>
           <p className="text-xs text-gray-600">Highest</p>
         </Card>
 
         <Card variant="elevated" padding="lg" className="text-center">
           <AlertCircle className="mx-auto mb-2 text-red-600" size={24} />
-          <p className="text-2xl font-bold text-gray-900">{mockEvaluation.lowestScore}%</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.lowest}%</p>
           <p className="text-xs text-gray-600">Lowest</p>
         </Card>
       </motion.div>
@@ -319,6 +378,10 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
               </button>
             </div>
           </div>
+
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {filteredResults.length} of {studentResults.length} students
+          </div>
         </Card>
       </motion.div>
 
@@ -330,11 +393,11 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
           transition={{ delay: 0.3 }}
           className={layoutMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}
         >
-          {filteredResults.map((student, index) => (
+          {filteredResults.map((student) => (
             <Card key={student.id} variant="elevated" padding="lg" hover clickable>
               <div 
                 className="cursor-pointer"
-                onClick={() => setSelectedStudent(selectedStudent === student.id ? null : student.id)}
+                onClick={() => setSelectedStudent(selectedStudent === parseInt(student.id) ? null : parseInt(student.id))}
               >
                 {/* Student Header */}
                 <div className="flex items-start justify-between mb-3">
@@ -374,7 +437,7 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
                 </div>
 
                 {/* Breakdown (Expanded) */}
-                {selectedStudent === student.id && (
+                {selectedStudent === parseInt(student.id) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -426,51 +489,51 @@ export function EvaluationDetailsClient({ evaluationId, userId, userRole }: Eval
           transition={{ delay: 0.3 }}
           className="space-y-4"
         >
-          {[1, 2, 3].map((questionNum) => (
-            <Card key={questionNum} variant="elevated" padding="lg">
+          {questionStats.map((qStat) => (
+            <Card key={qStat.questionNum} variant="elevated" padding="lg">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Question {questionNum} - Performance Analysis
+                Question {qStat.questionNum} - Performance Analysis
               </h3>
 
               {/* Question Stats */}
               <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">8.5</p>
+                  <p className="text-2xl font-bold text-blue-600">{qStat.average}%</p>
                   <p className="text-xs text-gray-600">Average</p>
                 </div>
                 <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">10</p>
+                  <p className="text-2xl font-bold text-green-600">{qStat.highest}/{qStat.total}</p>
                   <p className="text-xs text-gray-600">Highest</p>
                 </div>
                 <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">7</p>
+                  <p className="text-2xl font-bold text-red-600">{qStat.lowest}/{qStat.total}</p>
                   <p className="text-xs text-gray-600">Lowest</p>
                 </div>
                 <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">85%</p>
+                  <p className="text-2xl font-bold text-purple-600">{qStat.completion}%</p>
                   <p className="text-xs text-gray-600">Completion</p>
                 </div>
               </div>
 
               {/* Student Responses */}
               <div className="space-y-2">
-                {mockStudentResults.map((student) => {
-                  const question = student.breakdown.find(q => q.question === questionNum);
+                {filteredResults.map((student) => {
+                  const question = student.breakdown[qStat.questionNum - 1];
                   return (
                     <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3 flex-1">
-                        <span className="font-medium text-gray-900 w-32">{student.name}</span>
+                        <span className="font-medium text-gray-900 w-48 truncate">{student.name}</span>
                         <div className="flex-1">
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-blue-500"
-                              style={{ width: `${question ? (question.marks / question.total) * 100 : 0}%` }}
+                              style={{ width: `${(question.marks / question.total) * 100}%` }}
                             />
                           </div>
                         </div>
                       </div>
                       <span className="font-bold text-gray-900 ml-4">
-                        {question?.marks}/{question?.total}
+                        {question.marks}/{question.total}
                       </span>
                     </div>
                   );

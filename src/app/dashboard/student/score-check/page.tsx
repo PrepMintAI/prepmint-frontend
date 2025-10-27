@@ -1,4 +1,4 @@
-// src/app/score-check/page.tsx
+// src/app/dashboard/student/score-check/page.tsx
 'use client';
 
 import { useState, useCallback } from 'react';

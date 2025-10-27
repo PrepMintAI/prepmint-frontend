@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx
+// src/app/dashboard/student/leaderboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';

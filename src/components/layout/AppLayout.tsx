@@ -34,9 +34,9 @@ const roleBasedNavigation = {
   ],
   teacher: [
     { name: 'Dashboard', href: '/dashboard/teacher', icon: Home },
-    { name: 'Students', href: '/students', icon: Users },
-    { name: 'Evaluations', href: '/evaluations', icon: BookOpen },
-    { name: 'Analytics', href: '/analytics', icon: BarChart },
+    { name: 'Students', href: '/dashboard/teacher/students', icon: Users },
+    { name: 'Evaluations', href: '/dashboard/teacher/evaluations', icon: BookOpen },
+    { name: 'Analytics', href: '/dashboard/teacher/analytics', icon: BarChart },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
