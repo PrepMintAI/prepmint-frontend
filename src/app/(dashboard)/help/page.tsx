@@ -6,10 +6,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { motion } from 'framer-motion';
-import { 
-  HelpCircle, MessageCircle, Book, Video, 
+import {
+  HelpCircle, MessageCircle, Book, Video,
   Mail, Phone, ChevronDown, ChevronUp, Send,
-  ExternalLink, Sparkles
+  Sparkles
 } from 'lucide-react';
 
 const faqs = [
@@ -52,11 +52,11 @@ const faqs = [
     questions: [
       {
         q: 'Can I change my school/institution?',
-        a: 'Yes! Go to Settings → Account → Institution Code and update it. You\'ll need a valid institution code from your new school.'
+        a: 'Yes! Go to Settings → Account → Institution Code and update it. You&apos;ll need a valid institution code from your new school.'
       },
       {
         q: 'How do I reset my password?',
-        a: 'Click on "Forgot Password" on the login page. We\'ll send you a reset link via email.'
+        a: 'Click on "Forgot Password" on the login page. We&apos;ll send you a reset link via email.'
       },
       {
         q: 'Is my data safe?',
@@ -70,7 +70,7 @@ const quickLinks = [
   { name: 'Video Tutorials', icon: Video, href: '#', color: 'from-red-500 to-pink-600' },
   { name: 'Documentation', icon: Book, href: '#', color: 'from-blue-500 to-cyan-600' },
   { name: 'Community Forum', icon: MessageCircle, href: '#', color: 'from-purple-500 to-indigo-600' },
-  { name: 'What\'s New', icon: Sparkles, href: '#', color: 'from-yellow-500 to-orange-600' },
+  { name: 'What&apos;s New', icon: Sparkles, href: '#', color: 'from-yellow-500 to-orange-600' },
 ];
 
 export default function HelpPage() {
@@ -88,7 +88,7 @@ export default function HelpPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Message sent! We\'ll get back to you within 24 hours.');
+    alert('Message sent! We&apos;ll get back to you within 24 hours.');
     setContactForm({ name: '', email: '', subject: '', message: '' });
   };
 
@@ -214,7 +214,7 @@ export default function HelpPage() {
                 Still need help? 🤝
               </h2>
               <p className="text-gray-600 mb-6">
-                Send us a message and we'll get back to you within 24 hours
+                Send us a message and we&apos;ll get back to you within 24 hours
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">

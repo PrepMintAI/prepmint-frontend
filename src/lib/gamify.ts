@@ -80,12 +80,17 @@ export async function awardXp(
 
 // ===== Badge Management =====
 
+type FirebaseTimestamp = {
+  seconds: number;
+  nanoseconds: number;
+};
+
 export type Badge = {
   id: string;
   name: string;
   description: string;
   icon: string;
-  awardedAt: any;
+  awardedAt: FirebaseTimestamp | Date | string;
 };
 
 /**

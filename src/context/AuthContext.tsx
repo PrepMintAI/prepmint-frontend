@@ -17,9 +17,20 @@ type UserProfile = {
   level?: number;
   badges?: string[];
   institutionId?: string;
-  createdAt?: any;
+  accountType?: 'individual' | 'institution';
+  streak?: number;
+  lastActive?: string;
+  createdAt?: FirebaseTimestamp;
+  updatedAt?: FirebaseTimestamp;
+  lastLoginAt?: FirebaseTimestamp;
   photoURL?: string | null;
   // Add any other fields from your Firestore /users/{uid} doc
+};
+
+// Firebase Timestamp type
+type FirebaseTimestamp = {
+  seconds: number;
+  nanoseconds: number;
 };
 
 type AuthContextType = {

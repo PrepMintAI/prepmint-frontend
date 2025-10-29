@@ -435,7 +435,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <div className="p-8 text-center text-gray-600 text-sm">
                 <Bell size={48} className="mx-auto mb-3 text-gray-300" />
                 <p className="font-medium">No new notifications</p>
-                <p className="text-xs mt-1 text-gray-500">We'll notify you when something happens</p>
+                <p className="text-xs mt-1 text-gray-500">We&apos;ll notify you when something happens</p>
               </div>
             </div>
           </motion.div>

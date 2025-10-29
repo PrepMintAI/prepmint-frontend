@@ -553,7 +553,6 @@ export default function InstitutionDashboardHeader() {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-menu-title"

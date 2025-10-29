@@ -45,7 +45,7 @@ export default async function AdminDashboardPage() {
   return (
     <AppLayout>
       <div className="p-6">
-        <AdminDashboardClient userId={userId} />
+        <AdminDashboardClient />
       </div>
     </AppLayout>
   );

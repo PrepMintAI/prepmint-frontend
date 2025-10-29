@@ -190,10 +190,15 @@ export default function UploadForm({
       if (user.uid) {
         await awardXp(user.uid, XP_REWARDS.FIRST_UPLOAD, 'First answer sheet upload');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Upload error:', err);
-      setError(err.response?.data?.message || 'Failed to upload file. Please try again.');
-      onError?.(err.response?.data?.message || 'Upload failed');
+      const errorMessage = err && typeof err === 'object' && 'response' in err &&
+        err.response && typeof err.response === 'object' && 'data' in err.response &&
+        err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data
+        ? String(err.response.data.message)
+        : 'Failed to upload file. Please try again.';
+      setError(errorMessage);
+      onError?.(errorMessage);
     } finally {
       setUploading(false);
     }

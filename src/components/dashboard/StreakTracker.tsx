@@ -45,9 +45,7 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
       opacity: [1, 0.9, 1, 0.85, 1],
       transition: {
         duration: 1.5,
-        ease: 'easeInOut',
         repeat: Infinity,
-        repeatType: 'loop',
       },
     },
   };

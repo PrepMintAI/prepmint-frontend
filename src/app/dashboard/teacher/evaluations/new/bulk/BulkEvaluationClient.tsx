@@ -604,7 +604,7 @@ export function BulkEvaluationClient({ userId }: BulkEvaluationClientProps) {
                       <ul className="list-disc list-inside space-y-1 text-blue-800">
                         <li>AI will read and understand the marking scheme</li>
                         <li>Each answer sheet will be evaluated automatically</li>
-                        <li>You'll review and approve before finalizing</li>
+                        <li>You&apos;ll review and approve before finalizing</li>
                         <li>Results will be saved once you approve</li>
                       </ul>
                     </div>
@@ -653,7 +653,7 @@ export function BulkEvaluationClient({ userId }: BulkEvaluationClientProps) {
 
                 <h3 className="text-xl font-bold text-gray-900 mb-2">AI is Evaluating... ✨</h3>
                 <p className="text-gray-600">Processing {answerSheets.length} answer sheets</p>
-                <p className="text-sm text-gray-500 mt-2">Please don't close this page.</p>
+                <p className="text-sm text-gray-500 mt-2">Please don&apos;t close this page.</p>
               </div>
             )}
           </Card>
@@ -724,12 +724,12 @@ export function BulkEvaluationClient({ userId }: BulkEvaluationClientProps) {
               <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-900">
                 <p className="font-semibold mb-1">AI has done the heavy lifting! 🎯</p>
-                <p>Review the AI's evaluation, make adjustments if needed, and approve. You can:</p>
+                <p>Review the AI&apos;s evaluation, make adjustments if needed, and approve. You can:</p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-blue-800">
                   <li><strong>Approve as-is</strong> if AI evaluation looks good</li>
                   <li><strong>Adjust marks</strong> or add your comments</li>
                   <li><strong>Mark for revision</strong> to review later</li>
-                  <li><strong>Bulk approve</strong> if you trust AI's assessment</li>
+                  <li><strong>Bulk approve</strong> if you trust AI&apos;s assessment</li>
                 </ul>
               </div>
             </div>

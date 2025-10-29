@@ -59,10 +59,11 @@ export async function POST(request: NextRequest) {
       uid: uid,
       role: role, // Return actual role from Firestore
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Session API] Error creating session:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to create session', details: error.message },
+      { error: 'Failed to create session', details: errorMessage },
       { status: 500 }
     );
   }
@@ -77,7 +78,7 @@ export async function DELETE() {
     console.log('[Session API] Session deleted successfully');
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Session API] Error deleting session:', error);
     return NextResponse.json(
       { error: 'Failed to delete session' },

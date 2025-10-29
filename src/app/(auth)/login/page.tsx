@@ -117,10 +117,11 @@ export default function LoginPage() {
       // Redirect to dashboard
       router.push(`/dashboard/${role}`);
       
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Login] Error:', err);
-      
-      const errorMessage = getFirebaseErrorMessage(err.code);
+
+      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+      const errorMessage = getFirebaseErrorMessage(errorCode);
       setFirebaseError(errorMessage);
       
       setPassword('');
@@ -161,7 +162,7 @@ export default function LoginPage() {
         throw new Error('Failed to create session');
       }
 
-      const sessionData = await response.json();
+      await response.json();
       
       // Check if user profile exists
       const userDoc = await getDoc(doc(db, 'users', result.user.uid));
@@ -174,15 +175,17 @@ export default function LoginPage() {
         router.push('/dashboard/student');
       }
       
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Login] Google error:', err);
-      
-      if (err.code === 'auth/popup-closed-by-user') {
+
+      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+
+      if (errorCode === 'auth/popup-closed-by-user') {
         setFirebaseError('Sign-in cancelled. Please try again.');
-      } else if (err.code === 'auth/popup-blocked') {
+      } else if (errorCode === 'auth/popup-blocked') {
         setFirebaseError('Pop-up blocked. Please enable pop-ups for this site.');
       } else {
-        setFirebaseError(getFirebaseErrorMessage(err.code));
+        setFirebaseError(getFirebaseErrorMessage(errorCode));
       }
       
       setIsSubmitting(false);
@@ -197,7 +200,7 @@ export default function LoginPage() {
   const shakeAnimation = {
     shake: {
       x: [0, -8, 8, -8, 8, 0],
-      transition: { duration: 0.4, ease: 'easeInOut' },
+      transition: { duration: 0.4 },
     },
   };
 
@@ -502,7 +505,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-300 mt-8">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <a
             href="/signup"
             className="text-cyan-400 font-medium hover:text-cyan-300 hover:underline transition focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"

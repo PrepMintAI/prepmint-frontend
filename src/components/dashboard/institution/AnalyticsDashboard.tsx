@@ -16,7 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useState, useEffect, useRef } from 'react';
-import { motion, useAnimation, useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 
 // —————————————————————————————————————————————————————————————
@@ -79,33 +79,19 @@ const StatCard = ({
 
 // Animated Progress Bar — ✅ SSR-Safe
 const ProgressBar = ({ percentage }: { percentage: number }) => {
-  const controls = useAnimation();
-  const { ref, inView } = useInView({
+  const ref = useRef(null);
+  const inView = useInView(ref, {
     once: true, // Only trigger once
     margin: '0px 0px -50px 0px', // Trigger when 50px from bottom of viewport
   });
-  const hasMounted = useRef(false);
-
-  // Mark component as mounted on client
-  useEffect(() => {
-    hasMounted.current = true;
-  }, []);
-
-  // Animate only after mount and when in view
-  useEffect(() => {
-    if (!hasMounted.current) return; // Skip during SSR/hydration
-    if (inView) {
-      controls.start({ width: `${percentage}%` });
-    }
-  }, [controls, inView, percentage]);
 
   return (
     <div className="w-full bg-gray-200 rounded-full h-3.5 mt-4 relative">
       <motion.div
         ref={ref}
         initial={{ width: 0 }}
-        animate={controls}
-        transition={{ duration: 1.2, ease: 'easeOut' }}
+        animate={inView ? { width: `${percentage}%` } : { width: 0 }}
+        transition={{ duration: 1, ease: 'easeOut' }}
         className="h-3.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
       />
       <p className="text-right text-sm font-medium text-gray-700 mt-2">

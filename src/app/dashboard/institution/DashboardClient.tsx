@@ -1,30 +1,20 @@
 // src/app/dashboard/institution/DashboardClient.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Card from '@/components/common/Card';
-import Button from '@/components/common/Button';
-import { 
-  Users, BookOpen, Award, TrendingUp, Clock, Calendar, BarChart3, Building2, School2
+import {
+  Users, BookOpen, Award, Clock, BarChart3, Building2
 } from 'lucide-react';
 import {
   institutions,
-  students,
-  teachers,
-  tests,
   getStudentsByInstitution,
   getTeachersByInstitution,
   getTestsByInstitution
 } from '@/lib/comprehensiveMockData';
 
-interface DashboardClientProps {
-  userId: string;
-}
-
-export function DashboardClient({ userId }: DashboardClientProps) {
-  const router = useRouter();
+export function DashboardClient() {
   // For this view, assume institution id can be derived from userId or props
   // Replace 'inst_001' with real logic as needed
   const institutionId = 'inst_001';

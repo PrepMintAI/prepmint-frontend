@@ -322,9 +322,10 @@ export default function SignupPage() {
       // Redirect to dashboard
       router.push('/dashboard/student');
       
-    } catch (e: any) {
+    } catch (e) {
       console.error('[Signup] Signup error:', e);
-      const errorMessage = getFirebaseErrorMessage(e.code);
+      const errorCode = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
+      const errorMessage = getFirebaseErrorMessage(errorCode);
       setSubmitError(errorMessage);
       
       // Clear passwords on error
@@ -391,15 +392,17 @@ export default function SignupPage() {
       const sessionData = await response.json();
       router.push(`/dashboard/${sessionData.role}`);
       
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Signup] Google signup error:', err);
-      
-      if (err.code === 'auth/popup-closed-by-user') {
+
+      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+
+      if (errorCode === 'auth/popup-closed-by-user') {
         setSubmitError('Sign-up cancelled. Please try again.');
-      } else if (err.code === 'auth/popup-blocked') {
+      } else if (errorCode === 'auth/popup-blocked') {
         setSubmitError('Pop-up blocked. Please enable pop-ups for this site.');
       } else {
-        setSubmitError(getFirebaseErrorMessage(err.code));
+        setSubmitError(getFirebaseErrorMessage(errorCode));
       }
       
       setLoading(false);
@@ -410,7 +413,7 @@ export default function SignupPage() {
   const shakeAnimation = {
     shake: {
       x: [0, -8, 8, -8, 8, 0],
-      transition: { duration: 0.4, ease: 'easeInOut' },
+      transition: { duration: 0.4 },
     },
   };
 

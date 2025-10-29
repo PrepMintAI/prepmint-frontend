@@ -172,7 +172,7 @@ export function EvaluationDetailClient({ evaluationId, teacherId }: EvaluationDe
         <div className="text-center py-12">
           <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Evaluation Not Found</h3>
-          <p className="text-gray-600 mb-4">The evaluation you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-4">The evaluation you&apos;re looking for doesn&apos;t exist.</p>
           <Button onClick={() => router.push('/dashboard/teacher')}>
             Back to Dashboard
           </Button>

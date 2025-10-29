@@ -5,7 +5,8 @@ import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { EvaluationDetailsClient } from './EvaluationDetailsClient';
 
-export default async function EvaluationDetailsPage({ params }: { params: { id: string } }) {
+export default async function EvaluationDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
@@ -40,7 +41,7 @@ export default async function EvaluationDetailsPage({ params }: { params: { id: 
   return (
     <AppLayout>
       <div className="p-6">
-        <EvaluationDetailsClient evaluationId={params.id} userId={userId} userRole={userRole} />
+        <EvaluationDetailsClient evaluationId={resolvedParams.id} userId={userId} userRole={userRole} />
       </div>
     </AppLayout>
   );

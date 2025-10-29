@@ -81,7 +81,6 @@ export default function GamifiedXP() {
           transition={{ 
             duration: 6,
             repeat: Infinity,
-            ease: "easeInOut"
           }}
         />
         <motion.div 
@@ -93,7 +92,6 @@ export default function GamifiedXP() {
           transition={{ 
             duration: 8,
             repeat: Infinity,
-            ease: "easeInOut",
             delay: 1
           }}
         />
@@ -106,7 +104,6 @@ export default function GamifiedXP() {
           transition={{ 
             duration: 10,
             repeat: Infinity,
-            ease: "easeInOut",
             delay: 2
           }}
         />

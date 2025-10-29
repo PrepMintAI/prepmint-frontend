@@ -4,17 +4,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { getEvaluationStatus } from '@/lib/api';
 
+type EvaluationResult = {
+  score?: number;
+  feedback?: string;
+  details?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 type EvaluationStatus = {
   status: 'pending' | 'processing' | 'done' | 'failed';
   progress?: number;
-  result?: any;
+  result?: EvaluationResult;
   error?: string;
   jobId?: string;
 };
 
 type UseEvaluationPollOptions = {
   enabled?: boolean; // Allow pausing polling
-  onComplete?: (result: any) => void;
+  onComplete?: (result: EvaluationResult) => void;
   onError?: (error: string) => void;
 };
 
@@ -26,7 +33,7 @@ export default function useEvaluationPoll(
   const [status, setStatus] = useState<EvaluationStatus | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const stopped = useRef(false);
-  const timerRef = useRef<number | undefined>();
+  const timerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!jobId || !enabled) {
@@ -34,6 +41,9 @@ export default function useEvaluationPoll(
       setIsPolling(false);
       return;
     }
+
+    // Type narrowing: jobId is now guaranteed to be string
+    const validJobId: string = jobId;
 
     let interval = 2000; // Start with 2s
     const maxInterval = 8000; // Cap at 8s
@@ -44,7 +54,7 @@ export default function useEvaluationPoll(
       if (stopped.current) return;
 
       try {
-        const { data } = await getEvaluationStatus(jobId);
+        const { data } = await getEvaluationStatus(validJobId);
         setStatus(data);
 
         // Terminal states
@@ -67,9 +77,9 @@ export default function useEvaluationPoll(
             interval += 1000; // Gradually increase delay
           }
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Polling error:', error);
-        
+
         // Retry on network errors
         if (!stopped.current) {
           timerRef.current = window.setTimeout(poll, 5000);

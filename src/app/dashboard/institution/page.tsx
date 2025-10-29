@@ -45,7 +45,7 @@ export default async function InstitutionDashboardPage() {
   return (
     <AppLayout>
       <div className="p-6">
-        <DashboardClient userId={userId} />
+        <DashboardClient />
       </div>
     </AppLayout>
   );

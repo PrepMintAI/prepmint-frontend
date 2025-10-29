@@ -5,11 +5,12 @@ import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { AnalyticsClient } from './AnalyticsClient';
 
-export default async function AnalyticsPage({ 
-  searchParams 
-}: { 
-  searchParams: { student?: string; test?: string } 
+export default async function AnalyticsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ student?: string; test?: string }>
 }) {
+  const resolvedSearchParams = await searchParams;
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
@@ -45,11 +46,11 @@ export default async function AnalyticsPage({
   return (
     <AppLayout>
       <div className="p-6">
-        <AnalyticsClient 
-          userId={userId} 
+        <AnalyticsClient
+          userId={userId}
           userRole={userRole}
-          studentId={searchParams.student}
-          testId={searchParams.test}
+          studentId={resolvedSearchParams.student}
+          testId={resolvedSearchParams.test}
         />
       </div>
     </AppLayout>

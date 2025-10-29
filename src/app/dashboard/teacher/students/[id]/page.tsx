@@ -5,7 +5,8 @@ import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { StudentDetailClient } from './StudentDetailClient';
 
-export default async function StudentDetailPage({ params }: { params: { id: string } }) {
+export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('__session')?.value;
 
@@ -41,7 +42,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
   return (
     <AppLayout>
       <div className="p-6">
-        <StudentDetailClient studentId={params.id} userId={userId} userRole={userRole} />
+        <StudentDetailClient studentId={resolvedParams.id} userId={userId} userRole={userRole} />
       </div>
     </AppLayout>
   );

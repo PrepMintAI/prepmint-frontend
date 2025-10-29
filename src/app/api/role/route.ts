@@ -19,8 +19,9 @@ export async function GET() {
       role: data.role ?? 'student', 
       user: { uid, email: decoded.email } 
     });
-  } catch (e: any) {
-    return NextResponse.json({ role: 'guest', error: e?.message });
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ role: 'guest', error: errorMessage });
   }
 }
 
@@ -48,7 +49,8 @@ export async function POST(request: Request) {
     await adminAuth.setCustomUserClaims(uid, { role });
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

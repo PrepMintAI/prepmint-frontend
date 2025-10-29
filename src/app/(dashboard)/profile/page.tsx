@@ -10,7 +10,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
-import { User, Mail, Building2, Calendar, Award, Target, Trophy } from 'lucide-react';
+import { Mail, Building2, Calendar, Award, Target, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ProfilePage() {
@@ -35,12 +35,13 @@ export default function ProfilePage() {
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          const userData = { id: currentUser.uid, ...userDoc.data() };
+          const data = userDoc.data();
+          const userData = { id: currentUser.uid, ...data };
           setUser(userData);
           setFormData({
-            displayName: userData.displayName || '',
-            bio: userData.bio || '',
-            phoneNumber: userData.phoneNumber || '',
+            displayName: (data.displayName as string) || '',
+            bio: (data.bio as string) || '',
+            phoneNumber: (data.phoneNumber as string) || '',
           });
         }
       } catch (error) {

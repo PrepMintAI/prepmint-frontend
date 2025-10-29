@@ -26,7 +26,6 @@ const cardVariants = {
     transition: {
       delay: i * 0.1,
       duration: 0.5,
-      ease: 'easeOut',
     },
   }),
 };
@@ -178,7 +177,6 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
                     className="bg-white h-3 rounded-full shadow-sm"
                     initial={{ width: 0 }}
                     animate={{ width: `${xpProgress}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
                   />
                 </div>
                 <p className="text-sm text-white">

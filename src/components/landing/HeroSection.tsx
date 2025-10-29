@@ -65,7 +65,6 @@ type Particle = {
               transition={{
                 duration: p.duration,
                 repeat: Infinity,
-                ease: "easeInOut",
                 delay: p.delay,
               }}
             />

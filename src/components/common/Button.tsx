@@ -96,15 +96,16 @@ export function ButtonGroup({
         const isFirst = index === 0;
         const isLast = index === React.Children.count(children) - 1;
         
-        return React.cloneElement(child, {
+        const childElement = child as React.ReactElement<{ className?: string }>;
+        return React.cloneElement(childElement, {
           className: `
-            ${child.props.className || ''}
+            ${childElement.props.className || ''}
             ${!isFirst ? '-ml-px' : ''}
             ${!isFirst && !isLast ? 'rounded-none' : ''}
             ${isFirst ? 'rounded-r-none' : ''}
             ${isLast ? 'rounded-l-none' : ''}
           `,
-        } as any);
+        });
       })}
     </div>
   );

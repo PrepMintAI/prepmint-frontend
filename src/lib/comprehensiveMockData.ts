@@ -388,7 +388,7 @@ export const getInstitutionStats = (institutionId: string) => {
   const instStudents = students.filter(s => s.institutionId === institutionId);
   const totalPercentage = instStudents.reduce((sum, s) => sum + s.performance.overallPercentage, 0);
   const avgAttendance = instStudents.reduce((sum, s) => sum + s.performance.attendance, 0);
-  
+
   return {
     totalStudents: instStudents.length,
     averagePercentage: Math.floor(totalPercentage / instStudents.length),
@@ -397,3 +397,13 @@ export const getInstitutionStats = (institutionId: string) => {
     completedTests: tests.filter(t => t.institutionId === institutionId && t.status === 'completed').length,
   };
 };
+
+// Additional helper functions for institution dashboard
+export const getStudentsByInstitution = (institutionId: string) =>
+  students.filter(s => s.institutionId === institutionId);
+
+export const getTeachersByInstitution = (institutionId: string) =>
+  teachers.filter(t => t.institutionId === institutionId);
+
+export const getTestsByInstitution = (institutionId: string) =>
+  tests.filter(t => t.institutionId === institutionId);

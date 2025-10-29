@@ -372,7 +372,7 @@ export function SingleEvaluationClient({ userId, userRole }: SingleEvaluationCli
           {/* Answer Sheet */}
           <Card variant="elevated" padding="lg">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Answer Sheet</h2>
-            <p className="text-sm text-gray-600 mb-4">Upload student's answer sheet</p>
+            <p className="text-sm text-gray-600 mb-4">Upload student&apos;s answer sheet</p>
 
             {!answerSheet ? (
               <div {...getAnswerRootProps()} className={`p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${

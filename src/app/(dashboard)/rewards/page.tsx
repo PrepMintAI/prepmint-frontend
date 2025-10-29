@@ -9,7 +9,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/layout/AppLayout';
 import Card, { BadgeCard } from '@/components/common/Card';
-import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
 import { Award, Trophy, Star, Zap, Target, Gift } from 'lucide-react';
 import { calculateLevel } from '@/lib/gamify';

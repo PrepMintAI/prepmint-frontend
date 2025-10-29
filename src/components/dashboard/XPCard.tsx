@@ -55,7 +55,6 @@ export default function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
             className="bg-white h-4 rounded-full origin-left"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            transition={{ duration: 1.2, ease: 'easeOut', delay: 0.3 }}
             onMouseEnter={() => setIsTooltipVisible(true)}
             onMouseLeave={() => setIsTooltipVisible(false)}
             onFocus={() => setIsTooltipVisible(true)}

@@ -1,17 +1,16 @@
 // src/app/dashboard/admin/DashboardClient.tsx
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Card, { StatCard, CardHeader, CardBody, CardFooter } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
 import Button from '@/components/common/Button';
 import {
-  Users, Building, TrendingUp, Activity, Shield, AlertTriangle,
-  UserPlus, Search, Filter, MoreVertical, Edit, Trash2, Eye,
-  CheckCircle, XCircle, Clock
+  Users, Building, TrendingUp, Activity, Shield,
+  UserPlus, Search, Edit, Trash2, Eye,
+  Clock
 } from 'lucide-react';
 
 // Animation variants
@@ -23,14 +22,9 @@ const cardVariants = {
     transition: {
       delay: i * 0.1,
       duration: 0.5,
-      ease: 'easeOut',
     },
   }),
 };
-
-interface AdminDashboardClientProps {
-  userId: string;
-}
 
 interface User {
   id: string;
@@ -54,9 +48,8 @@ interface Institution {
   joinedAt: string;
 }
 
-export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+export function AdminDashboardClient() {
+  const { loading } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'institutions'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'student' | 'teacher' | 'admin'>('all');

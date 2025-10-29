@@ -10,7 +10,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
-import { Settings as SettingsIcon, Bell, Shield, Palette, Globe } from 'lucide-react';
+import { Bell, Shield, Palette } from 'lucide-react';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -46,12 +46,13 @@ export default function SettingsPage() {
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          const userData = { id: currentUser.uid, ...userDoc.data() };
+          const data = userDoc.data();
+          const userData = { id: currentUser.uid, ...data };
           setUser(userData);
-          
+
           // Load saved settings
-          if (userData.settings) {
-            setSettings({ ...settings, ...userData.settings });
+          if (data.settings) {
+            setSettings((prevSettings) => ({ ...prevSettings, ...data.settings }));
           }
         }
       } catch (error) {
