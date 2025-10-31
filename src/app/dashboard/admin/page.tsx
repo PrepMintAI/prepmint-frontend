@@ -44,8 +44,8 @@ export default async function AdminDashboardPage() {
 
   return (
     <AppLayout>
-      <div className="p-6">
-        <AdminDashboardClient />
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <AdminDashboardClient userId={userId} />
       </div>
     </AppLayout>
   );

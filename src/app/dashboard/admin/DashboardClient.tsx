@@ -1,8 +1,11 @@
 // src/app/dashboard/admin/DashboardClient.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase.client';
+import { doc, getDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Card, { StatCard, CardHeader, CardBody, CardFooter } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -10,7 +13,8 @@ import Button from '@/components/common/Button';
 import {
   Users, Building, TrendingUp, Activity, Shield,
   UserPlus, Search, Edit, Trash2, Eye,
-  Clock
+  Clock, Settings, CheckCircle, AlertCircle, XCircle,
+  Database, Zap, Globe, Server, ChevronRight
 } from 'lucide-react';
 
 // Animation variants
@@ -48,12 +52,37 @@ interface Institution {
   joinedAt: string;
 }
 
-export function AdminDashboardClient() {
-  const { loading } = useAuth();
+interface AdminDashboardClientProps {
+  userId: string;
+}
+
+export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
+  const [_firebaseUser, _setFirebaseUser] = useState<{ uid?: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'institutions'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'student' | 'teacher' | 'admin'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'suspended' | 'pending'>('all');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            // Firebase user data loaded
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Mock data - TODO: Replace with real API calls
   const stats = {
@@ -148,7 +177,7 @@ export function AdminDashboardClient() {
     return true;
   });
 
-  if (loading) {
+  if (isLoading) {
     return <Spinner fullScreen label="Loading admin dashboard..." />;
   }
 
@@ -254,7 +283,7 @@ export function AdminDashboardClient() {
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Quick Actions */}
+          {/* Quick Action Cards */}
           <motion.div
             custom={1}
             variants={cardVariants}
@@ -262,65 +291,221 @@ export function AdminDashboardClient() {
             animate="visible"
             className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
-            <Card variant="bordered" hover clickable onClick={() => setActiveTab('users')}>
-              <CardBody className="text-center py-6">
-                <UserPlus size={32} className="mx-auto mb-3 text-blue-600" />
-                <h3 className="font-semibold text-gray-900 mb-1">Add New User</h3>
-                <p className="text-sm text-gray-600">Create student, teacher, or admin account</p>
-              </CardBody>
-            </Card>
+            <button onClick={() => setActiveTab('users')} className="text-left">
+              <Card variant="elevated" padding="lg" hover className="bg-gradient-to-br from-blue-50 to-cyan-50 h-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                    <UserPlus className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">Add User</h3>
+                    <p className="text-sm text-gray-600">Create new account</p>
+                  </div>
+                  <ChevronRight className="text-gray-400" size={20} />
+                </div>
+              </Card>
+            </button>
 
-            <Card variant="bordered" hover clickable onClick={() => setActiveTab('institutions')}>
-              <CardBody className="text-center py-6">
-                <Building size={32} className="mx-auto mb-3 text-green-600" />
-                <h3 className="font-semibold text-gray-900 mb-1">Add Institution</h3>
-                <p className="text-sm text-gray-600">Register a new school or training center</p>
-              </CardBody>
-            </Card>
+            <button onClick={() => setActiveTab('institutions')} className="text-left">
+              <Card variant="elevated" padding="lg" hover className="bg-gradient-to-br from-green-50 to-emerald-50 h-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                    <Building className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">Add Institution</h3>
+                    <p className="text-sm text-gray-600">Register new school</p>
+                  </div>
+                  <ChevronRight className="text-gray-400" size={20} />
+                </div>
+              </Card>
+            </button>
 
-            <Card variant="bordered" hover clickable>
-              <CardBody className="text-center py-6">
-                <Shield size={32} className="mx-auto mb-3 text-purple-600" />
-                <h3 className="font-semibold text-gray-900 mb-1">System Settings</h3>
-                <p className="text-sm text-gray-600">Configure platform settings</p>
-              </CardBody>
-            </Card>
+            <button onClick={() => router.push('/settings')} className="text-left">
+              <Card variant="elevated" padding="lg" hover className="bg-gradient-to-br from-purple-50 to-pink-50 h-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                    <Settings className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1">System Settings</h3>
+                    <p className="text-sm text-gray-600">Configure platform</p>
+                  </div>
+                  <ChevronRight className="text-gray-400" size={20} />
+                </div>
+              </Card>
+            </button>
           </motion.div>
 
-          {/* Recent Activity */}
-          <motion.div
-            custom={2}
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <Card variant="elevated" padding="lg">
-              <CardHeader
-                title="Recent Activity"
-                icon={<Clock size={20} />}
-                action={<Button size="sm" variant="ghost">View All</Button>}
-              />
-              <CardBody>
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent Activity */}
+            <motion.div
+              custom={2}
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              <Card variant="elevated" padding="lg" className="h-full">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Activity className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
+                    <p className="text-sm text-gray-600">Latest platform events</p>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   {[
-                    { action: 'New user registered', detail: 'Alice Johnson (Student)', time: '5 mins ago', icon: '👤' },
-                    { action: 'Institution activated', detail: 'Tech Training Academy', time: '30 mins ago', icon: '🏢' },
-                    { action: 'User suspended', detail: 'David Brown (Teacher)', time: '1 hour ago', icon: '🚫' },
-                    { action: 'System update completed', detail: 'Version 2.1.0', time: '2 hours ago', icon: '✅' },
+                    {
+                      action: 'New user registered',
+                      detail: 'Alice Johnson (Student)',
+                      time: '5 mins ago',
+                      icon: <UserPlus size={18} className="text-blue-600" />,
+                      color: 'from-blue-400 to-cyan-500'
+                    },
+                    {
+                      action: 'Institution activated',
+                      detail: 'Tech Training Academy',
+                      time: '30 mins ago',
+                      icon: <Building size={18} className="text-green-600" />,
+                      color: 'from-green-400 to-emerald-500'
+                    },
+                    {
+                      action: 'User suspended',
+                      detail: 'David Brown (Teacher)',
+                      time: '1 hour ago',
+                      icon: <XCircle size={18} className="text-red-600" />,
+                      color: 'from-red-400 to-rose-500'
+                    },
+                    {
+                      action: 'System update completed',
+                      detail: 'Version 2.1.0 deployed',
+                      time: '2 hours ago',
+                      icon: <CheckCircle size={18} className="text-green-600" />,
+                      color: 'from-green-400 to-emerald-500'
+                    },
+                    {
+                      action: 'Database backup completed',
+                      detail: 'All collections backed up',
+                      time: '3 hours ago',
+                      icon: <Database size={18} className="text-purple-600" />,
+                      color: 'from-purple-400 to-pink-500'
+                    },
                   ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                      <span className="text-2xl">{item.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{item.action}</p>
-                        <p className="text-xs text-gray-500">{item.detail}</p>
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.1 }}
+                      className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center flex-shrink-0`}>
+                        {item.icon}
                       </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">{item.time}</span>
-                    </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{item.action}</p>
+                        <p className="text-xs text-gray-600 mt-1">{item.detail}</p>
+                        <p className="text-xs text-gray-400 mt-1">{item.time}</p>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
-              </CardBody>
-            </Card>
-          </motion.div>
+              </Card>
+            </motion.div>
+
+            {/* System Status */}
+            <motion.div
+              custom={2}
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              <Card variant="elevated" padding="lg" className="h-full">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Shield className="text-green-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">System Status</h3>
+                    <p className="text-sm text-gray-600">Infrastructure health</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Server className="text-green-600" size={18} />
+                        <span className="text-sm font-medium text-gray-700">Server Status</span>
+                      </div>
+                      <CheckCircle className="text-green-600" size={18} />
+                    </div>
+                    <p className="text-xs text-gray-600">All systems operational</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-full bg-green-200 rounded-full h-2">
+                        <div className="bg-green-600 h-2 rounded-full" style={{ width: '98%' }}></div>
+                      </div>
+                      <span className="text-xs font-semibold text-green-600">98%</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Database className="text-blue-600" size={18} />
+                        <span className="text-sm font-medium text-gray-700">Database</span>
+                      </div>
+                      <CheckCircle className="text-green-600" size={18} />
+                    </div>
+                    <p className="text-xs text-gray-600">Connected and responsive</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: '95%' }}></div>
+                      </div>
+                      <span className="text-xs font-semibold text-blue-600">95%</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Zap className="text-purple-600" size={18} />
+                        <span className="text-sm font-medium text-gray-700">API Performance</span>
+                      </div>
+                      <CheckCircle className="text-green-600" size={18} />
+                    </div>
+                    <p className="text-xs text-gray-600">Average response: 120ms</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-full bg-purple-200 rounded-full h-2">
+                        <div className="bg-purple-600 h-2 rounded-full" style={{ width: '96%' }}></div>
+                      </div>
+                      <span className="text-xs font-semibold text-purple-600">96%</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Globe className="text-orange-600" size={18} />
+                        <span className="text-sm font-medium text-gray-700">CDN Network</span>
+                      </div>
+                      <CheckCircle className="text-green-600" size={18} />
+                    </div>
+                    <p className="text-xs text-gray-600">Global edge nodes active</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="w-full bg-orange-200 rounded-full h-2">
+                        <div className="bg-orange-600 h-2 rounded-full" style={{ width: '99%' }}></div>
+                      </div>
+                      <span className="text-xs font-semibold text-orange-600">99%</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       )}
 

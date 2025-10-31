@@ -24,8 +24,19 @@ const mockLeaderboard = [
   { rank: 10, name: 'Vihaan Nair', xp: 8120, level: 8, avatar: '🎪', streak: 18, school: 'Modern School', badge: '' },
 ];
 
+interface LeaderboardUser {
+  rank: number;
+  name: string;
+  xp: number;
+  level: number;
+  avatar: string;
+  streak: number;
+  school: string;
+  badge: string;
+}
+
 export default function LeaderboardPage() {
-  const [currentUser, setCurrentUser] = useState<Record<string, unknown> | null>(null);
+  const [currentUser, setCurrentUser] = useState<LeaderboardUser | null>(null);
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'alltime'>('week');
   const [scopeFilter, setScopeFilter] = useState<'global' | 'school'>('global');
   const [userSchool, setUserSchool] = useState<string | null>(null);
@@ -45,6 +56,9 @@ export default function LeaderboardPage() {
               xp: userData.xp || 2500,
               level: Math.floor(Math.sqrt((userData.xp || 2500) / 100)) + 1,
               school: userData.institutionName || 'No School',
+              avatar: '🎮',
+              streak: userData.streak || 0,
+              badge: '',
             });
           }
         } catch (error) {
@@ -66,7 +80,7 @@ export default function LeaderboardPage() {
     } else {
       setFilteredLeaderboard(mockLeaderboard);
     }
-  }, [scopeuserSchool]);
+  }, [scopeFilter, userSchool]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return { icon: '👑', color: 'from-yellow-400 to-yellow-600', glow: 'shadow-yellow-500/50' };
