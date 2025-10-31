@@ -1,15 +1,14 @@
 // src/lib/gamify.ts
 import { db } from '@/lib/firebase.client';
-import { 
-  doc, 
-  updateDoc, 
-  increment, 
-  arrayUnion, 
+import {
+  doc,
+  updateDoc,
+  increment,
+  arrayUnion,
   serverTimestamp,
-  setDoc,
-  getDoc 
+  getDoc
 } from 'firebase/firestore';
-import { awardXp as apiAwardXp, getUserBadges as apiGetUserBadges } from '@/lib/api';
+import { awardXp as apiAwardXp } from '@/lib/api';
 
 // ===== XP Management =====
 

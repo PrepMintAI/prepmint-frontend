@@ -22,7 +22,7 @@ export default async function EvaluationDetailPage({ params }: PageProps) {
   let userRole: string | null = null;
 
   try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
     userRole = decoded.role || 'student';
 

@@ -11,6 +11,7 @@ import Cookies from 'js-cookie';
 type UserProfile = {
   uid: string;
   email: string | null;
+  emailVerified: boolean; // Email verification status
   displayName?: string | null;
   role?: 'student' | 'teacher' | 'admin' | 'institution';
   xp?: number;
@@ -75,6 +76,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        // Check email verification
+        if (!currentUser.emailVerified) {
+          console.log('[AuthContext] Email not verified for user:', currentUser.email);
+          // Don't set user - force verification first
+          // Exception: Allow access to verify-email page
+          const isVerifyEmailPage = typeof window !== 'undefined' && window.location.pathname === '/verify-email';
+
+          if (!isVerifyEmailPage) {
+            Cookies.remove('token');
+            setFirebaseUser(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+
+          // For verify-email page, set basic user info
+          setFirebaseUser(currentUser);
+          setUser({
+            uid: currentUser.uid,
+            email: currentUser.email,
+            emailVerified: false,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL,
+            role: 'student',
+          });
+          setLoading(false);
+          return;
+        }
+
         try {
           console.log('[AuthContext] Fetching user profile for:', currentUser.uid);
 
@@ -93,10 +123,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (userSnap.exists()) {
             const profileData = userSnap.data();
             console.log('[AuthContext] Profile loaded:', profileData.role);
-            
+
             setUser({
               uid: currentUser.uid,
               email: currentUser.email,
+              emailVerified: currentUser.emailVerified, // Include verification status
               displayName: currentUser.displayName || profileData.displayName,
               photoURL: currentUser.photoURL,
               ...profileData, // Merge Firestore fields (role, xp, badges, etc.)
@@ -108,6 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser({
               uid: currentUser.uid,
               email: currentUser.email,
+              emailVerified: currentUser.emailVerified,
               displayName: currentUser.displayName,
               photoURL: currentUser.photoURL,
               role: 'student', // Default role
@@ -122,6 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser({
             uid: currentUser.uid,
             email: currentUser.email,
+            emailVerified: currentUser.emailVerified,
             displayName: currentUser.displayName,
             photoURL: currentUser.photoURL,
             role: 'student', // Default role

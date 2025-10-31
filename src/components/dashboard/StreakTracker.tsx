@@ -1,18 +1,49 @@
 // src/components/dashboard/StreakTracker.tsx
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, MoreVertical, RefreshCw, Star } from 'lucide-react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface StreakTrackerProps {
   streak: number;
 }
 
-export default function StreakTracker({ streak }: StreakTrackerProps) {
+function StreakTracker({ streak }: StreakTrackerProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  // Memoize motivational text to avoid recalculation
+  const motivationalText = useMemo(() => {
+    if (streak >= 30) return "🔥 Legend status! Keep dominating!";
+    if (streak >= 14) return "💪 Almost a month! Don't stop now!";
+    if (streak >= 7) return "🌟 Weekly warrior! Keep the fire alive!";
+    if (streak >= 3) return "✨ Nice momentum! 1 more day to level up!";
+    return "🌱 Great start! Come back tomorrow to grow your streak!";
+  }, [streak]);
+
+  // Memoize callbacks
+  const handleClaimReward = useCallback(() => {
+    console.log('Claiming streak reward...');
+    setShowOptions(false);
+  }, []);
+
+  const handleResetStreak = useCallback(() => {
+    if (confirm('Are you sure you want to reset your streak? This cannot be undone.')) {
+      console.log('Resetting streak...');
+      setShowOptions(false);
+    }
+  }, []);
+
+  const toggleOptions = useCallback(() => {
+    setShowOptions(prev => !prev);
+  }, []);
+
+  const showTooltip = useCallback(() => setIsTooltipVisible(true), []);
+  const hideTooltip = useCallback(() => setIsTooltipVisible(false), []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -25,39 +56,20 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleClaimReward = () => {
-    console.log('Claiming streak reward...');
-    setShowOptions(false);
-  };
-
-  const handleResetStreak = () => {
-    if (confirm('Are you sure you want to reset your streak? This cannot be undone.')) {
-      console.log('Resetting streak...');
-      setShowOptions(false);
-    }
-  };
-
-  // Flame flicker animation variants
-  const flameVariants = {
-    flicker: {
-      scale: [1, 1.05, 0.95, 1.03, 1],
-      rotate: [0, 2, -2, 1, 0],
-      opacity: [1, 0.9, 1, 0.85, 1],
-      transition: {
-        duration: 1.5,
-        repeat: Infinity,
-      },
-    },
-  };
-
-  // Tooltip text based on streak length
-  const getMotivationalText = () => {
-    if (streak >= 30) return "🔥 Legend status! Keep dominating!";
-    if (streak >= 14) return "💪 Almost a month! Don’t stop now!";
-    if (streak >= 7) return "🌟 Weekly warrior! Keep the fire alive!";
-    if (streak >= 3) return "✨ Nice momentum! 1 more day to level up!";
-    return "🌱 Great start! Come back tomorrow to grow your streak!";
-  };
+  // Memoize flame animation variants (disable if user prefers reduced motion)
+  const flameVariants = useMemo(() => ({
+    flicker: prefersReducedMotion
+      ? {}
+      : {
+          scale: [1, 1.05, 0.95, 1.03, 1],
+          rotate: [0, 2, -2, 1, 0],
+          opacity: [1, 0.9, 1, 0.85, 1],
+          transition: {
+            duration: 1.5,
+            repeat: Infinity,
+          },
+        },
+  }), [prefersReducedMotion]);
 
   return (
     <motion.div
@@ -103,13 +115,13 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
       {/* Tooltip Trigger Area */}
       <div
         className="mt-4 p-3 rounded-lg bg-white/10 cursor-help"
-        onMouseEnter={() => setIsTooltipVisible(true)}
-        onMouseLeave={() => setIsTooltipVisible(false)}
-        onFocus={() => setIsTooltipVisible(true)}
-        onBlur={() => setIsTooltipVisible(false)}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        onFocus={showTooltip}
+        onBlur={hideTooltip}
         tabIndex={0}
         role="button"
-        aria-label={getMotivationalText()}
+        aria-label={motivationalText}
       >
         <p className="text-sm opacity-90 text-center">
           Keep learning daily to earn bonus XP!
@@ -128,7 +140,7 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
             role="tooltip"
             aria-live="assertive"
           >
-            {getMotivationalText()}
+            {motivationalText}
           </motion.div>
         )}
       </AnimatePresence>
@@ -136,7 +148,7 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
       {/* Options Dropdown */}
       <div className="absolute top-4 right-4" ref={dropdownRef}>
         <button
-          onClick={() => setShowOptions(!showOptions)}
+          onClick={toggleOptions}
           className="p-2 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-500 transition-colors"
           aria-label="Streak options"
           aria-expanded={showOptions}
@@ -178,3 +190,6 @@ export default function StreakTracker({ streak }: StreakTrackerProps) {
     </motion.div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(StreakTracker);

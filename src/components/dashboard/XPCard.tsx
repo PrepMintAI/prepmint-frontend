@@ -1,7 +1,7 @@
 // src/components/dashboard/XPCard.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Coins } from 'lucide-react';
 
@@ -11,13 +11,19 @@ interface XPCardProps {
   xpToNextLevel: number;
 }
 
-export default function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
-  // Calculate progress within current level (assuming 1000 XP per level)
-  const xpInCurrentLevel = xp % 1000;
-  const progress = (xpInCurrentLevel / 1000) * 100;
-
+function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
   // Tooltip state
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+
+  // Memoize progress calculations
+  const progressData = useMemo(() => {
+    const xpInCurrentLevel = xp % 1000;
+    const progress = (xpInCurrentLevel / 1000) * 100;
+    return { xpInCurrentLevel, progress };
+  }, [xp]);
+
+  const handleTooltipShow = useCallback(() => setIsTooltipVisible(true), []);
+  const handleTooltipHide = useCallback(() => setIsTooltipVisible(false), []);
 
   return (
     <motion.div
@@ -46,19 +52,19 @@ export default function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
         <div
           className="w-full bg-white bg-opacity-20 rounded-full h-4"
           role="progressbar"
-          aria-valuenow={xpInCurrentLevel}
+          aria-valuenow={progressData.xpInCurrentLevel}
           aria-valuemin={0}
           aria-valuemax={1000}
-          aria-label={`${xpInCurrentLevel} out of 1000 XP for level ${level + 1}`}
+          aria-label={`${progressData.xpInCurrentLevel} out of 1000 XP for level ${level + 1}`}
         >
           <motion.div
             className="bg-white h-4 rounded-full origin-left"
             initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            onMouseEnter={() => setIsTooltipVisible(true)}
-            onMouseLeave={() => setIsTooltipVisible(false)}
-            onFocus={() => setIsTooltipVisible(true)}
-            onBlur={() => setIsTooltipVisible(false)}
+            animate={{ width: `${progressData.progress}%` }}
+            onMouseEnter={handleTooltipShow}
+            onMouseLeave={handleTooltipHide}
+            onFocus={handleTooltipShow}
+            onBlur={handleTooltipHide}
             tabIndex={0}
           />
         </div>
@@ -75,7 +81,7 @@ export default function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
               role="tooltip"
               aria-live="polite"
             >
-              {xpInCurrentLevel} / 1000 XP this level
+              {progressData.xpInCurrentLevel} / 1000 XP this level
             </motion.div>
           )}
         </AnimatePresence>
@@ -88,3 +94,6 @@ export default function XPCard({ xp, level, xpToNextLevel }: XPCardProps) {
     </motion.div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(XPCard);

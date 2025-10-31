@@ -3,6 +3,9 @@ import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Mark this route as dynamic (not statically generated during build)
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { idToken } = await request.json();
@@ -15,13 +18,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the ID token
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const decodedToken = await adminAuth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
     console.log('[Session API] Creating session for user:', uid);
 
     // Get user role from Firestore
-    const userDoc = await adminDb.collection('users').doc(uid).get();
+    const userDoc = await adminDb().collection('users').doc(uid).get();
     
     if (!userDoc.exists) {
       console.error('[Session API] User document not found:', uid);
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Create session cookie (expires in 7 days)
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
-    const sessionCookie = await adminAuth.createSessionCookie(idToken, {
+    const sessionCookie = await adminAuth().createSessionCookie(idToken, {
       expiresIn,
     });
 

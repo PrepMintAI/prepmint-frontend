@@ -4,13 +4,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import Card, { CardHeader, CardBody, CardFooter } from '@/components/common/Card';
+import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
 import { awardXp, XP_REWARDS } from '@/lib/gamify';
 import {
   ArrowLeft, Download, Check, X, AlertCircle, User, Calendar,
-  Clock, FileText, MessageSquare, ThumbsUp, ThumbsDown, Eye, ZoomIn, ZoomOut
+  Clock, FileText, ThumbsUp, ThumbsDown, ZoomIn, ZoomOut
 } from 'lucide-react';
 
 interface EvaluationDetailClientProps {

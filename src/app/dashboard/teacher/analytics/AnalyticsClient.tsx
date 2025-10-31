@@ -9,7 +9,7 @@ import Button from '@/components/common/Button';
 import { 
   ArrowLeft, TrendingUp, TrendingDown, Award, Target,
   Calendar, BarChart3, PieChart, Activity, Download,
-  Filter, Users, BookOpen, Clock, AlertCircle, CheckCircle
+  Clock, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { 
   getStudentById,

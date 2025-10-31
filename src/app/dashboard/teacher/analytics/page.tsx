@@ -22,17 +22,9 @@ export default async function AnalyticsPage({
   let userRole: string;
 
   try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
-
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    
-    if (!userDoc.exists) {
-      redirect('/login');
-    }
-
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
+    userRole = decoded.role || 'student';
   } catch (error) {
     console.error('[Analytics Page] Session verification failed:', error);
     redirect('/login');

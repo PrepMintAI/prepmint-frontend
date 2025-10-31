@@ -22,7 +22,7 @@ export default function UploadForm({
   testId,
   onSuccess,
   onError,
-  acceptedFileTypes = 'image/*,.pdf',
+  acceptedFileTypes = '.pdf,.jpg,.jpeg,.png',
   maxFileSize = 10,
 }: UploadFormProps) {
   const { user } = useAuth();
@@ -65,27 +65,50 @@ export default function UploadForm({
 
   // Validate file
   const validateFile = useCallback((file: File): string | null => {
-    // Check file size
-    if (file.size > maxFileSize * 1024 * 1024) {
+    // 1. File size check (10MB max)
+    const maxSizeBytes = maxFileSize * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
       return `File size must be less than ${maxFileSize}MB`;
     }
 
-    // Check file type
-    const fileType = file.type;
-    const acceptedTypes = acceptedFileTypes.split(',').map(t => t.trim());
-    
-    const isValidType = acceptedTypes.some(type => {
-      if (type === 'image/*') return fileType.startsWith('image/');
-      if (type === '.pdf') return fileType === 'application/pdf';
-      return fileType === type;
-    });
+    // 2. File type whitelist (STRICT: only PDF, JPG, PNG)
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      return 'Only PDF, JPG, and PNG files are allowed';
+    }
 
-    if (!isValidType) {
-      return 'Invalid file type. Please upload an image or PDF.';
+    // 3. File name validation (prevent path traversal attacks)
+    const fileName = file.name;
+
+    // Check for path traversal patterns
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return 'Invalid file name. Please remove special characters.';
+    }
+
+    // Check for null bytes (potential attack vector)
+    if (fileName.includes('\0')) {
+      return 'Invalid file name detected';
+    }
+
+    // Check file name length (prevent DOS)
+    if (fileName.length > 255) {
+      return 'File name is too long. Please rename the file.';
+    }
+
+    // Check for valid file extension
+    const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const fileExtension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+    if (!validExtensions.includes(fileExtension)) {
+      return 'Invalid file extension. Only PDF, JPG, and PNG files are allowed.';
+    }
+
+    // 4. File size minimum check (prevent 0-byte files)
+    if (file.size === 0) {
+      return 'File is empty. Please select a valid file.';
     }
 
     return null;
-  }, [acceptedFileTypes, maxFileSize]);
+  }, [maxFileSize]);
 
   // Handle file selection
   const handleFileSelect = useCallback((selectedFile: File) => {

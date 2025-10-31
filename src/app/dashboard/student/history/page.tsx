@@ -10,9 +10,9 @@ import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Calendar, Clock, TrendingUp, Award, Target, 
-  CheckCircle, XCircle, AlertCircle, Eye, Download,
-  Filter, Search
+  Calendar, Clock, Award, 
+  CheckCircle, XCircle, Eye, Download,
+  Search
 } from 'lucide-react';
 
 // Mock history data
@@ -76,7 +76,7 @@ const mockHistory = [
 ];
 
 export default function HistoryPage() {
-  const [userData, setUserData] = useState<any>(null);
+  const [_userData] = useState<Record<string, unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filterSubject, setFilterSubject] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,7 +93,7 @@ export default function HistoryPage() {
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
-          setUserData({ ...userDoc.data(), uid: user.uid });
+          // User data loaded
         }
       } catch (error) {
         console.error('Error:', error);

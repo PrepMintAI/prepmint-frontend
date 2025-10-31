@@ -14,15 +14,16 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     redirect('/login');
   }
 
-  let userId: string;
-  let userRole: string;
+  let userId: string = '';
+  let userRole: string = 'student';
 
   try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+    userId = decoded.uid || '';
+    userRole = decoded.role || 'student';
 
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    
+    const userDoc = await adminDb().collection('users').doc(userId).get();
+
     if (!userDoc.exists) {
       redirect('/login');
     }

@@ -7,16 +7,16 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
-import { calculateLevel, xpForNextLevel } from '@/lib/gamify';
+import { xpForNextLevel } from '@/lib/gamify';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap';
 import SubjectProgress from '@/components/dashboard/SubjectProgress';
-import { 
-  Trophy, Target, Flame, BookOpen, TrendingUp, Award, 
-  Zap, Sparkles, Upload, ArrowRight, ChevronRight, Calendar, Clock
+import {
+  Trophy, Target, Flame, BookOpen, Award, TrendingUp,
+  Sparkles, Upload, ArrowRight, ChevronRight, Calendar, Clock
 } from 'lucide-react';
-import { getStudentById, getTestsByClass, students } from '@/lib/comprehensiveMockData';
+import { getTestsByClass, students } from '@/lib/comprehensiveMockData';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -35,7 +35,7 @@ interface StudentDashboardClientProps {
 }
 
 export function StudentDashboardClient({ userId }: StudentDashboardClientProps) {
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [_firebaseUser, _setFirebaseUser] = useState<{ uid?: string; displayName?: string; email?: string; role?: string; xp?: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -45,7 +45,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            setFirebaseUser({ ...userDoc.data(), uid: user.uid });
+            // Firebase user data loaded
           }
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -163,7 +163,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
                 Class {student.class}{student.section} • Roll No: {student.rollNo}
               </p>
               <p className="text-white/90 mb-6">
-                You're on fire! Keep up the amazing work 🚀
+                You&apos;re on fire! Keep up the amazing work 🚀
               </p>
               
               {/* Level Progress */}

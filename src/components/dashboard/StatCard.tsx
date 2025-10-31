@@ -1,5 +1,5 @@
 // src/components/dashboard/StatCard.tsx
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 
 interface StatCardProps {
   label: string;
@@ -10,9 +10,10 @@ interface StatCardProps {
     isPositive: boolean;
   };
   className?: string;
+  variant?: 'default' | 'gradient';
 }
 
-export default function StatCard({ label, value, icon, trend, className = '' }: StatCardProps) {
+function StatCard({ label, value, icon, trend, className = '', variant = 'default' }: StatCardProps) {
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${className}`}>
       <div className="flex items-center justify-between">
@@ -40,5 +41,10 @@ export default function StatCard({ label, value, icon, trend, className = '' }: 
   );
 }
 
+// Memoize to prevent unnecessary re-renders when parent re-renders
+const MemoizedStatCard = React.memo(StatCard);
+
+export default MemoizedStatCard;
+
 // Also export as named export for compatibility
-export { StatCard };
+export { MemoizedStatCard as StatCard };

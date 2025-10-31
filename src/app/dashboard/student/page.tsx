@@ -18,11 +18,11 @@ export default async function StudentDashboardPage() {
 
   try {
     // Verify session cookie
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
 
     // Get user role from Firestore (server-side)
-    const userDoc = await adminDb.collection('users').doc(userId).get();
+    const userDoc = await adminDb().collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
       console.error('[Student Dashboard] User document not found');

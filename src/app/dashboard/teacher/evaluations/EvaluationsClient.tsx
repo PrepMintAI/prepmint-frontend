@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { 
-  CheckCircle, Clock, Upload, Users, FileText,
-  Filter, Search, Calendar, AlertCircle, Eye,
+  CheckCircle, Clock, Users, FileText,
+  Search, Calendar, AlertCircle, Eye,
   TrendingUp, Award, Plus, Zap
 } from 'lucide-react';
 import { getTestsByTeacher, getTeacherById, tests, teachers } from '@/lib/comprehensiveMockData';

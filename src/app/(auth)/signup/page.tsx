@@ -4,11 +4,12 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, db } from '@/lib/firebase.client';
-import { 
-  createUserWithEmailAndPassword, 
-  updateProfile, 
-  signInWithPopup, 
-  GoogleAuthProvider
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  sendEmailVerification
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -275,14 +276,19 @@ export default function SignupPage() {
       // Step 1: Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       console.log('[Signup] Auth user created:', cred.user.uid);
-      
+
       // Step 2: Update display name
       await updateProfile(cred.user, { displayName: name.trim() });
 
-      // Step 3: Get ID token
+      // Step 3: Send email verification
+      console.log('[Signup] Sending verification email...');
+      await sendEmailVerification(cred.user);
+      console.log('[Signup] Verification email sent');
+
+      // Step 4: Get ID token
       const idToken = await cred.user.getIdToken(true);
 
-      // Step 4: Create Firestore user profile
+      // Step 5: Create Firestore user profile
       const userProfile = {
         uid: cred.user.uid,
         email: cred.user.email,
@@ -303,24 +309,10 @@ export default function SignupPage() {
       console.log('[Signup] Creating Firestore profile...');
       await setDoc(doc(db, 'users', cred.user.uid), userProfile);
 
-      // Step 5: Create session cookie via API
-      console.log('[Signup] Creating session cookie...');
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ idToken }),
-      });
+      console.log('[Signup] Account created successfully! Redirecting to email verification...');
 
-      if (!response.ok) {
-        throw new Error('Failed to create session');
-      }
-
-      console.log('[Signup] Account created successfully! Redirecting...');
-
-      // Redirect to dashboard
-      router.push('/dashboard/student');
+      // Redirect to email verification page instead of dashboard
+      router.push('/verify-email');
       
     } catch (e) {
       console.error('[Signup] Signup error:', e);

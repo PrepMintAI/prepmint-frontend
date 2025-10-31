@@ -17,10 +17,10 @@ export default async function StudentsPage() {
   let userRole: string;
 
   try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
 
-    const userDoc = await adminDb.collection('users').doc(userId).get();
+    const userDoc = await adminDb().collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
       redirect('/login');

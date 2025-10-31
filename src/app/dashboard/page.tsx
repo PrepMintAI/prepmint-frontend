@@ -8,7 +8,7 @@ import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function DashboardPage() {
-  const [isChecking, setIsChecking] = useState(true);
+  const [_isChecking, _setIsChecking] = useState(true);
   const router = useRouter();
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 // src/components/dashboard/SubjectProgress.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, ChevronRight } from 'lucide-react';
 
@@ -15,19 +15,30 @@ interface SubjectProgressProps {
   subjectProgress: SubjectProgressData[];
 }
 
-export default function SubjectProgress({ subjectProgress }: SubjectProgressProps) {
+const getGradeEmoji = (percent: number) => {
+  if (percent >= 90) return '🔥';
+  if (percent >= 75) return '⭐';
+  if (percent >= 60) return '💪';
+  return '📈';
+};
+
+function SubjectProgress({ subjectProgress }: SubjectProgressProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const getGradeEmoji = (percent: number) => {
-    if (percent >= 90) return '🔥';
-    if (percent >= 75) return '⭐';
-    if (percent >= 60) return '💪';
-    return '📈';
-  };
+  // Memoize average calculation
+  const avgProgress = useMemo(() => {
+    return Math.round(
+      subjectProgress.reduce((sum, s) => sum + s.percent, 0) / subjectProgress.length
+    );
+  }, [subjectProgress]);
 
-  const avgProgress = Math.round(
-    subjectProgress.reduce((sum, s) => sum + s.percent, 0) / subjectProgress.length
-  );
+  const handleMouseEnter = useCallback((index: number) => {
+    setHoveredIndex(index);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredIndex(null);
+  }, []);
 
   return (
     <motion.div
@@ -58,12 +69,12 @@ export default function SubjectProgress({ subjectProgress }: SubjectProgressProp
       <div className="space-y-4">
         {subjectProgress.map((subject, index) => (
           <motion.div
-            key={index}
+            key={subject.subject}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 + index * 0.1 }}
-            onMouseEnter={() => setHoveredIndex(index)}
-            onMouseLeave={() => setHoveredIndex(null)}
+            onMouseEnter={() => handleMouseEnter(index)}
+            onMouseLeave={handleMouseLeave}
             className="group relative"
           >
             <div className="flex items-center justify-between mb-2">
@@ -111,3 +122,6 @@ export default function SubjectProgress({ subjectProgress }: SubjectProgressProp
     </motion.div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(SubjectProgress);

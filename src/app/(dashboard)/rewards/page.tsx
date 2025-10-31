@@ -27,7 +27,7 @@ const allBadges = [
 
 export default function RewardsPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<{ uid?: string; badges?: string[]; xp?: number; role?: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {

@@ -13,10 +13,23 @@ import Spinner from '@/components/common/Spinner';
 import { Mail, Building2, Calendar, Award, Target, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+interface UserProfile {
+  id: string;
+  displayName: string;
+  email: string;
+  role: string;
+  xp: number;
+  badges?: string[];
+  institutionName?: string;
+  bio?: string;
+  phoneNumber?: string;
+  createdAt?: { toDate?: () => Date };
+}
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
@@ -35,8 +48,8 @@ export default function ProfilePage() {
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          const data = userDoc.data();
-          const userData = { id: currentUser.uid, ...data };
+          const data = userDoc.data() as Omit<UserProfile, 'id'>;
+          const userData: UserProfile = { id: currentUser.uid, ...data };
           setUser(userData);
           setFormData({
             displayName: (data.displayName as string) || '',

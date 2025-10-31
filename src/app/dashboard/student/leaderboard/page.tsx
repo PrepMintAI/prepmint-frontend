@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Crown, TrendingUp, Zap, Target, Filter, Users, Globe } from 'lucide-react';
+import { Trophy, TrendingUp, Zap, Target, Users, Globe } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
@@ -25,7 +25,7 @@ const mockLeaderboard = [
 ];
 
 export default function LeaderboardPage() {
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<Record<string, unknown> | null>(null);
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'alltime'>('week');
   const [scopeFilter, setScopeFilter] = useState<'global' | 'school'>('global');
   const [userSchool, setUserSchool] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function LeaderboardPage() {
     } else {
       setFilteredLeaderboard(mockLeaderboard);
     }
-  }, [scopeFilter, userSchool]);
+  }, [scopeuserSchool]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return { icon: '👑', color: 'from-yellow-400 to-yellow-600', glow: 'shadow-yellow-500/50' };

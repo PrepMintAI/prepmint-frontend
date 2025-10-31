@@ -12,11 +12,11 @@ import Button from '@/components/common/Button';
 import { 
   Users, CheckCircle, Clock, TrendingUp, 
   BookOpen, AlertCircle, Calendar,
-  ChevronRight, FileText, BarChart3, 
+  ChevronRight, BarChart3, 
   ClipboardList, Filter
 } from 'lucide-react';
 import { 
-  getTeacherById, 
+  
   getStudentsByClass, 
   getTestsByTeacher,
   getClassAverage,
