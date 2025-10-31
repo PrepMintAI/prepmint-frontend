@@ -6,193 +6,32 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Vercel](https://img.shields.io/badge/Deployment-Ready-brightgreen)](https://vercel.com)
 
-PrepMint is a modern, role-based educational assessment platform that leverages AI to evaluate answer sheets, track student progress through gamification, and provide comprehensive dashboards for students, teachers, administrators, and institutions.
+AI-powered educational assessment platform with role-based dashboards (Student, Teacher, Admin, Institution) featuring gamification, real-time evaluation polling, and Firestore integration.
 
 ## Table of Contents
 
-- [Recent Updates](#recent-updates)
-- [Firebase Deployment Status](#firebase-deployment-status-october-31-2025)
-- [Features](#features)
 - [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
+- [Project Structure](#project-structure)
 - [Authentication](#authentication)
-- [Gamification System](#gamification-system)
+- [Gamification](#gamification)
 - [Security](#security)
 - [Deployment](#deployment)
-- [Contributing](#contributing)
-- [Documentation Index](#documentation-index)
-
-## Recent Updates (January 2025)
-
-### Production-Ready Deployment
-
-The codebase has undergone comprehensive cleanup and optimization to ensure seamless Vercel deployment:
-
-**Code Quality Improvements:**
-- ✅ **Zero TypeScript errors** - All type safety issues resolved
-- ✅ **Zero build warnings** - Clean production builds
-- ✅ **Removed all unused imports** - Optimized bundle size across 80+ files
-- ✅ **Fixed all type definitions** - Complete TypeScript coverage
-- ✅ **Proper error handling** - Comprehensive error type guards throughout
-
-**Technical Fixes:**
-- ✅ **Next.js 15+ Compatibility** - Updated async route params to Promise types
-- ✅ **Framer Motion v12** - Migrated from deprecated APIs to modern API
-- ✅ **React Best Practices** - All hooks follow Rules of Hooks
-- ✅ **Image Optimization** - Using Next.js `<Image>` component throughout
-- ✅ **JSX Standards** - All apostrophes properly escaped with HTML entities
-
-**Build Status:** 28 routes successfully compiled | **Deployment Status:** Ready for production
-
-### Critical Security Issues Resolved (January 2025)
-
-All critical security vulnerabilities have been addressed:
-
-- ✅ **Firestore Security Rules** - Comprehensive role-based access control deployed
-- ✅ **Email Verification** - Enforced before dashboard access
-- ✅ **File Upload Validation** - Type, size, and filename validation implemented
-- ✅ **Password Reset Flow** - Complete forgot password functionality
-- ✅ **Logout Functionality** - Proper session clearing on logout
-
-**Security Score:** 100% (was 20% - 80% improvement)
-
-## Firebase Deployment Status (October 31, 2025)
-
-### Firebase Configuration Verified
-- ✅ **Firebase Project**: prepmint-auth (Project ID: 358931633312)
-- ✅ **Firebase CLI**: v14.23.0 deployed and operational
-- ✅ **Firestore Database**: (default) - Active and ready
-- ✅ **Authentication**: 4 existing user accounts configured
-- ✅ **Environment Variables**: 7 Firebase client SDK variables + 3 Admin SDK variables properly configured
-
-### Firestore Security Rules Deployment
-- ✅ **Rules File**: firestore.rules (277 lines) successfully deployed
-- ✅ **Rule Coverage**: 12 collection rules with comprehensive role-based access control
-- ✅ **Protected Collections**:
-  - users (read/write by own uid)
-  - institutions (role-based access)
-  - evaluations (teacher/admin access)
-  - tests (role-based access)
-  - subjects (read by authenticated users)
-  - badges (read by authenticated users)
-  - activity (self-written, role-based read)
-  - leaderboards (read by authenticated users)
-  - jobQueues (admin only)
-  - notifications (read by uid)
-- ✅ **Compilation Status**: Successful with zero critical errors
-- ⚠️ **Minor Warnings**: Unused function `roleNotChanged` (non-critical, kept for reference)
-- ✅ **Enforcement Status**: Active and enforced in production
-
-### Composite Indexes Deployment
-- ✅ **Total Indexes Deployed**: 12 composite indexes from firestore.indexes.json
-- ✅ **Index Breakdown**:
-  - Evaluations: 4 indexes (by status, user, institution, and dates)
-  - Activity: 2 indexes (by userId and date combinations)
-  - Tests: 2 indexes (by status and date filters)
-  - Notifications: 1 index (by userId and read status)
-  - JobQueues: 1 index (by status and creation time)
-  - Users: 2 indexes (by role and activity tracking)
-- ✅ **Status**: All indexes building/ready for use
-- ℹ️ **Note**: 1 legacy index exists (safe to ignore or remove with `--force` flag if needed)
-
-### Security Configuration Summary
-- ✅ All 10 major collections secured with granular role-based rules
-- ✅ Helper functions implemented for role validation and access control
-- ✅ Data isolation: Users can only access their own data unless granted permission
-- ✅ Teacher/Admin routes protected with role verification
-- ✅ Institution-wide data accessible only to members with proper roles
-- ✅ Activity and engagement metrics properly scoped
-
-**Deployment Verification**: Confirmed October 31, 2025
-**Next Steps**: Monitor index creation status and performance metrics in Firebase console
-
-## Features
-
-### Authentication & User Management
-- **Email/Password Authentication** with comprehensive validation
-- **Google Sign-In** support (popup method)
-- **Password Strength Validation** (8+ characters, uppercase, lowercase, number)
-- **Institution Code Validation** for institutional signups
-- **Email Verification Required** before dashboard access
-- **Password Reset Flow** with email confirmation
-- **Role-Based Access Control** (Student, Teacher, Admin, Institution)
-- **Automatic Profile Creation** in Firestore with proper schema
-- **Session Management** with secure cookie-based tokens
-- **Logout Functionality** with complete state clearing
-
-### Role-Based Dashboards
-- **Student Dashboard**: XP tracking, level progression, answer sheet uploads, activity heatmap, subject progress
-- **Teacher Dashboard**: Evaluation queue, submission review, grading interface, analytics, student management
-- **Admin Dashboard**: System statistics, user management, institution management, activity logs, system health
-- **Institution Dashboard**: Institution-wide analytics, user management, performance metrics
-
-### Gamification System
-- **XP (Experience Points)** reward system with configurable rewards
-- **Level Progression** with visual indicators and formulas
-- **Badge Unlocking** system for achievements
-- **Activity Heatmaps** for tracking engagement (365-day view)
-- **Streak Tracking** for daily engagement
-- **Subject-Wise Progress** monitoring
-
-### UI/UX Features
-- **Responsive Design** with Tailwind CSS
-- **Accessible Forms** (ARIA labels, keyboard navigation, screen reader support)
-- **Smooth Animations** powered by Framer Motion
-- **Real-Time Form Validation** with visual feedback
-- **Loading States** and comprehensive error handling
-- **Component Library** with multiple variants (Card, Button, Spinner)
-
-### Security Features
-- **Client-side validation** prevents bad data submission
-- **Firebase Auth** handles password hashing and security
-- **Firestore Rules** prevent unauthorized database access with role-based controls
-- **Role-based routing** ensures correct dashboard access
-- **HTTPS enforced** in production (via Next.js)
-- **XSS protection** via React's built-in escaping
-- **CSRF protection** via Firebase SDK
-- **Session cookies** with httpOnly flag
-- **Email verification** required before account activation
-- **File upload validation** (type, size, filename checks)
-
-## Tech Stack
-
-| Category | Technology |
-|----------|-----------|
-| **Frontend** | Next.js 14+ (App Router), React 18, TypeScript |
-| **Styling** | Tailwind CSS, Framer Motion |
-| **Backend** | Firebase (Authentication, Firestore, Cloud Functions) |
-| **State Management** | React Context API (AuthContext) |
-| **API Layer** | Centralized wrapper with token injection |
-| **HTTP Client** | Axios with interceptors |
-| **Icons** | Lucide React |
-| **Charts** | Recharts |
-| **Deployment** | Vercel (Frontend), Firebase Hosting (Optional) |
+- [Key Commands](#key-commands)
 
 ## Quick Start
 
-### Prerequisites
+**Prerequisites**: Node.js 18+, Firebase project with Auth & Firestore
 
-- Node.js 18.x or higher
-- npm or yarn package manager
-- Firebase project with Authentication and Firestore enabled
-
-### Installation
-
-1. **Clone the repository**
+1. **Clone & install**
    ```bash
    git clone https://github.com/yourusername/prepmint.git
-   cd prepmint
+   cd prepmint && npm install
    ```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-
-   Create a `.env.local` file in the root directory:
+2. **Configure environment** (`.env.local`)
    ```bash
    NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
@@ -202,614 +41,167 @@ All critical security vulnerabilities have been addressed:
    NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
    ```
 
-4. **Configure Firebase**
-
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Create a new project or select existing
-   - Enable **Authentication** (Email/Password and Google)
-   - Create **Firestore database**
-   - Copy configuration values to `.env.local`
-
-5. **Deploy Firestore Security Rules**
+3. **Deploy security rules & start dev**
    ```bash
    firebase deploy --only firestore:rules
+   npm run dev    # Open http://localhost:3000
    ```
 
-6. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+## Features
 
-7. **Open your browser**
+**Authentication**: Email/password, Google Sign-In, email verification, password reset, role-based access control
 
-   Navigate to [http://localhost:3000](http://localhost:3000)
+**Dashboards**: Student (XP/level tracking, uploads, heatmap), Teacher (evaluation queue, analytics), Admin (system stats, user management), Institution (analytics, member management)
+
+**Gamification**: XP rewards, level progression, badges, activity heatmaps, daily streaks, subject progress tracking
+
+**Security**: Client-side validation, Firestore role-based rules, email verification, file upload validation (PDF/JPEG/PNG, max 10MB), XSS/CSRF protection, httpOnly session cookies
+
+**UI/UX**: Responsive design (Tailwind), accessible forms, smooth animations (Framer Motion), real-time validation, component library (Card, Button, Spinner variants)
+
+## Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| **Frontend** | Next.js 14+ (App Router), React 18, TypeScript |
+| **Styling** | Tailwind CSS, Framer Motion |
+| **Backend** | Firebase (Auth, Firestore, Cloud Functions) |
+| **State Management** | React Context API |
+| **HTTP Client** | Axios with interceptors |
+| **Tools** | Lucide React, Recharts, Dropzone |
+| **Deployment** | Vercel |
+
+## Architecture
+
+```
+Next.js App Router (Server & Client Components)
+        ↓
+    Auth Context (Global User State)
+        ↓
+   Centralized API Layer (Token-aware HTTP)
+        ↓
+  Firebase Client SDK (Auth, Firestore, Storage)
+        ↓
+    Custom Hooks (Polling, Gamification, Data)
+```
+
+- Route groups: `(auth)` for auth pages, `(dashboard)` for shared dashboard routes
+- Role-specific dashboards: `/dashboard/{student|teacher|admin|institution}`
+- Middleware protects admin routes via session cookies
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx                      # Root layout with AuthProvider
-│   ├── (auth)/
-│   │   ├── login/page.tsx             # Login form
-│   │   ├── signup/page.tsx            # Signup form
-│   │   ├── forgot-password/page.tsx   # Password reset
-│   │   └── verify-email/page.tsx      # Email verification
-│   └── dashboard/
-│       ├── page.tsx                    # Role-based router
-│       ├── student/
-│       │   ├── page.tsx               # Student dashboard
-│       │   └── DashboardClient.tsx    # Client components
-│       ├── teacher/
-│       │   ├── page.tsx               # Teacher dashboard
-│       │   └── DashboardClient.tsx    # Client components
-│       ├── admin/
-│       │   ├── page.tsx               # Admin dashboard
-│       │   └── DashboardClient.tsx    # Client components
-│       └── institution/
-│           ├── page.tsx               # Institution dashboard
-│           └── DashboardClient.tsx    # Client components
+│   ├── (auth)/: login, signup, forgot-password, verify-email
+│   └── dashboard/:
+│       ├── page.tsx (role-based router)
+│       ├── student/, teacher/, admin/, institution/
+│       └── api/: auth, role, evaluation endpoints
 ├── components/
-│   ├── common/
-│   │   ├── Card.tsx                   # Card component
-│   │   ├── Button.tsx                 # Button component
-│   │   └── Spinner.tsx                # Loading spinner
-│   ├── dashboard/
-│   │   ├── ActivityHeatmap.tsx        # Activity visualization
-│   │   ├── SubjectProgress.tsx        # Progress cards
-│   │   ├── StatCard.tsx               # Stats display
-│   │   └── XPCard.tsx                 # XP/level progress
-│   └── upload/
-│       └── UploadForm.tsx             # File upload
-├── context/
-│   └── AuthContext.tsx                # Global auth state
-├── hooks/
-│   ├── useAuth.ts                     # Auth hook
-│   └── useEvaluationPoll.ts           # Polling hook
+│   ├── common/: Card, Button, Spinner (multiple variants)
+│   ├── dashboard/: ActivityHeatmap, SubjectProgress, StatCard, XPCard
+│   └── layout/: Headers, sidebars, navigation
+├── context/: AuthContext (global auth state)
+├── hooks/: useAuth, useEvaluationPoll (polling with exponential backoff)
 ├── lib/
-│   ├── firebase.client.ts             # Firebase client SDK
-│   ├── firebase.admin.ts              # Firebase Admin SDK
-│   ├── api.ts                         # API wrapper
-│   └── gamify.ts                      # Gamification utilities
-├── middleware.ts                       # Route protection
-└── firestore.rules                     # Security rules
+│   ├── firebase.client.ts: Firebase SDK init
+│   ├── firebase.admin.ts: Admin SDK
+│   ├── api.ts: Centralized HTTP client with token injection
+│   └── gamify.ts: XP, badges, level calculation
+├── middleware.ts: Route protection
+└── firestore.rules: Security rules with 12 collection coverage
 ```
-
-## Architecture
-
-PrepMint follows a modular, layered architecture with clear separation of concerns:
-
-```
-┌─────────────────────────────────────────┐
-│         Next.js App Router              │
-│  (Server & Client Components)           │
-├─────────────────────────────────────────┤
-│         Auth Context Layer              │
-│  (Global User State Management)         │
-├─────────────────────────────────────────┤
-│         Centralized API Layer           │
-│  (Token-aware HTTP Client)              │
-├─────────────────────────────────────────┤
-│      Firebase Client SDK                │
-│  (Auth, Firestore, Storage)             │
-├─────────────────────────────────────────┤
-│         Custom Hooks Layer              │
-│  (Polling, Gamification, Data)          │
-└─────────────────────────────────────────┘
-```
-
-### Next.js App Router Structure
-- Uses Next.js 14+ App Router with Server and Client Components
-- Route groups: `(auth)` for auth pages, `(dashboard)` for shared dashboard routes
-- Role-specific dashboards under `/dashboard/{role}` (student, teacher, admin, institution)
-- Middleware protects admin routes by checking for session cookies
 
 ## Authentication
 
-### User Registration Flow
+**Signup Flow**: Email/password or Google → Email verification → Profile created → Role-based dashboard redirect
 
-1. Navigate to `/signup`
-2. Select account type (**Individual** or **Institution**)
-3. Fill in required fields with password validation
-4. Submit or use **Google Sign-In**
-5. Verification email sent automatically
-6. Firestore profile automatically created
-7. User directed to `/verify-email`
-8. After email verification, user redirected to role-specific dashboard
+**Login Flow**: Credentials/Google → Role-based redirect → Session cookie set
 
-### User Login Flow
+**Password Reset**: Forgot password link → Email confirmation → Create new password
 
-1. Navigate to `/login`
-2. Enter credentials or use **Google Sign-In**
-3. Authentication validated via Firebase
-4. Role-based redirect to appropriate dashboard
-5. Session cookie set for subsequent requests
-
-### Password Reset Flow
-
-1. Click "Forgot password?" on login page
-2. Enter email address
-3. Firebase sends password reset email
-4. Click reset link in email
-5. Create new password
-6. Log in with new password
-
-### User Schema
-
-Firestore user document structure:
-
+**User Schema**:
 ```typescript
 {
-  uid: string,                    // Firebase Auth UID
-  email: string,                  // User email
-  displayName: string,            // Full name
+  uid: string, email: string, displayName: string,
   role: 'student' | 'teacher' | 'admin' | 'institution',
-  xp: number,                     // Experience points
-  level: number,                  // Current level
-  badges: string[],               // Earned badges
-  institutionId: string | null,   // Institution reference
-  institutionName: string | null, // Institution name
-  accountType: 'individual' | 'institution',
-  photoURL: string | null,        // Profile photo
-  streak: number,                 // Daily streak
-  lastActive: string,             // Last activity timestamp
-  createdAt: Timestamp,           // Account creation
-  updatedAt: Timestamp,           // Last update
-  lastLoginAt: Timestamp          // Last login time
+  xp: number, level: number, badges: string[],
+  institutionId?: string, accountType?: 'individual' | 'institution',
+  photoURL?: string, streak?: number, lastActive?: string,
+  createdAt: Timestamp, updatedAt?: Timestamp, lastLoginAt?: Timestamp
 }
 ```
 
-## Gamification System
+## Gamification
 
-### XP Rewards
+- **XP System**: SIGNUP (10), FIRST_UPLOAD (50), EVALUATION_COMPLETE (50), PERFECT_SCORE (100), DAILY_LOGIN (10), STREAK_BONUS (25)
+- **Levels**: Formula `Math.floor(Math.sqrt(xp / 100)) + 1`
+- **Badges**: String arrays in user profile
+- **Activity Heatmap**: 365-day engagement visualization
+- **Streaks**: Daily login tracking
 
-```typescript
-import { awardXp, XP_REWARDS } from '@/lib/gamify';
-
-// Award XP for completing evaluation
-await awardXp(
-  userId,
-  XP_REWARDS.EVALUATION_COMPLETE,
-  "Completed answer sheet evaluation"
-);
-
-// XP_REWARDS constants
-{
-  SIGNUP: 10,
-  FIRST_UPLOAD: 50,
-  EVALUATION_COMPLETE: 50,
-  PERFECT_SCORE: 100,
-  DAILY_LOGIN: 10,
-  STREAK_BONUS: 25
-}
-```
-
-### Level Calculation
-
-```typescript
-import { calculateLevel, levelProgress } from '@/lib/gamify';
-
-const level = calculateLevel(user?.xp || 0);
-const { current, required, percentage } = levelProgress(user?.xp || 0);
-```
-
-**Formula**: `Math.floor(Math.sqrt(xp / 100)) + 1`
-
-### Badge System
-
-Badges are stored as string arrays in user profiles:
-
-```typescript
-{
-  badges: [
-    'first_upload',
-    'perfect_score',
-    '7_day_streak',
-    'helpful_teacher'
-  ]
-}
-```
-
-## API Integration
-
-### Centralized API Client
-
-All HTTP requests use the unified API wrapper:
-
-```typescript
-import { api } from '@/lib/api';
-
-// GET request
-const response = await api.get('/evaluations');
-
-// POST request with form data
-const result = await api.post('/upload', formData);
-
-// Automatically includes auth token from cookies
-```
-
-### Custom Hooks
-
-#### Evaluation Polling Hook
-
-```typescript
-import useEvaluationPoll from '@/hooks/useEvaluationPoll';
-
-const { status, isPolling, error } = useEvaluationPoll(jobId, {
-  onComplete: (result) => {
-    console.log('Evaluation complete:', result);
-  },
-  onError: (error) => {
-    console.error('Evaluation failed:', error);
-  }
-});
-```
-
-#### Auth Context Hook
-
-```typescript
-import { useAuth } from '@/context/AuthContext';
-
-function MyComponent() {
-  const { user, loading } = useAuth();
-
-  if (loading) return <Spinner />;
-  if (!user) return <LoginPrompt />;
-
-  return <div>Welcome, {user.displayName}!</div>;
-}
-```
+Key imports: `import { awardXp, calculateLevel, levelProgress, XP_REWARDS } from '@/lib/gamify';`
 
 ## Security
 
-### Firestore Security Rules
+**Firestore Rules**: Role-based access control on 12 collections (users, institutions, evaluations, tests, subjects, badges, activity, leaderboards, jobQueues, notifications)
 
-Role-based access control enforced at database level:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can read/write only their own data
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    // Teachers can access their institution's data
-    match /institutions/{institutionId} {
-      allow read: if request.auth != null;
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
-    }
-
-    // Institution codes readable for validation
-    match /institutions/{doc} {
-      allow read: if request.auth != null;
-    }
-  }
-}
-```
-
-### Security Features
-
-✅ **Client-side validation** prevents bad data submission
-✅ **Firebase Auth** handles password hashing and security
-✅ **Firestore Rules** prevent unauthorized database access
-✅ **Role-based routing** ensures correct dashboard access
-✅ **HTTPS enforced** in production (via Next.js)
-✅ **XSS protection** via React's built-in escaping
-✅ **CSRF protection** via Firebase SDK
-✅ **Session cookies** with httpOnly flag
-✅ **Email verification** required before account activation
-✅ **File upload validation** with type, size, and filename checks
-
-### File Upload Validation
-
-Comprehensive validation implemented:
-
-**Allowed File Types:**
-- PDF (application/pdf)
-- JPEG (image/jpeg, image/jpg)
-- PNG (image/png)
-
-**Size Limits:**
-- Minimum: > 0 bytes (prevents empty files)
-- Maximum: 10MB
-
-**Filename Validation:**
-- Path traversal prevention (no `..`, `/`, `\`)
-- Null byte detection
-- Length limit (max 255 characters)
-- Extension validation
-
-## Component Library
-
-### Card Component
-
-```typescript
-import Card, { CardHeader, CardBody, CardFooter } from '@/components/common/Card';
-
-<Card variant="elevated" hover>
-  <CardHeader title="Dashboard Stats" />
-  <CardBody>
-    <p>Content here</p>
-  </CardBody>
-  <CardFooter>Footer content</CardFooter>
-</Card>
-```
-
-**Variants**: `default`, `bordered`, `elevated`, `glass`, `gradient`
-
-### Button Component
-
-```typescript
-import Button from '@/components/common/Button';
-
-<Button
-  size="lg"
-  variant="primary"
-  loading={isSubmitting}
-  disabled={!isValid}
->
-  Submit
-</Button>
-```
-
-**Variants**: `primary`, `secondary`, `outline`, `ghost`
-**Sizes**: `sm`, `md`, `lg`
-
-### Spinner Component
-
-```typescript
-import Spinner from '@/components/common/Spinner';
-
-<Spinner label="Loading..." fullScreen />
-```
+**Features**:
+- Email verification required before dashboard
+- File upload validation: PDF/JPEG/PNG, max 10MB, filename/type/size checks
+- Client-side validation, XSS/CSRF protection (React + Firebase)
+- httpOnly session cookies
+- Password strength: 8+ chars, uppercase, lowercase, number
 
 ## Deployment
 
-### Vercel Deployment (Recommended)
-
-**Quick Deploy:**
+### Vercel
 ```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Verify build locally (optional but recommended)
-npm run build
-
-# Deploy to preview
-vercel
-
-# Deploy to production
-vercel --prod
+npm run build          # Verify locally
+vercel --prod          # Deploy
 ```
+Set Firebase env vars in Vercel dashboard
 
-**Environment Variables:**
-Set these in your Vercel dashboard (Settings → Environment Variables):
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `NEXT_PUBLIC_FIREBASE_APP_ID`
-
-**Build Configuration:**
-- Framework Preset: Next.js
-- Build Command: `npm run build` (default)
-- Output Directory: `.next` (default)
-- Install Command: `npm install` (default)
-- Node Version: 18.x or higher
-
-### Firebase Hosting (Alternative)
-
+### Firebase Hosting
 ```bash
-# Build the application
 npm run build
-
-# Deploy to Firebase Hosting
 firebase deploy --only hosting
 ```
 
-### Deployment Checklist
-
-Before deploying to production, ensure:
-- [x] All environment variables configured
-- [x] Firebase project set up with Auth and Firestore
-- [x] Firestore security rules deployed
-- [x] Build succeeds locally (`npm run build`)
-- [x] No TypeScript errors
-- [ ] Test user accounts created for QA
-- [ ] Domain configured (if custom domain)
-- [ ] Email verification working
-- [ ] File upload validation active
-- [ ] Password reset flow tested
+**Pre-deployment**: Verify env vars, Firestore setup, security rules deployed, TypeScript errors absent
 
 ## Key Commands
 
-### Development
 ```bash
-npm run dev        # Start development server on localhost:3000
-npm run build      # Production build
-npm start          # Start production server
-npm run lint       # Run ESLint
+npm run dev              # localhost:3000
+npm run build            # Production build
+npm start                # Start production server
+npm run lint             # ESLint
+firebase deploy --only firestore:rules    # Deploy rules
+firebase emulators:start # Local emulator
 ```
 
-### Firebase (if configured)
-```bash
-firebase deploy --only firestore:rules    # Deploy Firestore security rules
-firebase deploy --only hosting            # Deploy to Firebase hosting
-firebase emulators:start                  # Start local emulator
-```
+## Documentation Files
 
-## Testing
-
-### Testing Checklist
-
-- [ ] User signup with email/password
-- [ ] User signup with Google
-- [ ] Email validation
-- [ ] Password strength validation
-- [ ] Institution code validation
-- [ ] Email verification required
-- [ ] Password reset flow
-- [ ] User login with email/password
-- [ ] User login with Google
-- [ ] Wrong credentials error handling
-- [ ] Role-based dashboard redirection
-- [ ] Unauthorized access prevention
-- [ ] Component rendering
-- [ ] XP calculation
-- [ ] Badge unlocking
-- [ ] File upload validation
-- [ ] File upload type/size checks
-- [ ] Evaluation polling
-
-### Creating Test Users
-
-**Method 1: Signup Form**
-1. Go to `/signup`
-2. Fill in test credentials
-3. Verify email in inbox
-4. User created in Firebase Auth + Firestore
-
-**Method 2: Firebase Console**
-1. Go to Firebase Console → Authentication
-2. Add user manually
-3. Create matching document in Firestore `users` collection
-
-## Known Issues & Roadmap
-
-### Recently Resolved (January 2025)
-- ✅ **TypeScript Errors** - All type safety issues fixed
-- ✅ **Unused Imports** - Comprehensive cleanup completed
-- ✅ **Build Warnings** - Zero warnings in production builds
-- ✅ **Next.js 15 Compatibility** - Async route params updated
-- ✅ **Framer Motion Deprecations** - Updated to v12 API
-- ✅ **Missing Type Definitions** - UserProfile type completed
-- ✅ **Firestore Security Rules** - Comprehensive rules deployed
-- ✅ **Email Verification** - Enforced before dashboard access
-- ✅ **File Upload Validation** - Type, size, filename validation
-- ✅ **Password Reset** - Complete forgot password flow
-- ✅ **Logout Functionality** - Proper session clearing
-
-### Current Status
-
-No critical issues blocking deployment. The application is production-ready with clean builds and full TypeScript coverage.
-
-### High Priority (Post-MVP)
-- [ ] Implement real API endpoints for evaluation
-- [ ] Complete teacher dashboard with real evaluations
-- [ ] Implement comprehensive error boundary
-- [ ] Add real-time notifications
-- [ ] Set up monitoring and alerting
-
-### Medium Priority
-- [ ] Answer sheet upload processing
-- [ ] XP reward automation
-- [ ] Badge unlocking logic
-- [ ] Activity tracking system
-- [ ] Leaderboard feature
-- [ ] Rate limiting middleware
-
-### Nice to Have
-- [ ] Profile editing interface
-- [ ] Dark mode support
-- [ ] Notifications system
-- [ ] Social features (friends, groups)
-- [ ] Mobile app (React Native)
+- **firestore.rules**: 277 lines, 12 collections with role-based access control
+- **firestore.indexes.json**: 12 composite indexes (evaluations, activity, tests, notifications, jobQueues, users)
+- **firebase.json**: Firebase project configuration
 
 ## Contributing
 
-Contributions are welcome! Please follow these guidelines:
-
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'feat: Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/name`)
+3. Commit with [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
+4. Push and open a Pull Request
 
-### Commit Convention
+## License & Support
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation changes
-- `style:` Code style changes
-- `refactor:` Code refactoring
-- `test:` Test additions/changes
-- `chore:` Build process or auxiliary tool changes
-
-## Documentation Index
-
-All project documentation has been consolidated into this README.md file to maintain a single source of truth. Below is a summary of configuration and deployment files:
-
-### Primary Documentation
-- **README.md** - Comprehensive project documentation (this file)
-  - Project overview, features, and architecture
-  - Authentication and gamification systems
-  - API integration and component library
-  - Deployment, testing, and troubleshooting guides
-
-### Firebase Configuration Files
-- **firebase.json** - Firebase project configuration and deployment settings
-- **firestore.rules** - Firestore security rules with role-based access control (277 lines)
-  - 12 collections with comprehensive rule coverage
-  - Helper functions for role validation
-  - Data isolation and permission enforcement
-
-- **firestore.indexes.json** - Composite indexes for optimized database queries
-  - 12 indexes covering evaluations, activity, tests, notifications, job queues, and users
-  - Status: All building/ready for use
-
-### Deployment & Automation
-- **deploy-firestore-rules.sh** - Automated script for deploying Firestore security rules
-
-### Agent Configuration (local only, not in git)
-- **.claude/agents/** - Local Claude Code agent definitions
-  - Used for specialized task automation
-  - Not committed to version control
-
-## Acknowledgments
-
-- Built with [Next.js](https://nextjs.org/) and [Firebase](https://firebase.google.com/)
-- UI components inspired by [shadcn/ui](https://ui.shadcn.com/)
-- Icons from [Lucide React](https://lucide.dev/)
-- Animations powered by [Framer Motion](https://www.framer.com/motion/)
-
-## Support
+Built with Next.js, Firebase, shadcn/ui, Lucide React, and Framer Motion.
 
 For support, email teja.kg@prepmint.in
 
 ---
 
-## Documentation Consolidation
-
-As of October 31, 2025, all historical markdown documentation files have been consolidated into this comprehensive README.md. This includes documentation from:
-
-**Previously Separate Files** (now consolidated into README.md):
-- CLAUDE.md - Architecture and development guidance
-- GEMINI.md - AI assistant documentation
-- DEPLOYMENT.md - Deployment procedures
-- SECURITY-IMPLEMENTATIONS.md - Security implementation details
-- FIRESTORE_SECURITY.md - Firestore rules documentation
-- SECURITY_QUICK_START.md - Security quick reference
-- SECURITY_RULES_SUMMARY.md - Rules implementation summary
-- IMMEDIATE-ACTIONS.md - Action plan documentation
-- MVP-ROADMAP.md - Roadmap and timeline
-- README-PROGRAM.md - Program documentation index
-- prepmint-program.md - Master program plan
-
-**Benefits of Single-Source Documentation:**
-- Easier to maintain and keep up-to-date
-- Single location for all project information
-- Reduced redundancy and duplication
-- Improved navigation and discoverability
-- Better version control and change tracking
-
----
-
-**Last Updated**: October 31, 2025 (Firebase Deployment Verification Added)
-**Status**: Production Ready
-**Build**: 28 routes compiled successfully
-**Deployment**: Ready for Vercel
-**Firebase**: Fully Deployed and Verified (Firestore Rules + 12 Indexes)
+**Status**: Production Ready | **Build**: 28 routes compiled | **Deployment**: Vercel ready | **Firebase**: Rules + 12 indexes deployed | **Last Updated**: October 31, 2025
