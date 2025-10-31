@@ -741,37 +741,33 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Documentation Index
 
-This project includes comprehensive documentation organized by topic:
+All project documentation has been consolidated into this README.md file to maintain a single source of truth. Below is a summary of configuration and deployment files:
 
-### Core Documentation
-- **README.md** - This file (project overview and quick start)
-- **CLAUDE.md** - Architecture guide for Claude Code AI assistant
-- **GEMINI.md** - Architecture guide for Gemini Code Assist
+### Primary Documentation
+- **README.md** - Comprehensive project documentation (this file)
+  - Project overview, features, and architecture
+  - Authentication and gamification systems
+  - API integration and component library
+  - Deployment, testing, and troubleshooting guides
 
-### Security Documentation
-- **SECURITY-IMPLEMENTATIONS.md** - Detailed security implementations (372 lines)
-- **FIRESTORE_SECURITY.md** - Complete Firestore security rules documentation (373 lines)
-- **SECURITY_QUICK_START.md** - Quick reference guide for security (256 lines)
-- **SECURITY_RULES_SUMMARY.md** - Implementation summary (360 lines)
+### Firebase Configuration Files
+- **firebase.json** - Firebase project configuration and deployment settings
+- **firestore.rules** - Firestore security rules with role-based access control (277 lines)
+  - 12 collections with comprehensive rule coverage
+  - Helper functions for role validation
+  - Data isolation and permission enforcement
 
-### Program Documentation
-- **prepmint-program.md** - Master program plan with 140+ requirements
-- **MVP-ROADMAP.md** - Visual quick reference and 10-week timeline
-- **IMMEDIATE-ACTIONS.md** - Week 1-2 critical security action plan
-- **README-PROGRAM.md** - Program documentation index
+- **firestore.indexes.json** - Composite indexes for optimized database queries
+  - 12 indexes covering evaluations, activity, tests, notifications, job queues, and users
+  - Status: All building/ready for use
 
-### Deployment & Configuration
-- **DEPLOYMENT.md** - Step-by-step Vercel deployment guide
-- **firebase.json** - Firebase configuration
-- **firestore.rules** - Firestore security rules
-- **firestore.indexes.json** - Composite indexes
-- **deploy-firestore-rules.sh** - Automated deployment script
+### Deployment & Automation
+- **deploy-firestore-rules.sh** - Automated script for deploying Firestore security rules
 
-### Agent Documentation (in `.claude/agents/`)
-- **readme-consolidator.md** - Documentation consolidation agent
-- **firebase-backend-architect.md** - Firebase backend architecture agent
-- **nextjs-ui-optimizer.md** - UI optimization agent
-- **vercel-deployment-fixer.md** - Deployment troubleshooting agent
+### Agent Configuration (local only, not in git)
+- **.claude/agents/** - Local Claude Code agent definitions
+  - Used for specialized task automation
+  - Not committed to version control
 
 ## Acknowledgments
 
@@ -786,25 +782,29 @@ For support, email teja.kg@prepmint.in
 
 ---
 
-## Summary of Files
+## Documentation Consolidation
 
-This README consolidates documentation from the following markdown files. For detailed information on specific topics, refer to the relevant documentation:
+As of October 31, 2025, all historical markdown documentation files have been consolidated into this comprehensive README.md. This includes documentation from:
 
-| File | Purpose | Key Sections |
-|------|---------|--------------|
-| CLAUDE.md | AI Assistant Guide | Architecture, patterns, recent fixes |
-| GEMINI.md | Gemini Assistant Guide | Same content as CLAUDE.md |
-| DEPLOYMENT.md | Deployment Guide | Vercel setup, Firebase config, troubleshooting |
-| FIRESTORE_SECURITY.md | Security Rules Details | Collections, helper functions, testing |
-| SECURITY-IMPLEMENTATIONS.md | Security Implementation | Completed fixes, testing, deployment |
-| SECURITY_QUICK_START.md | Quick Security Guide | 30-second overview, critical actions |
-| SECURITY_RULES_SUMMARY.md | Rules Summary | Files created, deployment, next steps |
-| IMMEDIATE-ACTIONS.md | Week 1 Action Plan | Critical security sprint, daily tasks |
-| MVP-ROADMAP.md | Roadmap Overview | Progress, timeline, risks, budget |
-| README-PROGRAM.md | Program Index | Documentation structure, status |
-| prepmint-program.md | Master Program Plan | Requirements, schema, 10-week plan |
+**Previously Separate Files** (now consolidated into README.md):
+- CLAUDE.md - Architecture and development guidance
+- GEMINI.md - AI assistant documentation
+- DEPLOYMENT.md - Deployment procedures
+- SECURITY-IMPLEMENTATIONS.md - Security implementation details
+- FIRESTORE_SECURITY.md - Firestore rules documentation
+- SECURITY_QUICK_START.md - Security quick reference
+- SECURITY_RULES_SUMMARY.md - Rules implementation summary
+- IMMEDIATE-ACTIONS.md - Action plan documentation
+- MVP-ROADMAP.md - Roadmap and timeline
+- README-PROGRAM.md - Program documentation index
+- prepmint-program.md - Master program plan
 
-**Deleted Files**: None - all files contain unique, important information
+**Benefits of Single-Source Documentation:**
+- Easier to maintain and keep up-to-date
+- Single location for all project information
+- Reduced redundancy and duplication
+- Improved navigation and discoverability
+- Better version control and change tracking
 
 ---
 
