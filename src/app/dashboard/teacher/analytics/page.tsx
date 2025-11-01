@@ -20,11 +20,18 @@ export default async function AnalyticsPage({
 
   let userId: string;
   let userRole: string;
+  let institutionId: string | undefined;
 
   try {
     const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
     userRole = decoded.role || 'student';
+
+    // Fetch user profile to get institutionId
+    const userDoc = await adminDb().collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      institutionId = userDoc.data()?.institutionId;
+    }
   } catch (error) {
     console.error('[Analytics Page] Session verification failed:', error);
     redirect('/login');
@@ -41,6 +48,7 @@ export default async function AnalyticsPage({
         <AnalyticsClient
           userId={userId}
           userRole={userRole}
+          institutionId={institutionId}
           studentId={resolvedSearchParams.student}
           testId={resolvedSearchParams.test}
         />
