@@ -36,8 +36,8 @@ export default async function TeacherDashboardPage() {
     redirect('/login');
   }
 
-  // Check role OUTSIDE try-catch
-  if (userRole !== 'teacher') {
+  // Check role OUTSIDE try-catch (allow teacher and dev)
+  if (userRole !== 'teacher' && userRole !== 'dev') {
     console.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }

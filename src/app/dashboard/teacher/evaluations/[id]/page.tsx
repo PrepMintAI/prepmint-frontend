@@ -26,7 +26,7 @@ export default async function EvaluationDetailsPage({ params }: { params: Promis
     redirect('/login');
   }
 
-  if (!['teacher', 'admin', 'institution'].includes(userRole)) {
+  if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
     redirect(`/dashboard/${userRole}`);
   }
 

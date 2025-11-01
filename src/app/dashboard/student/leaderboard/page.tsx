@@ -9,20 +9,7 @@ import { Trophy, TrendingUp, Zap, Target, Users, Globe } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
-
-// Mock leaderboard data with schools
-const mockLeaderboard = [
-  { rank: 1, name: 'Aarav Sharma', xp: 15420, level: 12, avatar: '🦁', streak: 45, school: 'Delhi Public School', badge: '👑' },
-  { rank: 2, name: 'Priya Patel', xp: 14890, level: 12, avatar: '🦄', streak: 42, school: 'Ryan International', badge: '🥈' },
-  { rank: 3, name: 'Rohan Kumar', xp: 13560, level: 11, avatar: '🚀', streak: 38, school: 'Delhi Public School', badge: '🥉' },
-  { rank: 4, name: 'Ananya Singh', xp: 12340, level: 11, avatar: '⭐', streak: 35, school: 'St. Xavier\'s School', badge: '' },
-  { rank: 5, name: 'Arjun Reddy', xp: 11890, level: 10, avatar: '🔥', streak: 32, school: 'Ryan International', badge: '' },
-  { rank: 6, name: 'Diya Gupta', xp: 10560, level: 10, avatar: '💎', streak: 28, school: 'Delhi Public School', badge: '' },
-  { rank: 7, name: 'Kabir Mehta', xp: 9870, level: 9, avatar: '⚡', streak: 25, school: 'Modern School', badge: '' },
-  { rank: 8, name: 'Ishaan Joshi', xp: 9230, level: 9, avatar: '🎯', streak: 22, school: 'St. Xavier\'s School', badge: '' },
-  { rank: 9, name: 'Saanvi Iyer', xp: 8560, level: 9, avatar: '🌟', streak: 20, school: 'Ryan International', badge: '' },
-  { rank: 10, name: 'Vihaan Nair', xp: 8120, level: 8, avatar: '🎪', streak: 18, school: 'Modern School', badge: '' },
-];
+import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/studentData';
 
 interface LeaderboardUser {
   rank: number;
@@ -37,10 +24,12 @@ interface LeaderboardUser {
 
 export default function LeaderboardPage() {
   const [currentUser, setCurrentUser] = useState<LeaderboardUser | null>(null);
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'alltime'>('week');
+  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'alltime'>('alltime');
   const [scopeFilter, setScopeFilter] = useState<'global' | 'school'>('global');
   const [userSchool, setUserSchool] = useState<string | null>(null);
-  const [filteredLeaderboard, setFilteredLeaderboard] = useState(mockLeaderboard);
+  const [userInstitutionId, setUserInstitutionId] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -50,11 +39,12 @@ export default function LeaderboardPage() {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setUserSchool(userData.institutionName || null);
+            setUserInstitutionId(userData.institutionId || null);
             setCurrentUser({
-              rank: 42,
+              rank: 0, // Will be calculated from leaderboard
               name: userData.displayName || 'You',
-              xp: userData.xp || 2500,
-              level: Math.floor(Math.sqrt((userData.xp || 2500) / 100)) + 1,
+              xp: userData.xp || 0,
+              level: Math.floor(Math.sqrt((userData.xp || 0) / 100)) + 1,
               school: userData.institutionName || 'No School',
               avatar: '🎮',
               streak: userData.streak || 0,
@@ -65,22 +55,38 @@ export default function LeaderboardPage() {
           console.error('Error fetching user data:', error);
         }
       }
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (scopeFilter === 'school' && userSchool) {
-      setFilteredLeaderboard(
-        mockLeaderboard
-          .filter(user => user.school === userSchool)
-          .map((user, index) => ({ ...user, rank: index + 1 }))
-      );
-    } else {
-      setFilteredLeaderboard(mockLeaderboard);
-    }
-  }, [scopeFilter, userSchool]);
+    const loadLeaderboard = async () => {
+      setIsLoading(true);
+      try {
+        let data: LeaderboardEntry[];
+        if (scopeFilter === 'school' && userInstitutionId) {
+          data = await fetchLeaderboard('institution', userInstitutionId, 50);
+        } else {
+          data = await fetchLeaderboard('global', undefined, 50);
+        }
+        setLeaderboard(data);
+
+        // Update current user rank
+        if (currentUser) {
+          const userRank = data.findIndex(u => u.xp <= currentUser.xp) + 1;
+          setCurrentUser(prev => prev ? { ...prev, rank: userRank || data.length + 1 } : null);
+        }
+      } catch (error) {
+        console.error('Error loading leaderboard:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadLeaderboard();
+  }, [scopeFilter, userInstitutionId, currentUser?.xp]);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return { icon: '👑', color: 'from-yellow-400 to-yellow-600', glow: 'shadow-yellow-500/50' };
@@ -88,6 +94,16 @@ export default function LeaderboardPage() {
     if (rank === 3) return { icon: '🥉', color: 'from-orange-400 to-orange-600', glow: 'shadow-orange-500/50' };
     return { icon: `#${rank}`, color: 'from-gray-200 to-gray-300', glow: '' };
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -213,24 +229,24 @@ export default function LeaderboardPage() {
                 <Card variant="elevated" padding="lg" className="text-center bg-gradient-to-br from-gray-100 to-gray-200">
                   <div className="relative inline-block mb-3">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-4xl shadow-lg">
-                      {filteredLeaderboard[1]?.avatar}
+                      {leaderboard[1]?.avatar}
                     </div>
                     <div className="absolute -top-2 -right-2 w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-xl shadow-md">
                       🥈
                     </div>
                   </div>
                   <h3 className="font-bold text-gray-900 text-lg mb-1">
-                    {filteredLeaderboard[1]?.name}
+                    {leaderboard[1]?.name}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-2">{filteredLeaderboard[1]?.school}</p>
+                  <p className="text-sm text-gray-600 mb-2">{leaderboard[1]?.institutionName}</p>
                   <div className="space-y-2">
                     <p className="text-2xl font-bold text-gray-900">
-                      {filteredLeaderboard[1]?.xp.toLocaleString()}
+                      {leaderboard[1]?.xp.toLocaleString()}
                     </p>
-                    <p className="text-xs text-gray-600">XP • Level {filteredLeaderboard[1]?.level}</p>
+                    <p className="text-xs text-gray-600">XP • Level {leaderboard[1]?.level}</p>
                     <div className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-600 px-3 py-1 rounded-full">
                       <Zap size={12} />
-                      <span>{filteredLeaderboard[1]?.streak} day streak</span>
+                      <span>{leaderboard[1]?.streak} day streak</span>
                     </div>
                   </div>
                 </Card>
@@ -246,24 +262,24 @@ export default function LeaderboardPage() {
                 <Card variant="elevated" padding="lg" className="text-center bg-gradient-to-br from-yellow-200 via-yellow-300 to-yellow-400 shadow-2xl">
                   <div className="relative inline-block mb-3">
                     <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-5xl shadow-xl ring-4 ring-yellow-300">
-                      {filteredLeaderboard[0]?.avatar}
+                      {leaderboard[0]?.avatar}
                     </div>
                     <div className="absolute -top-3 -right-3 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-2xl shadow-lg animate-bounce">
                       👑
                     </div>
                   </div>
                   <h3 className="font-bold text-gray-900 text-xl mb-1">
-                    {filteredLeaderboard[0]?.name}
+                    {leaderboard[0]?.name}
                   </h3>
-                  <p className="text-sm text-gray-700 mb-3 font-medium">{filteredLeaderboard[0]?.school}</p>
+                  <p className="text-sm text-gray-700 mb-3 font-medium">{leaderboard[0]?.institutionName}</p>
                   <div className="space-y-2">
                     <p className="text-3xl font-bold text-gray-900">
-                      {filteredLeaderboard[0]?.xp.toLocaleString()}
+                      {leaderboard[0]?.xp.toLocaleString()}
                     </p>
-                    <p className="text-sm text-gray-700 font-semibold">XP • Level {filteredLeaderboard[0]?.level}</p>
+                    <p className="text-sm text-gray-700 font-semibold">XP • Level {leaderboard[0]?.level}</p>
                     <div className="inline-flex items-center gap-1 text-sm bg-yellow-500 text-white px-3 py-1 rounded-full font-semibold">
                       <Zap size={14} />
-                      <span>{filteredLeaderboard[0]?.streak} day streak 🔥</span>
+                      <span>{leaderboard[0]?.streak} day streak 🔥</span>
                     </div>
                   </div>
                 </Card>
@@ -279,24 +295,24 @@ export default function LeaderboardPage() {
                 <Card variant="elevated" padding="lg" className="text-center bg-gradient-to-br from-orange-100 to-orange-200">
                   <div className="relative inline-block mb-3">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-4xl shadow-lg">
-                      {filteredLeaderboard[2]?.avatar}
+                      {leaderboard[2]?.avatar}
                     </div>
                     <div className="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-xl shadow-md">
                       🥉
                     </div>
                   </div>
                   <h3 className="font-bold text-gray-900 text-lg mb-1">
-                    {filteredLeaderboard[2]?.name}
+                    {leaderboard[2]?.name}
                   </h3>
-                  <p className="text-sm text-gray-600 mb-2">{filteredLeaderboard[2]?.school}</p>
+                  <p className="text-sm text-gray-600 mb-2">{leaderboard[2]?.institutionName}</p>
                   <div className="space-y-2">
                     <p className="text-2xl font-bold text-gray-900">
-                      {filteredLeaderboard[2]?.xp.toLocaleString()}
+                      {leaderboard[2]?.xp.toLocaleString()}
                     </p>
-                    <p className="text-xs text-gray-600">XP • Level {filteredLeaderboard[2]?.level}</p>
+                    <p className="text-xs text-gray-600">XP • Level {leaderboard[2]?.level}</p>
                     <div className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-600 px-3 py-1 rounded-full">
                       <Zap size={12} />
-                      <span>{filteredLeaderboard[2]?.streak} day streak</span>
+                      <span>{leaderboard[2]?.streak} day streak</span>
                     </div>
                   </div>
                 </Card>
@@ -312,9 +328,9 @@ export default function LeaderboardPage() {
           >
             <Card variant="elevated" padding="none">
               <div className="divide-y divide-gray-100">
-                {filteredLeaderboard.slice(3).map((user, index) => (
+                {leaderboard.slice(3).map((user, index) => (
                   <motion.div
-                    key={user.rank}
+                    key={user.uid}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.8 + index * 0.05 }}
@@ -329,7 +345,7 @@ export default function LeaderboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 truncate">{user.name}</p>
-                        <p className="text-sm text-gray-500 truncate">{user.school}</p>
+                        <p className="text-sm text-gray-500 truncate">{user.institutionName}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-gray-900">{user.xp.toLocaleString()}</p>

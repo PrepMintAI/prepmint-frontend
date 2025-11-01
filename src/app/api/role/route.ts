@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     const caller = await adminDb().collection('users').doc(decoded.uid).get();
     const callerRole = caller.exists ? caller.data()!.role : 'student';
 
-    if (callerRole !== 'admin') {
+    // Both 'admin' and 'dev' roles have permission to set user roles
+    if (callerRole !== 'admin' && callerRole !== 'dev') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

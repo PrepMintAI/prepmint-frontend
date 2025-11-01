@@ -18,8 +18,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ✅ Lightweight check: we don’t know role yet, just let through
+  // ✅ Lightweight check: we don't know role yet, just let through
   //    Role will be validated inside the admin page itself via /api/role
+  //    Note: Both 'admin' and 'dev' roles have full access to admin routes
   return NextResponse.next();
 }
 

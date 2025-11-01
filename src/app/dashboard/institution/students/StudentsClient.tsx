@@ -1,30 +1,103 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { getStudentsByInstitution } from '@/lib/comprehensiveMockData';
+import { useMemo, useState, useEffect } from 'react';
+import { db } from '@/lib/firebase.client';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import { Users, Search, Download, Upload, PlusCircle, Filter, ChevronRight, Star } from 'lucide-react';
+import Spinner from '@/components/common/Spinner';
+import { Users, Search, Download, Upload, PlusCircle, ChevronRight, Star, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export function StudentsClient({ institutionId }: { institutionId: string }) {
+interface UserData {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: string;
+  institutionId?: string;
+  class?: string;
+  section?: string;
+  rollNo?: string;
+  xp?: number;
+  level?: number;
+  performance?: {
+    overallPercentage?: number;
+    rank?: number;
+    attendance?: number;
+  };
+}
+
+export function StudentsClient({ institutionId }: { institutionId?: string }) {
   const [search, setSearch] = useState('');
+  const [students, setStudents] = useState<UserData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const students = useMemo(() => 
-    getStudentsByInstitution(institutionId)
-      .filter(s => s.name.toLowerCase().includes(search.toLowerCase())),
-    [search, institutionId]
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (!institutionId) {
+        console.error('[StudentsClient] No institutionId provided');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const studentsQuery = query(
+          collection(db, 'users'),
+          where('institutionId', '==', institutionId),
+          where('role', '==', 'student')
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const studentsData = studentsSnapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data()
+        })) as UserData[];
+        setStudents(studentsData);
+      } catch (error) {
+        console.error('[StudentsClient] Error fetching students:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, [institutionId]);
+
+  const filteredStudents = useMemo(() =>
+    students.filter(s =>
+      s.displayName?.toLowerCase().includes(search.toLowerCase()) ||
+      s.email?.toLowerCase().includes(search.toLowerCase())
+    ),
+    [search, students]
   );
 
-  const topStudents = useMemo(() => 
-    [...students].sort((a, b) => b.performance.overallPercentage - a.performance.overallPercentage).slice(0, 3),
-    [students]
+  const topStudents = useMemo(() =>
+    [...filteredStudents]
+      .sort((a, b) => (b.performance?.overallPercentage || 0) - (a.performance?.overallPercentage || 0))
+      .slice(0, 3),
+    [filteredStudents]
   );
 
   // Handlers for import/export
   const handleImport = () => alert('Import feature coming soon!');
   const handleExport = () => alert('Export feature coming soon!');
+
+  if (isLoading) {
+    return <Spinner fullScreen />;
+  }
+
+  if (!institutionId) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle size={48} className="mx-auto mb-4 text-yellow-500" />
+          <p className="text-gray-600 text-lg font-medium">No institution ID found</p>
+          <p className="text-gray-500 text-sm mt-2">Please contact support to link your account to an institution</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -61,62 +134,82 @@ export function StudentsClient({ institutionId }: { institutionId: string }) {
       </div>
 
       {/* Top Performers */}
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Top Students</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {topStudents.map(student => (
-            <div key={student.id} className="bg-blue-50 rounded-lg p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div className="h-12 w-12 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-lg">
-                {student.name[0]}
+      {topStudents.length > 0 && (
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Top Students</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {topStudents.map(student => (
+              <div
+                key={student.uid}
+                onClick={() => router.push(`/dashboard/institution/students/${student.uid}`)}
+                className="bg-blue-50 rounded-lg p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              >
+                <div className="h-12 w-12 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-lg">
+                  {student.displayName?.[0] || 'S'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{student.displayName}</p>
+                  <p className="text-sm text-gray-700">
+                    {student.class && student.section ? `Class ${student.class}${student.section}` : student.email}
+                  </p>
+                  <p className="text-sm text-gray-600">Score: {student.performance?.overallPercentage || 0}%</p>
+                </div>
+                <Star className="text-yellow-500" size={24} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{student.name}</p>
-                <p className="text-sm text-gray-700">Class {student.class}{student.section}</p>
-                <p className="text-sm text-gray-600">Score: {student.performance.overallPercentage}%</p>
-              </div>
-              <Star className="text-yellow-500" size={24} />
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Full Student List Table */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-6">All Students ({students.length})</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-3 font-medium border-b border-gray-300">Name</th>
-                <th className="p-3 font-medium border-b border-gray-300">Class</th>
-                <th className="p-3 font-medium border-b border-gray-300">Roll No</th>
-                <th className="p-3 font-medium border-b border-gray-300">Performance</th>
-                <th className="p-3 font-medium border-b border-gray-300">Attendance</th>
-                <th className="p-3 font-medium border-b border-gray-300">XP</th>
-                <th className="p-3 font-medium border-b border-gray-300"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map(student => (
-                <tr
-                  key={student.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/dashboard/institution/students/${student.id}`)}
-                >
-                  <td className="p-3 border-b border-gray-200">{student.name}</td>
-                  <td className="p-3 border-b border-gray-200">{student.class}{student.section}</td>
-                  <td className="p-3 border-b border-gray-200">{student.rollNo}</td>
-                  <td className="p-3 border-b border-gray-200">{student.performance.overallPercentage}%</td>
-                  <td className="p-3 border-b border-gray-200">{student.performance.attendance}%</td>
-                  <td className="p-3 border-b border-gray-200">{student.performance.xp}</td>
-                  <td className="p-3 border-b border-gray-200 text-right text-blue-600">
-                    <ChevronRight size={20} />
-                  </td>
+        <h2 className="text-xl font-semibold mb-6">All Students ({filteredStudents.length})</h2>
+        {filteredStudents.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-3 font-medium border-b border-gray-300">Name</th>
+                  <th className="p-3 font-medium border-b border-gray-300">Email</th>
+                  <th className="p-3 font-medium border-b border-gray-300">Class</th>
+                  <th className="p-3 font-medium border-b border-gray-300">Performance</th>
+                  <th className="p-3 font-medium border-b border-gray-300">Attendance</th>
+                  <th className="p-3 font-medium border-b border-gray-300">XP</th>
+                  <th className="p-3 font-medium border-b border-gray-300"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredStudents.map(student => (
+                  <tr
+                    key={student.uid}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/institution/students/${student.uid}`)}
+                  >
+                    <td className="p-3 border-b border-gray-200">{student.displayName}</td>
+                    <td className="p-3 border-b border-gray-200 text-sm text-gray-600">{student.email}</td>
+                    <td className="p-3 border-b border-gray-200">
+                      {student.class && student.section ? `${student.class}${student.section}` : '-'}
+                    </td>
+                    <td className="p-3 border-b border-gray-200">{student.performance?.overallPercentage || 0}%</td>
+                    <td className="p-3 border-b border-gray-200">{student.performance?.attendance || 0}%</td>
+                    <td className="p-3 border-b border-gray-200">{student.xp || 0}</td>
+                    <td className="p-3 border-b border-gray-200 text-right text-blue-600">
+                      <ChevronRight size={20} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            <Users size={48} className="mx-auto mb-4 text-gray-300" />
+            <p className="text-lg font-medium">No students found</p>
+            <p className="text-sm mt-2">
+              {search ? 'Try adjusting your search query' : 'Add students to get started'}
+            </p>
+          </div>
+        )}
       </Card>
     </div>
   );

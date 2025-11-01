@@ -16,7 +16,14 @@ import {
   Trophy, Target, Flame, BookOpen, Award, TrendingUp,
   Sparkles, Upload, ArrowRight, ChevronRight, Calendar, Clock
 } from 'lucide-react';
-import { getTestsByClass, students } from '@/lib/comprehensiveMockData';
+import {
+  fetchStudentEvaluations,
+  fetchActivityData,
+  fetchStudentStats,
+  fetchUpcomingTests,
+  calculateSubjectProgress,
+  type StudentEvaluation,
+} from '@/lib/studentData';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -35,7 +42,11 @@ interface StudentDashboardClientProps {
 }
 
 export function StudentDashboardClient({ userId }: StudentDashboardClientProps) {
-  const [_firebaseUser, _setFirebaseUser] = useState<{ uid?: string; displayName?: string; email?: string; role?: string; xp?: number } | null>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [evaluations, setEvaluations] = useState<StudentEvaluation[]>([]);
+  const [activityData, setActivityData] = useState<any[]>([]);
+  const [upcomingTests, setUpcomingTests] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -43,84 +54,57 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // Fetch user document
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
-            // Firebase user data loaded
+            const data = userDoc.data();
+            setUserData(data);
+
+            // Fetch all student data in parallel
+            const [evals, activity, studentStats, tests] = await Promise.all([
+              fetchStudentEvaluations(user.uid, 20),
+              fetchActivityData(user.uid, 90),
+              fetchStudentStats(user.uid),
+              fetchUpcomingTests(data.institutionId || '', 3),
+            ]);
+
+            setEvaluations(evals);
+            setActivityData(activity);
+            setStats(studentStats);
+            setUpcomingTests(tests);
           }
         } catch (error) {
           console.error('Error loading user data:', error);
         } finally {
           setIsLoading(false);
         }
+      } else {
+        setIsLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Get student data from comprehensive mock data
-  const student = useMemo(() => {
-    // In production, match by Firebase UID
-    // For now, get first student or match by userId
-    return students.find(s => s.uid === userId) || students[0];
-  }, [userId]);
-
-  // Get upcoming tests
-  const upcomingTests = useMemo(() => {
-    if (!student) return [];
-    return getTestsByClass(student.institutionId, student.class, student.section)
-      .filter(test => test.status === 'scheduled')
-      .slice(0, 3);
-  }, [student]);
-
-  // Get completed tests
-  const recentTests = useMemo(() => {
-    if (!student) return [];
-    return getTestsByClass(student.institutionId, student.class, student.section)
-      .filter(test => test.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 4);
-  }, [student]);
-
-  if (!student) {
-    return <div>Loading...</div>;
+  // Show loading spinner while data is being fetched
+  if (isLoading || !userData || !stats) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
   }
 
-  const currentXp = student.performance.xp;
-  const currentLevel = student.performance.level;
+  const currentXp = stats.xp;
+  const currentLevel = stats.level;
   const nextLevelXp = xpForNextLevel(currentLevel);
   const xpProgress = ((currentXp % 1000) / 1000) * 100;
 
-  // Generate mock activity data
-  const generateActivityData = () => {
-    const data = [];
-    const today = new Date();
-    
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const xp = Math.random() > 0.3 ? Math.floor(Math.random() * 50) : 0;
-      
-      data.push({
-        date: date.toISOString().split('T')[0],
-        xp: xp,
-      });
-    }
-    
-    return data;
-  };
+  // Calculate subject progress from evaluations
+  const subjectProgress = calculateSubjectProgress(evaluations);
 
-  const activityData = generateActivityData();
-
-  // Convert subject scores to progress format
-  const subjectProgress = student.subjectScores.slice(0, 5).map((subject, index) => ({
-    subject: subject.subjectName,
-    percent: subject.averageScore,
-    color: ['#3B82F6', '#8B5CF6', '#10B981', '#EF4444', '#F59E0B'][index],
-  }));
-
-  // Recent activities from test results
-  const recentActivities = recentTests.map((test, index) => {
+  // Recent activities from evaluations
+  const recentActivities = evaluations.slice(0, 4).map((evaluation, index) => {
     const icons = ['🔥', '⚡', '🌟', '🏆'];
     const colors = [
       'from-orange-400 to-red-500',
@@ -128,11 +112,13 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
       'from-purple-400 to-pink-500',
       'from-yellow-500 to-orange-600'
     ];
-    
+
+    const daysAgo = Math.floor((new Date().getTime() - evaluation.evaluatedAt.getTime()) / (1000 * 60 * 60 * 24));
+
     return {
-      action: `Completed ${test.title}`,
-      detail: `Score: ${Math.floor(70 + Math.random() * 25)}% 🎯`,
-      time: `${Math.floor((new Date().getTime() - new Date(test.date).getTime()) / (1000 * 60 * 60 * 24))} days ago`,
+      action: `Completed ${evaluation.topic}`,
+      detail: `Score: ${Math.round(evaluation.percentage)}% 🎯`,
+      time: daysAgo === 0 ? 'Today' : `${daysAgo} days ago`,
       icon: icons[index % icons.length],
       color: colors[index % colors.length],
     };
@@ -157,10 +143,10 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
           <div className="flex flex-col md:flex-row items-start justify-between gap-6">
             <div className="flex-1">
               <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white drop-shadow-md">
-                Hey {student.name.split(' ')[0]}! 👋
+                Hey {(userData.displayName || userData.name || 'Student').split(' ')[0]}! 👋
               </h1>
               <p className="text-white text-lg mb-2 drop-shadow-sm">
-                Class {student.class}{student.section} • Roll No: {student.rollNo}
+                {userData.institutionName || 'PrepMint Student'}
               </p>
               <p className="text-white/90 mb-6">
                 You&apos;re on fire! Keep up the amazing work 🚀
@@ -188,14 +174,14 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             {/* Quick Actions */}
             <div className="flex flex-row md:flex-col gap-3 w-full md:w-auto">
               <button
-                onClick={() => router.push('/score-check')}
+                onClick={() => router.push('/dashboard/student/score-check')}
                 className="flex-1 md:flex-none px-6 py-3 bg-white text-purple-600 hover:bg-gray-50 font-semibold shadow-lg rounded-lg transition-all flex items-center justify-center gap-2 hover:scale-105"
               >
                 <Upload size={20} />
                 <span>Get Score ⚡</span>
               </button>
               <button
-                onClick={() => router.push('/leaderboard')}
+                onClick={() => router.push('/dashboard/student/leaderboard')}
                 className="flex-1 md:flex-none px-6 py-3 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white border-2 border-white/30 font-semibold rounded-lg transition-all flex items-center justify-center gap-2 hover:scale-105"
               >
                 <Trophy size={20} />
@@ -220,24 +206,24 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
           icon={<Trophy size={24} />}
           variant="gradient"
         />
-        
+
         <StatCard
           label="Class Rank"
-          value={`#${student.performance.rank}`}
+          value={`#${stats.rank || 'N/A'}`}
           icon={<TrendingUp size={24} />}
           variant="gradient"
         />
-        
+
         <StatCard
           label="Streak Fire"
-          value={`${student.performance.streak} 🔥`}
+          value={`${stats.streak} 🔥`}
           icon={<Flame size={24} />}
           variant="gradient"
         />
-        
+
         <StatCard
           label="Tests Done"
-          value={student.performance.testsCompleted}
+          value={stats.testsCompleted}
           icon={<Target size={24} />}
           variant="gradient"
         />
@@ -259,14 +245,14 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             <div>
               <p className="text-sm text-gray-600">Overall Score</p>
               <p className="text-2xl font-bold text-gray-900">
-                {student.performance.overallPercentage}%
+                {stats.avgScore}%
               </p>
             </div>
           </div>
           <div className="w-full bg-blue-200 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${student.performance.overallPercentage}%` }}
+              style={{ width: `${stats.avgScore}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 mt-2">Keep pushing! 💪</p>
@@ -279,16 +265,18 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             </div>
             <div>
               <p className="text-sm text-gray-600">Daily Streak</p>
-              <p className="text-2xl font-bold text-gray-900">{student.performance.streak} days</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.streak} days</p>
             </div>
           </div>
           <div className="w-full bg-orange-200 rounded-full h-2">
             <div
               className="bg-orange-600 h-2 rounded-full"
-              style={{ width: `${(student.performance.streak / 30) * 100}%` }}
+              style={{ width: `${Math.min((stats.streak / 30) * 100, 100)}%` }}
             />
           </div>
-          <p className="text-xs text-gray-600 mt-2">{30 - student.performance.streak} days to 30-day milestone!</p>
+          <p className="text-xs text-gray-600 mt-2">
+            {stats.streak >= 30 ? '🎉 30-day milestone reached!' : `${30 - stats.streak} days to 30-day milestone!`}
+          </p>
         </Card>
 
         <Card variant="elevated" padding="lg" className="bg-gradient-to-br from-green-50 to-emerald-50">
@@ -298,13 +286,15 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             </div>
             <div>
               <p className="text-sm text-gray-600">Attendance</p>
-              <p className="text-2xl font-bold text-gray-900">{student.performance.attendance}%</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.attendance}%</p>
             </div>
           </div>
           <div className="w-full bg-green-200 rounded-full h-2">
-            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${student.performance.attendance}%` }} />
+            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${stats.attendance}%` }} />
           </div>
-          <p className="text-xs text-gray-600 mt-2">Excellent attendance! ⭐</p>
+          <p className="text-xs text-gray-600 mt-2">
+            {stats.attendance >= 90 ? 'Excellent attendance! ⭐' : 'Keep it up! 💪'}
+          </p>
         </Card>
       </motion.div>
 
@@ -376,8 +366,8 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
                   <p className="text-sm text-gray-600">Your latest achievements</p>
                 </div>
               </div>
-              <button 
-                onClick={() => router.push('/history')}
+              <button
+                onClick={() => router.push('/dashboard/student/history')}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
               >
                 <span>View All</span>
@@ -431,9 +421,9 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
         animate="visible"
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        <button onClick={() => router.push('/score-check')} className="text-left">
-          <Card 
-            variant="elevated" 
+        <button onClick={() => router.push('/dashboard/student/score-check')} className="text-left">
+          <Card
+            variant="elevated"
             padding="lg"
             hover
             className="bg-gradient-to-br from-purple-500 to-pink-600 text-white cursor-pointer h-full"
@@ -453,9 +443,9 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
           </Card>
         </button>
 
-        <button onClick={() => router.push('/leaderboard')} className="text-left">
-          <Card 
-            variant="elevated" 
+        <button onClick={() => router.push('/dashboard/student/leaderboard')} className="text-left">
+          <Card
+            variant="elevated"
             padding="lg"
             hover
             className="bg-gradient-to-br from-yellow-400 to-orange-500 text-white cursor-pointer h-full"
@@ -464,7 +454,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
               <div>
                 <h3 className="text-xl font-bold mb-2 text-white">Climb the Ranks! 🏆</h3>
                 <p className="text-white/90 text-sm mb-4">
-                  You're rank #{student.performance.rank}. Beat your classmates!
+                  {stats.rank ? `You're rank #${stats.rank}. Beat your classmates!` : 'Compete with your classmates!'}
                 </p>
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-white text-orange-600 hover:bg-gray-50 font-semibold rounded-lg transition-colors">
                   View Leaderboard →

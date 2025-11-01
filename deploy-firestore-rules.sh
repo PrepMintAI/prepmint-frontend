@@ -52,14 +52,14 @@ echo "Environment: $ENVIRONMENT"
 echo ""
 
 # Validate files exist
-if [ ! -f "firestore.rules" ]; then
-    print_error "firestore.rules file not found!"
+if [ ! -f "src/firebase/firestore.rules" ]; then
+    print_error "src/firebase/firestore.rules file not found!"
     exit 1
 fi
-print_success "firestore.rules file found"
+print_success "src/firebase/firestore.rules file found"
 
-if [ ! -f "firestore.indexes.json" ]; then
-    print_warning "firestore.indexes.json file not found (optional)"
+if [ ! -f "src/firebase/firestore.indexes.json" ]; then
+    print_warning "src/firebase/firestore.indexes.json file not found (optional)"
 fi
 
 if [ ! -f "firebase.json" ]; then
@@ -71,7 +71,7 @@ print_success "firebase.json file found"
 # Show rules summary
 print_header "Security Rules Summary"
 echo "Collections secured:"
-grep -E "match /(users|institutions|evaluations|tests|subjects|badges|activity|leaderboards|jobQueues|notifications)/" firestore.rules | sed 's/^/  - /'
+grep -E "match /(users|institutions|evaluations|tests|subjects|badges|activity|leaderboards|jobQueues|notifications)/" src/firebase/firestore.rules | sed 's/^/  - /'
 echo ""
 
 # Ask for confirmation if production
@@ -112,7 +112,7 @@ else
 fi
 
 # Deploy indexes if file exists
-if [ -f "firestore.indexes.json" ]; then
+if [ -f "src/firebase/firestore.indexes.json" ]; then
     echo ""
     echo "Deploying Firestore indexes..."
     firebase deploy --only firestore:indexes

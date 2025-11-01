@@ -52,6 +52,11 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'student';
     }
 
+    // Check if user has dev role (full access for development/testing)
+    function isDev() {
+      return isAuthenticated() && getUserRole() == 'dev';
+    }
+
     // Check if user belongs to a specific institution
     function belongsToInstitution(institutionId) {
       return isAuthenticated() && getUserInstitutionId() == institutionId;
@@ -75,20 +80,25 @@ service cloud.firestore {
       // Users can read their own profile
       // Teachers can read student profiles (checked via backend/custom logic)
       // Admins can read any profile
-      allow read: if isOwner(uid) || isAdmin() || isTeacher();
+      // Devs have full read access
+      allow read: if isOwner(uid) || isAdmin() || isTeacher() || isDev();
 
       // Users can create their own profile during signup
-      allow create: if isOwner(uid)
+      // Devs can create any profile
+      allow create: if (isOwner(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.email == request.auth.token.email)
+        || isDev();
 
       // Users can update their own profile, but NOT their role
       // Admins can update any profile
+      // Devs can update any profile
       allow update: if (isOwner(uid) && criticalFieldsNotChanged())
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
-      // Only admins can delete users
-      allow delete: if isAdmin();
+      // Only admins and devs can delete users
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -98,20 +108,24 @@ service cloud.firestore {
       // Users can read their own institution
       // Institution admins can read their institution
       // System admins can read any institution
+      // Devs have full read access
       allow read: if belongsToInstitution(institutionId)
         || isInstitution()
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
-      // Only system admins can create institutions
-      allow create: if isAdmin();
+      // Only system admins and devs can create institutions
+      allow create: if isAdmin() || isDev();
 
       // Institution admins can update their own institution
       // System admins can update any institution
+      // Devs can update any institution
       allow update: if (isInstitution() && belongsToInstitution(institutionId))
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
-      // Only system admins can delete institutions
-      allow delete: if isAdmin();
+      // Only system admins and devs can delete institutions
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -121,22 +135,27 @@ service cloud.firestore {
       // Students can read their own evaluations
       // Teachers can read evaluations (backend validates assignment)
       // Admins can read all evaluations
+      // Devs have full read access
       allow read: if isOwner(resource.data.userId)
         || isTeacher()
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
       // Students can create evaluations for themselves
-      allow create: if isStudent()
+      // Devs can create any evaluation
+      allow create: if (isStudent()
         && request.resource.data.userId == getUserId()
-        && request.resource.data.keys().hasAll(['userId', 'subject', 'status']);
+        && request.resource.data.keys().hasAll(['userId', 'subject', 'status']))
+        || isDev();
 
       // Teachers can update evaluations (add feedback, scores, update status)
       // Students CANNOT update evaluations after creation
       // Admins can update any evaluation
-      allow update: if isTeacher() || isAdmin();
+      // Devs can update any evaluation
+      allow update: if isTeacher() || isAdmin() || isDev();
 
-      // Only admins can delete evaluations
-      allow delete: if isAdmin();
+      // Only admins and devs can delete evaluations
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -146,21 +165,28 @@ service cloud.firestore {
       // Teachers can read their own tests
       // Students can read tests (backend validates class membership)
       // Admins can read all tests
+      // Devs have full read access
       allow read: if isAuthenticated();
 
       // Teachers can create tests
-      allow create: if isTeacher()
-        && request.resource.data.createdBy == getUserId();
+      // Devs can create any test
+      allow create: if (isTeacher()
+        && request.resource.data.createdBy == getUserId())
+        || isDev();
 
       // Teachers can update their own tests
       // Admins can update any test
+      // Devs can update any test
       allow update: if (isTeacher() && resource.data.createdBy == getUserId())
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
       // Teachers can delete their own tests
       // Admins can delete any test
+      // Devs can delete any test
       allow delete: if (isTeacher() && resource.data.createdBy == getUserId())
-        || isAdmin();
+        || isAdmin()
+        || isDev();
     }
 
     // ============================================================================
@@ -171,15 +197,18 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       // Teachers and admins can create subjects
-      allow create: if isTeacher() || isAdmin();
+      // Devs can create any subject
+      allow create: if isTeacher() || isAdmin() || isDev();
 
       // Teachers can update subjects they created
       // Admins can update any subject
+      // Devs can update any subject
       allow update: if (isTeacher() && resource.data.createdBy == getUserId())
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
-      // Only admins can delete subjects
-      allow delete: if isAdmin();
+      // Only admins and devs can delete subjects
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -189,8 +218,8 @@ service cloud.firestore {
       // All authenticated users can read badges (for display purposes)
       allow read: if isAuthenticated();
 
-      // Only admins can create/update/delete badge definitions
-      allow write: if isAdmin();
+      // Only admins and devs can create/update/delete badge definitions
+      allow write: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -199,17 +228,20 @@ service cloud.firestore {
     match /activity/{activityId} {
       // Users can read their own activity
       // Admins can read all activity
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Devs have full read access
+      allow read: if isOwner(resource.data.userId) || isAdmin() || isDev();
 
       // Activity is written by backend/admin SDK (server-side)
       // Users can create activity for themselves
-      allow create: if isOwner(request.resource.data.userId);
+      // Devs can create any activity
+      allow create: if isOwner(request.resource.data.userId) || isDev();
 
       // No updates allowed (activity is immutable)
-      allow update: if false;
+      // Devs can update for testing purposes
+      allow update: if isDev();
 
-      // Only admins can delete activity
-      allow delete: if isAdmin();
+      // Only admins and devs can delete activity
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -220,8 +252,8 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       // Leaderboards are managed by backend/admin SDK
-      // Only admins can write to leaderboards
-      allow write: if isAdmin();
+      // Only admins and devs can write to leaderboards
+      allow write: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -232,19 +264,22 @@ service cloud.firestore {
       // Users can read their own jobs
       // Teachers can read jobs for their evaluations
       // Admins can read all jobs
+      // Devs have full read access
       allow read: if isOwner(resource.data.userId)
         || isTeacher()
-        || isAdmin();
+        || isAdmin()
+        || isDev();
 
       // Users can create jobs for themselves
-      allow create: if isOwner(request.resource.data.userId);
+      // Devs can create any job
+      allow create: if isOwner(request.resource.data.userId) || isDev();
 
       // Backend/cloud functions update job status
-      // Only admins can manually update jobs
-      allow update: if isAdmin();
+      // Only admins and devs can manually update jobs
+      allow update: if isAdmin() || isDev();
 
-      // Only admins can delete jobs
-      allow delete: if isAdmin();
+      // Only admins and devs can delete jobs
+      allow delete: if isAdmin() || isDev();
     }
 
     // ============================================================================
@@ -253,17 +288,21 @@ service cloud.firestore {
     // ============================================================================
     match /notifications/{notificationId} {
       // Users can read their own notifications
-      allow read: if isOwner(resource.data.userId);
+      // Devs have full read access
+      allow read: if isOwner(resource.data.userId) || isDev();
 
       // System (backend) creates notifications
       // Users can create notifications for themselves
-      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      // Devs can create any notification
+      allow create: if isOwner(request.resource.data.userId) || isAdmin() || isDev();
 
       // Users can update their own notifications (mark as read)
-      allow update: if isOwner(resource.data.userId);
+      // Devs can update any notification
+      allow update: if isOwner(resource.data.userId) || isDev();
 
       // Users can delete their own notifications
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      // Devs can delete any notification
+      allow delete: if isOwner(resource.data.userId) || isAdmin() || isDev();
     }
 
     // ============================================================================

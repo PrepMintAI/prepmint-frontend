@@ -33,8 +33,8 @@ export default async function SingleEvaluationPage() {
     redirect('/login');
   }
 
-  // Teachers and students can access
-  if (!['teacher', 'admin', 'institution', 'student'].includes(userRole)) {
+  // Teachers, students, and devs can access
+  if (!['teacher', 'admin', 'institution', 'student', 'dev'].includes(userRole)) {
     redirect(`/dashboard/${userRole}`);
   }
 

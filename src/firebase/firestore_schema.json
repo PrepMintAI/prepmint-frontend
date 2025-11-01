@@ -1,0 +1,104 @@
+{
+  "institutions": {
+    "_meta": {
+      "description": "Institution-level data including tests, members, and notifications"
+    },
+    "fields": {
+      "name": "string",
+      "cityId": "string",
+      "createdAt": "timestamp"
+    },
+    "subcollections": {
+      "members": {
+        "fields": {
+          "role": "string",
+          "joinedAt": "timestamp",
+          "active": "boolean"
+        }
+      },
+      "tests": {
+        "fields": {
+          "qpId": "string",
+          "subject": "string",
+          "createdBy": "string",
+          "isBulkEvaluated": "boolean",
+          "totalMarks": "number",
+          "status": "string"
+        },
+        "subcollections": {
+          "submissions": {
+            "fields": {
+              "studentId": "string",
+              "evaluationId": "string",
+              "evaluatedBy": "string",
+              "obtainedMarks": "number",
+              "feedback": "string",
+              "updatedAt": "timestamp"
+            }
+          }
+        }
+      },
+      "notifications": {
+        "fields": {
+          "title": "string",
+          "message": "string",
+          "targetRole": "string",
+          "createdBy": "string",
+          "createdAt": "timestamp",
+          "readBy": "array"
+        }
+      }
+    }
+  },
+  "users": {
+    "fields": {
+      "name": "string",
+      "email": "string",
+      "role": "string",
+      "institutionId": "string",
+      "cityId": "string"
+    },
+    "subcollections": {
+      "profile": {
+        "fields": {
+          "avatar": "string",
+          "preferences": {
+            "theme": "string",
+            "notifications": "boolean",
+            "language": "string"
+          }
+        }
+      },
+      "evaluations": {
+        "fields": {
+          "testId": "string",
+          "qpId": "string",
+          "marksAwarded": "number",
+          "evaluatedBy": "string",
+          "evaluatedAt": "timestamp",
+          "comments": "string"
+        }
+      },
+      "notifications": {
+        "fields": {
+          "title": "string",
+          "read": "boolean",
+          "createdAt": "timestamp"
+        }
+      }
+    }
+  },
+  "evaluations": {
+    "fields": {
+      "testId": "string",
+      "qpId": "string",
+      "studentId": "string",
+      "teacherId": "string",
+      "institutionId": "string",
+      "marksAwarded": "number",
+      "status": "string",
+      "remarks": "string",
+      "evaluatedAt": "timestamp"
+    }
+  }
+}

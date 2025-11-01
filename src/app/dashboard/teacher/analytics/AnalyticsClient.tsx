@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import { 
+import {
   ArrowLeft, TrendingUp, TrendingDown, Award, Target,
   Calendar, BarChart3, PieChart, Activity, Download,
   Clock, AlertCircle, CheckCircle
 } from 'lucide-react';
-import { 
+import {
   getStudentById,
   getTestsByClass,
   getTeacherById,
@@ -19,6 +19,7 @@ import {
   students,
   teachers
 } from '@/lib/comprehensiveMockData';
+import { InstitutionAnalytics } from './InstitutionAnalytics';
 
 interface AnalyticsClientProps {
   userId: string;
@@ -34,6 +35,13 @@ export function AnalyticsClient({ userId, userRole, studentId, testId }: Analyti
 
   // For teacher, if no studentId is selected, show a picker
   const [searchQuery, setSearchQuery] = useState('');
+
+  // If user is institution role, show institution analytics
+  if (userRole === 'institution') {
+    // Get institution ID from user (in real app, would come from auth context)
+    const institutionId = 'inst_001'; // Default for demo
+    return <InstitutionAnalytics institutionId={institutionId} />;
+  }
 
 
   // Get student data if studentId is provided
@@ -120,62 +128,349 @@ export function AnalyticsClient({ userId, userRole, studentId, testId }: Analyti
     }));
   }, []);
 
-      if (userRole === 'teacher' && !studentId) {
-    const teacherObj = teachers.find(t => t.uid === userId) || teachers[0];
-    const teacherStudents: any[] = [];
-    teacherObj.assignedClasses.forEach(assignedClass => {
-      const classStudents = getStudentsByClass(
-        teacherObj.institutionId,
-        assignedClass.class,
-        assignedClass.section
-      );
-      teacherStudents.push(...classStudents);
-    });
-    const studentsList = teacherStudents.filter(
-      (student, index, self) => index === self.findIndex(s => s.id === student.id)
-    );
-    const filteredStudents = studentsList.filter(student =>
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.rollNo.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  // Teacher Class Overview - when no specific student is selected
+  if (userRole === 'teacher' && !studentId) {
+    const studentOptions = teacherStudents.map(s => ({
+      value: s.id,
+      label: `${s.name} (${s.class}${s.section} - ${s.rollNo})`
+    }));
 
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Student Analytics
-        </h1>
-        <Card variant="elevated" padding="lg">
-          <p className="mb-4 text-gray-600">
-            Select a student to view detailed analytics and trends.
-          </p>
-          <input
-            className="w-full mb-4 p-2 border border-gray-300 rounded-lg"
-            placeholder="Search by name or roll no..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredStudents.map(student => (
-              <button
-                key={student.id}
-                className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 transition"
-                onClick={() => router.push(`/dashboard/teacher/analytics?student=${student.id}`)}
-              >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">{student.name.charAt(0)}</div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{student.name}</p>
-                  <p className="text-xs text-gray-500">
-                    Class {student.class}{student.section} &bull; {student.rollNo}
-                  </p>
-                </div>
-                <ArrowLeft size={16} className="text-gray-400" />
-              </button>
-            ))}
+        {/* Header with Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Class Analytics</h1>
+              <p className="text-gray-600 mt-1">
+                Overview of {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
+                {selectedClass && ` in ${teacherClasses.find(c => c.value === selectedClass)?.label}`}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Filter size={16} />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? 'Hide' : 'Show'} Filters
+            </Button>
           </div>
-          {filteredStudents.length === 0 && (
-            <div className="text-center text-gray-500 mt-8">No students found</div>
+
+          {/* Filters Panel */}
+          {showFilters && (
+            <Card variant="bordered" padding="lg" className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <StudentFilter
+                  students={studentOptions}
+                  selected={selectedStudent}
+                  onSelect={(value) => {
+                    if (value) {
+                      router.push(`/dashboard/teacher/analytics?student=${value}`);
+                    } else {
+                      setSelectedStudent(null);
+                    }
+                  }}
+                  label="Student"
+                  placeholder="All Students"
+                />
+                <SubjectFilter
+                  subjects={teacherSubjects}
+                  selected={selectedSubject}
+                  onSelect={setSelectedSubject}
+                  label="Subject"
+                  placeholder="All Subjects"
+                />
+                <ClassFilter
+                  classes={teacherClasses}
+                  selected={selectedClass}
+                  onSelect={setSelectedClass}
+                  label="Class/Section"
+                  placeholder="All Classes"
+                />
+                <DateRangeFilter
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  label="Date Range"
+                />
+              </div>
+            </Card>
           )}
-        </Card>
+        </motion.div>
+
+        {/* Key Metrics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        >
+          <Card variant="elevated" padding="lg" className="text-center">
+            <Users className="mx-auto mb-2 text-blue-600" size={24} />
+            <p className="text-2xl font-bold text-gray-900">{classMetrics.totalStudents}</p>
+            <p className="text-xs text-gray-600">Total Students</p>
+          </Card>
+
+          <Card variant="elevated" padding="lg" className="text-center">
+            <Target className="mx-auto mb-2 text-green-600" size={24} />
+            <p className="text-2xl font-bold text-gray-900">{Math.round(classMetrics.averageScore)}%</p>
+            <p className="text-xs text-gray-600">Class Average</p>
+            <p className="text-xs text-green-600 mt-1">
+              {classMetrics.averageScore >= 75 ? '✓ Good' : 'Needs Focus'}
+            </p>
+          </Card>
+
+          <Card variant="elevated" padding="lg" className="text-center">
+            <CheckCircle className="mx-auto mb-2 text-purple-600" size={24} />
+            <p className="text-2xl font-bold text-gray-900">{classMetrics.totalTestsCompleted}</p>
+            <p className="text-xs text-gray-600">Tests Completed</p>
+            <p className="text-xs text-gray-500 mt-1">{Math.round(classMetrics.completionRate)}% rate</p>
+          </Card>
+
+          <Card variant="elevated" padding="lg" className="text-center">
+            <Calendar className="mx-auto mb-2 text-orange-600" size={24} />
+            <p className="text-2xl font-bold text-gray-900">{Math.round(classMetrics.averageAttendance)}%</p>
+            <p className="text-xs text-gray-600">Avg Attendance</p>
+            <p className="text-xs text-orange-600 mt-1">
+              {classMetrics.averageAttendance >= 85 ? 'Excellent' : 'Monitor'}
+            </p>
+          </Card>
+
+          <Card variant="elevated" padding="lg" className="text-center">
+            <Activity className="mx-auto mb-2 text-pink-600" size={24} />
+            <p className="text-2xl font-bold text-gray-900">{Math.round(classMetrics.engagementScore)}%</p>
+            <p className="text-xs text-gray-600">Engagement</p>
+            <p className="text-xs text-pink-600 mt-1">
+              {classMetrics.engagementScore >= 70 ? 'High' : 'Moderate'}
+            </p>
+          </Card>
+        </motion.div>
+
+        {/* Charts Row 1 - Performance Distribution & Subject Comparison */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {/* Performance Distribution */}
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Performance Distribution</h3>
+              <BarChart3 className="text-blue-600" size={20} />
+            </div>
+            <div className="space-y-4">
+              {performanceDistribution.map((range, index) => (
+                <div key={index}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{range.label}</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {range.count} student{range.count !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="w-full h-8 bg-gray-200 rounded-lg overflow-hidden">
+                    <div
+                      className="h-full flex items-center justify-start px-3 text-white text-xs font-semibold transition-all"
+                      style={{
+                        backgroundColor: range.color,
+                        width: `${(range.count / classMetrics.totalStudents) * 100}%`
+                      }}
+                    >
+                      {range.count > 0 && `${Math.round((range.count / classMetrics.totalStudents) * 100)}%`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Subject Performance Comparison */}
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Subject Performance</h3>
+              <PieChart className="text-purple-600" size={20} />
+            </div>
+            <div className="space-y-4">
+              {subjectPerformanceComparison.slice(0, 6).map((subject, index) => (
+                <div key={index}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{subject.name}</span>
+                    <span className="text-sm font-bold text-gray-900">{Math.round(subject.average)}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all"
+                      style={{ width: `${subject.average}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{subject.count} students</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Top & Bottom Performers */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {/* Top Performers */}
+          <Card variant="elevated" padding="lg" className="bg-green-50 border-2 border-green-200">
+            <h3 className="text-lg font-bold text-green-900 mb-4 flex items-center gap-2">
+              <Award size={20} className="text-green-600" />
+              Top Performers
+            </h3>
+            <div className="space-y-3">
+              {classMetrics.topPerformers.map((student: any, index: number) => (
+                <button
+                  key={student.id}
+                  onClick={() => router.push(`/dashboard/teacher/analytics?student=${student.id}`)}
+                  className="w-full flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white text-sm font-bold">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold text-gray-900 group-hover:text-green-700">
+                      {student.name}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Class {student.class}{student.section} • {student.rollNo}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-green-700">{student.performance.overallPercentage}%</p>
+                    <p className="text-xs text-gray-600">Rank #{student.performance.rank}</p>
+                  </div>
+                </button>
+              ))}
+              {classMetrics.topPerformers.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">No data available</p>
+              )}
+            </div>
+          </Card>
+
+          {/* Bottom Performers - Needs Attention */}
+          <Card variant="elevated" padding="lg" className="bg-orange-50 border-2 border-orange-200">
+            <h3 className="text-lg font-bold text-orange-900 mb-4 flex items-center gap-2">
+              <AlertCircle size={20} className="text-orange-600" />
+              Needs Attention
+            </h3>
+            <div className="space-y-3">
+              {classMetrics.bottomPerformers.map((student: any, index: number) => (
+                <button
+                  key={student.id}
+                  onClick={() => router.push(`/dashboard/teacher/analytics?student=${student.id}`)}
+                  className="w-full flex items-center gap-3 p-3 bg-white rounded-lg hover:shadow-md transition group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white text-sm font-bold">
+                    !
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold text-gray-900 group-hover:text-orange-700">
+                      {student.name}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Class {student.class}{student.section} • {student.rollNo}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-orange-700">{student.performance.overallPercentage}%</p>
+                    <p className="text-xs text-gray-600">
+                      {student.performance.attendance < 75 && 'Low Attendance'}
+                      {student.performance.attendance >= 75 && student.performance.testsCompleted < 5 && 'Few Tests'}
+                      {student.performance.attendance >= 75 && student.performance.testsCompleted >= 5 && 'Below Average'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+              {classMetrics.bottomPerformers.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">All students performing well!</p>
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Completion Trends */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Test Completion Trends</h3>
+              <Activity className="text-blue-600" size={20} />
+            </div>
+            <div className="flex items-end gap-1 h-48">
+              {completionTrends.map((trend, index) => (
+                <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex items-end justify-center h-40">
+                    <div
+                      className="w-full bg-gradient-to-t from-blue-500 to-cyan-400 rounded-t-lg transition-all hover:opacity-80 relative group"
+                      style={{ height: `${Math.min(trend.percentage, 100)}%` }}
+                    >
+                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {trend.completed} completions
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-gray-600 transform -rotate-45 origin-top-left mt-2">
+                    {trend.date}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Showing completion trends for the last{' '}
+                <span className="font-bold text-gray-900">{dateRange} days</span>
+              </p>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card variant="bordered" padding="lg">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Download size={16} />}
+              >
+                Export Class Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<BookOpen size={16} />}
+                onClick={() => router.push('/dashboard/teacher/evaluations')}
+              >
+                View All Evaluations
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Users size={16} />}
+                onClick={() => router.push('/dashboard/teacher/students')}
+              >
+                Manage Students
+              </Button>
+            </div>
+          </Card>
+        </motion.div>
       </div>
     );
   }

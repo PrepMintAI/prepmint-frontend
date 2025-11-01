@@ -33,85 +33,85 @@ export default function DashboardSidebar({ collapsed, setCollapsed, userRole }: 
   // Role-based navigation items
   const navItems: NavItem[] = [
     // Common for all roles
-    { 
-      name: 'Dashboard', 
-      icon: <LayoutDashboard size={20} />, 
+    {
+      name: 'Dashboard',
+      icon: <LayoutDashboard size={20} />,
       href: '/dashboard',
-      roles: ['student', 'teacher', 'admin', 'institution'],
+      roles: ['student', 'teacher', 'admin', 'institution', 'dev'],
     },
-    
-    // Student-specific
-    { 
-      name: 'Practice', 
-      icon: <BookOpen size={20} />, 
+
+    // Student-specific (dev also has access)
+    {
+      name: 'Practice',
+      icon: <BookOpen size={20} />,
       href: '/practice',
-      roles: ['student'],
+      roles: ['student', 'dev'],
     },
-    { 
-      name: 'Tests', 
-      icon: <FileCheck size={20} />, 
+    {
+      name: 'Tests',
+      icon: <FileCheck size={20} />,
       href: '/tests',
-      roles: ['student'],
+      roles: ['student', 'dev'],
     },
-    { 
-      name: 'Leaderboard', 
-      icon: <Trophy size={20} />, 
+    {
+      name: 'Leaderboard',
+      icon: <Trophy size={20} />,
       href: '/leaderboard',
-      roles: ['student'],
+      roles: ['student', 'dev'],
     },
-    { 
-      name: 'Rewards', 
-      icon: <Gift size={20} />, 
+    {
+      name: 'Rewards',
+      icon: <Gift size={20} />,
       href: '/rewards',
-      roles: ['student'],
+      roles: ['student', 'dev'],
     },
-    
-    // Teacher-specific
-    { 
-      name: 'Evaluations', 
-      icon: <FileCheck size={20} />, 
+
+    // Teacher-specific (dev also has access)
+    {
+      name: 'Evaluations',
+      icon: <FileCheck size={20} />,
       href: '/teacher/evaluations',
-      roles: ['teacher'],
+      roles: ['teacher', 'dev'],
     },
-    { 
-      name: 'Students', 
-      icon: <Users size={20} />, 
+    {
+      name: 'Students',
+      icon: <Users size={20} />,
       href: '/teacher/students',
-      roles: ['teacher'],
+      roles: ['teacher', 'dev'],
     },
-    { 
-      name: 'Analytics', 
-      icon: <BarChart size={20} />, 
+    {
+      name: 'Analytics',
+      icon: <BarChart size={20} />,
       href: '/teacher/analytics',
-      roles: ['teacher'],
+      roles: ['teacher', 'dev'],
     },
-    
-    // Admin-specific
-    { 
-      name: 'Users', 
-      icon: <Users size={20} />, 
+
+    // Admin-specific (dev has admin access)
+    {
+      name: 'Users',
+      icon: <Users size={20} />,
       href: '/admin/users',
-      roles: ['admin'],
+      roles: ['admin', 'dev'],
     },
-    { 
-      name: 'Institutions', 
-      icon: <GraduationCap size={20} />, 
+    {
+      name: 'Institutions',
+      icon: <GraduationCap size={20} />,
       href: '/admin/institutions',
-      roles: ['admin'],
+      roles: ['admin', 'dev'],
     },
-    
+
     // Common for all
-    { 
-      name: 'Community', 
-      icon: <Users size={20} />, 
+    {
+      name: 'Community',
+      icon: <Users size={20} />,
       href: '/community',
-      roles: ['student', 'teacher', 'admin', 'institution'],
+      roles: ['student', 'teacher', 'admin', 'institution', 'dev'],
     },
-    { 
-      name: 'Settings', 
-      icon: <Settings size={20} />, 
+    {
+      name: 'Settings',
+      icon: <Settings size={20} />,
       href: '/settings',
-      roles: ['student', 'teacher', 'admin', 'institution'],
+      roles: ['student', 'teacher', 'admin', 'institution', 'dev'],
     },
   ];
 

@@ -110,8 +110,12 @@ src/
 │   ├── firebase.admin.ts: Admin SDK
 │   ├── api.ts: Centralized HTTP client with token injection
 │   └── gamify.ts: XP, badges, level calculation
-├── middleware.ts: Route protection
-└── firestore.rules: Security rules with 12 collection coverage
+├── firebase/
+│   ├── firestore.rules: Security rules (316 lines, dev role)
+│   ├── firestore.indexes.json: 12 composite indexes
+│   ├── firestore_schema.json: Schema single source of truth
+│   └── schema-validator.ts: TypeScript types & validators
+└── middleware.ts: Route protection
 ```
 
 ## Authentication
@@ -126,13 +130,15 @@ src/
 ```typescript
 {
   uid: string, email: string, displayName: string,
-  role: 'student' | 'teacher' | 'admin' | 'institution',
+  role: 'student' | 'teacher' | 'admin' | 'institution' | 'dev',
   xp: number, level: number, badges: string[],
   institutionId?: string, accountType?: 'individual' | 'institution',
   photoURL?: string, streak?: number, lastActive?: string,
   createdAt: Timestamp, updatedAt?: Timestamp, lastLoginAt?: Timestamp
 }
 ```
+
+**Roles**: Student (learning), Teacher (evaluation), Admin (management), Institution (organization), Dev (full admin access for developers)
 
 ## Gamification
 
@@ -185,9 +191,12 @@ firebase emulators:start # Local emulator
 
 ## Documentation Files
 
-- **firestore.rules**: 277 lines, 12 collections with role-based access control
+### Firebase Configuration (`/src/firebase/`)
+- **firestore.rules**: 316 lines, 12 collections with role-based access control, dev role support
 - **firestore.indexes.json**: 12 composite indexes (evaluations, activity, tests, notifications, jobQueues, users)
-- **firebase.json**: Firebase project configuration
+- **firestore_schema.json**: Complete schema for all 10 Firestore collections (single source of truth)
+- **schema-validator.ts**: TypeScript types, validation functions, and permission helpers
+- **firebase.json**: Firebase project configuration (project root)
 
 ## Contributing
 
@@ -204,4 +213,4 @@ For support, email teja.kg@prepmint.in
 
 ---
 
-**Status**: Production Ready | **Build**: 28 routes compiled | **Deployment**: Vercel ready | **Firebase**: Rules + 12 indexes deployed | **Last Updated**: October 31, 2025
+**Status**: Production Ready | **Build**: 27 routes compiled | **Deployment**: Vercel ready | **Firebase**: Rules (316 lines) + 12 indexes + Schema docs | **Dev Role**: Implemented | **Last Updated**: November 1, 2025

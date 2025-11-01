@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role
-    const validRoles: UserRole[] = ['student', 'teacher', 'admin', 'institution'];
+    const validRoles: UserRole[] = ['student', 'teacher', 'admin', 'institution', 'dev'];
     if (!validRoles.includes(role)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be: student, teacher, admin, or institution' },
+        { error: 'Invalid role. Must be: student, teacher, admin, institution, or dev' },
         { status: 400 }
       );
     }

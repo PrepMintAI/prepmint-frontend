@@ -35,8 +35,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     redirect('/login');
   }
 
-  // Only teachers, admins, and institutions can access
-  if (!['teacher', 'admin', 'institution'].includes(userRole)) {
+  // Only teachers, admins, institutions, and devs can access
+  if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
     redirect(`/dashboard/${userRole}`);
   }
 

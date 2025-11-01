@@ -32,9 +32,12 @@ export default function DashboardPage() {
 
         const userData = userDoc.data();
         const role = userData.role || 'student';
-        
-        console.log('[Dashboard Router] Redirecting to:', `/dashboard/${role}`);
-        router.replace(`/dashboard/${role}`);
+
+        // Dev role gets student dashboard as default (can access all via sidebar)
+        const targetRole = role === 'dev' ? 'student' : role;
+
+        console.log('[Dashboard Router] Redirecting to:', `/dashboard/${targetRole}`, '(role:', role + ')');
+        router.replace(`/dashboard/${targetRole}`);
       } catch (error) {
         console.error('[Dashboard Router] Error:', error);
         router.replace('/login');

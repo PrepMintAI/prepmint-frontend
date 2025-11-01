@@ -1,77 +1,132 @@
 // src/app/dashboard/teacher/evaluations/EvaluationsClient.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import { 
+import Spinner from '@/components/common/Spinner';
+import {
   CheckCircle, Clock, Users, FileText,
   Search, Calendar, AlertCircle, Eye,
   TrendingUp, Award, Plus, Zap
 } from 'lucide-react';
-import { getTestsByTeacher, getTeacherById, tests, teachers } from '@/lib/comprehensiveMockData';
+import { db } from '@/lib/firebase.client';
+import { collection, query, where, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 interface EvaluationsClientProps {
   userId: string;
   userRole: string;
 }
 
+interface EvaluationData {
+  id: string;
+  title?: string;
+  subject?: string;
+  class?: string;
+  section?: string;
+  type: string;
+  totalSubmissions: number;
+  evaluated: number;
+  pending: number;
+  createdAt: any;
+  dueDate: any;
+  status: string;
+  avgScore: number;
+  institutionId?: string;
+}
+
 export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [evaluations, setEvaluations] = useState<EvaluationData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [teacherInstitutionId, setTeacherInstitutionId] = useState<string | null>(null);
   const router = useRouter();
 
-  // Get teacher data
-  const teacher = useMemo(() => {
-    if (userRole === 'teacher') {
-      return teachers.find(t => t.uid === userId) || teachers[0];
+  useEffect(() => {
+    async function fetchEvaluations() {
+      try {
+        setIsLoading(true);
+
+        // Fetch teacher's institution ID first
+        const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', userId), firestoreLimit(1)));
+        let institutionId = '';
+        if (!userDoc.empty) {
+          const userData = userDoc.docs[0].data();
+          institutionId = userData.institutionId || '';
+          setTeacherInstitutionId(institutionId);
+        }
+
+        // Fetch evaluations
+        let evaluationsQuery;
+        if (userRole === 'teacher' && institutionId) {
+          evaluationsQuery = query(
+            collection(db, 'evaluations'),
+            where('institutionId', '==', institutionId),
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100)
+          );
+        } else {
+          // Admin or institution - show all
+          evaluationsQuery = query(
+            collection(db, 'evaluations'),
+            orderBy('createdAt', 'desc'),
+            firestoreLimit(100)
+          );
+        }
+
+        const evaluationsSnapshot = await getDocs(evaluationsQuery);
+        const fetchedEvaluations: EvaluationData[] = evaluationsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          // Mock some fields that might not exist yet
+          const totalSubs = 30;
+          const mockEvaluated = data.status === 'completed' ? totalSubs :
+                                data.status === 'in-progress' ? Math.floor(totalSubs / 2) : 0;
+
+          return {
+            id: doc.id,
+            title: data.title || 'Evaluation',
+            subject: data.subject || 'N/A',
+            class: data.class ? `Class ${data.class}${data.section || ''}` : 'N/A',
+            section: data.section || '',
+            type: data.type || 'bulk',
+            totalSubmissions: totalSubs,
+            evaluated: mockEvaluated,
+            pending: totalSubs - mockEvaluated,
+            createdAt: data.createdAt,
+            dueDate: data.dueDate || data.createdAt,
+            status: data.status || 'pending',
+            avgScore: data.status === 'completed' ? Math.floor(70 + Math.random() * 20) : 0,
+            institutionId: data.institutionId
+          };
+        });
+
+        setEvaluations(fetchedEvaluations);
+      } catch (error) {
+        console.error('Error fetching evaluations:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-    return null;
+
+    fetchEvaluations();
   }, [userId, userRole]);
-
-  // Get evaluations (tests) based on role
-  const allEvaluations = useMemo(() => {
-    if (userRole === 'teacher' && teacher) {
-      return getTestsByTeacher(teacher.id);
-    }
-    // For admin/institution - show all tests
-    return tests;
-  }, [userRole, teacher]);
-
-  // Convert tests to evaluation format
-  const evaluations = useMemo(() => {
-    return allEvaluations.map(test => ({
-      id: test.id,
-      title: test.title,
-      subject: test.subjectName,
-      class: `Class ${test.class}${test.section}`,
-      type: 'bulk' as const, // All tests are bulk for now
-      totalSubmissions: 30, // Mock: 30 students per section
-      evaluated: test.status === 'completed' ? 30 : test.status === 'in-progress' ? 15 : 0,
-      pending: test.status === 'completed' ? 0 : test.status === 'in-progress' ? 15 : 30,
-      createdAt: test.date,
-      dueDate: test.date,
-      status: test.status === 'completed' ? 'completed' : 
-              test.status === 'in-progress' ? 'in-progress' : 'pending',
-      avgScore: test.status === 'completed' ? Math.floor(70 + Math.random() * 20) : 0,
-    }));
-  }, [allEvaluations]);
 
   const filteredEvaluations = useMemo(() => {
     return evaluations.filter(evaluation => {
-      const matchesTab = 
+      const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'pending' && evaluation.pending > 0) ||
         (activeTab === 'completed' && evaluation.pending === 0);
-      
-      const matchesSearch = 
-        evaluation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        evaluation.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        evaluation.class.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
+      const matchesSearch =
+        (evaluation.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (evaluation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (evaluation.class?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+
       return matchesTab && matchesSearch;
     });
   }, [evaluations, activeTab, searchQuery]);
@@ -96,6 +151,10 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
     }
   };
 
+  if (isLoading) {
+    return <Spinner fullScreen label="Loading evaluations..." />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -107,10 +166,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Evaluations</h1>
             <p className="text-gray-600 mt-1">
-              {teacher 
-                ? `Managing evaluations for ${teacher.assignedClasses.length} classes`
-                : 'AI-powered automatic grading system'
-              }
+              AI-powered automatic grading system
             </p>
           </div>
           <Button

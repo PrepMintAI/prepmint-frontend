@@ -1,26 +1,36 @@
 // src/app/dashboard/teacher/students/StudentsClient.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import { 
-  Users, Search, Filter, Download, Mail, 
+import Spinner from '@/components/common/Spinner';
+import {
+  Users, Search, Filter, Download, Mail,
   TrendingUp, TrendingDown, Eye, MessageSquare,
   CheckCircle, Clock, Award, BarChart3
 } from 'lucide-react';
-import { 
-  getTeacherById, 
-  getStudentsByClass, 
-  teachers,
-  students as allStudents
-} from '@/lib/comprehensiveMockData';
+import { db } from '@/lib/firebase.client';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
 interface StudentsClientProps {
   userId: string;
   userRole: string;
+}
+
+interface StudentData {
+  id: string;
+  uid: string;
+  displayName: string;
+  email: string;
+  rollNo?: string;
+  class?: string | number;
+  section?: string;
+  xp: number;
+  level: number;
+  institutionId?: string;
 }
 
 export function StudentsClient({ userId, userRole }: StudentsClientProps) {
@@ -28,36 +38,64 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [classFilter, setClassFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [students, setStudents] = useState<StudentData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Get teacher data if role is teacher
-  const teacher = useMemo(() => {
-    if (userRole === 'teacher') {
-      return teachers.find(t => t.uid === userId) || teachers[0];
+  useEffect(() => {
+    async function fetchStudents() {
+      try {
+        setIsLoading(true);
+
+        // Fetch teacher's institution ID first
+        const teacherDoc = await getDoc(doc(db, 'users', userId));
+        if (!teacherDoc.exists()) {
+          console.error('User not found');
+          return;
+        }
+
+        const teacherData = teacherDoc.data();
+        const institutionId = teacherData.institutionId;
+
+        // Fetch students from the same institution
+        let studentsQuery;
+        if (userRole === 'teacher' && institutionId) {
+          studentsQuery = query(
+            collection(db, 'users'),
+            where('role', '==', 'student'),
+            where('institutionId', '==', institutionId)
+          );
+        } else {
+          // Admin - show all students
+          studentsQuery = query(
+            collection(db, 'users'),
+            where('role', '==', 'student')
+          );
+        }
+
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const fetchedStudents: StudentData[] = studentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          uid: doc.id,
+          displayName: doc.data().displayName || 'Unknown Student',
+          email: doc.data().email || '',
+          rollNo: doc.data().rollNo || `STU${Math.floor(Math.random() * 1000)}`,
+          class: doc.data().class || 'N/A',
+          section: doc.data().section || '',
+          xp: doc.data().xp || 0,
+          level: doc.data().level || 1,
+          institutionId: doc.data().institutionId
+        }));
+
+        setStudents(fetchedStudents);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-    return null;
+
+    fetchStudents();
   }, [userId, userRole]);
-
-  // Get students based on role
-  const students = useMemo(() => {
-    if (userRole === 'teacher' && teacher) {
-      // Get all students from teacher's assigned classes
-      const teacherStudents: any[] = [];
-      teacher.assignedClasses.forEach(assignedClass => {
-        const classStudents = getStudentsByClass(
-          teacher.institutionId,
-          assignedClass.class,
-          assignedClass.section
-        );
-        teacherStudents.push(...classStudents);
-      });
-      // Remove duplicates
-      return teacherStudents.filter((student, index, self) =>
-        index === self.findIndex((s) => s.id === student.id)
-      );
-    }
-    // For admin/institution - show all students
-    return allStudents;
-  }, [userRole, teacher]);
 
   // Get unique classes for filter
   const classOptions = useMemo(() => {
@@ -68,35 +106,31 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
   // Filter students
   const filteredStudents = useMemo(() => {
     return students.filter(student => {
-      const matchesSearch = 
-        student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.rollNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const matchesSearch =
+        student.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (student.rollNo && student.rollNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
         student.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesClass = 
-        classFilter === 'all' || 
+
+      const matchesClass =
+        classFilter === 'all' ||
         `${student.class}${student.section}` === classFilter;
-      
-      const matchesStatus = 
+
+      const matchesStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'active' && student.performance.attendance >= 85) ||
-        (statusFilter === 'inactive' && student.performance.attendance < 85);
-      
+        (statusFilter === 'active' && student.xp > 100) ||
+        (statusFilter === 'inactive' && student.xp <= 100);
+
       return matchesSearch && matchesClass && matchesStatus;
     });
   }, [students, searchQuery, classFilter, statusFilter]);
 
-  // Calculate stats
+  // Calculate stats (using mock data for now)
   const stats = useMemo(() => {
     return {
       total: students.length,
-      active: students.filter(s => s.performance.attendance >= 85).length,
-      avgPerformance: Math.round(
-        students.reduce((sum, s) => sum + s.performance.overallPercentage, 0) / students.length
-      ),
-      avgAttendance: Math.round(
-        students.reduce((sum, s) => sum + s.performance.attendance, 0) / students.length
-      ),
+      active: students.filter(s => s.xp > 100).length,
+      avgPerformance: Math.round(75 + Math.random() * 15), // Mock: 75-90%
+      avgAttendance: Math.round(85 + Math.random() * 10), // Mock: 85-95%
     };
   }, [students]);
 
@@ -112,6 +146,10 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
     return 'bg-orange-100 text-orange-700 border-orange-200';
   };
 
+  if (isLoading) {
+    return <Spinner fullScreen label="Loading students..." />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -123,10 +161,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Students</h1>
             <p className="text-gray-600 mt-1">
-              {teacher 
-                ? `Managing ${students.length} students across ${teacher.assignedClasses.length} classes`
-                : `${students.length} total students`
-              }
+              Managing {students.length} students
             </p>
           </div>
           <div className="flex gap-3">
@@ -263,11 +298,11 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                          {student.name.charAt(0)}
+                          {student.displayName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900">{student.name}</p>
-                          <p className="text-xs text-gray-600">{student.rollNo}</p>
+                          <p className="font-semibold text-gray-900">{student.displayName}</p>
+                          <p className="text-xs text-gray-600">{student.rollNo || 'N/A'}</p>
                         </div>
                       </div>
                     </td>
@@ -279,37 +314,37 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
                       </p>
                     </td>
 
-                    {/* Performance */}
+                    {/* Performance - Mock based on XP */}
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getPerformanceColor(student.performance.overallPercentage)}`}>
-                        {student.performance.overallPercentage}%
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getPerformanceColor(Math.min(95, 60 + student.xp / 10))}`}>
+                        {Math.min(95, Math.floor(60 + student.xp / 10))}%
                       </span>
                     </td>
 
-                    {/* Tests */}
+                    {/* Tests - Mock */}
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center">
                         <p className="text-sm font-semibold text-gray-900">
-                          {student.performance.testsCompleted}
+                          {Math.floor(student.xp / 50)}
                         </p>
                         <p className="text-xs text-gray-600">completed</p>
                       </div>
                     </td>
 
-                    {/* Attendance */}
+                    {/* Attendance - Mock */}
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center">
                         <p className={`text-sm font-semibold ${
-                          student.performance.attendance >= 85 ? 'text-green-600' : 'text-orange-600'
+                          student.xp > 100 ? 'text-green-600' : 'text-orange-600'
                         }`}>
-                          {student.performance.attendance}%
+                          {Math.min(95, Math.floor(80 + student.xp / 100))}%
                         </p>
                         <div className="w-16 h-1.5 bg-gray-200 rounded-full mt-1 overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full ${
-                              student.performance.attendance >= 85 ? 'bg-green-500' : 'bg-orange-500'
+                              student.xp > 100 ? 'bg-green-500' : 'bg-orange-500'
                             }`}
-                            style={{ width: `${student.performance.attendance}%` }}
+                            style={{ width: `${Math.min(95, Math.floor(80 + student.xp / 100))}%` }}
                           />
                         </div>
                       </div>
@@ -317,8 +352,8 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
 
                     {/* Status */}
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.performance.attendance)}`}>
-                        {student.performance.attendance >= 85 ? 'Active' : 'Attention'}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(student.xp > 100 ? 90 : 80)}`}>
+                        {student.xp > 100 ? 'Active' : 'Attention'}
                       </span>
                     </td>
 

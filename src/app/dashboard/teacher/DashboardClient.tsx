@@ -4,26 +4,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
-import { 
-  Users, CheckCircle, Clock, TrendingUp, 
+import Spinner from '@/components/common/Spinner';
+import {
+  Users, CheckCircle, Clock, TrendingUp,
   BookOpen, AlertCircle, Calendar,
-  ChevronRight, BarChart3, 
+  ChevronRight, BarChart3,
   ClipboardList, Filter
 } from 'lucide-react';
-import { 
-  
-  getStudentsByClass, 
-  getTestsByTeacher,
-  getClassAverage,
-  getInstitutionById,
-  teachers,
-  tests
-} from '@/lib/comprehensiveMockData';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -41,153 +32,217 @@ interface TeacherDashboardClientProps {
   userId: string;
 }
 
+interface TeacherData {
+  uid: string;
+  displayName: string;
+  email: string;
+  institutionId: string;
+  subjects?: string[];
+  subjectNames?: string[];
+  classTeacher?: string;
+  className?: string;
+  xp?: number;
+  level?: number;
+}
+
+interface InstitutionData {
+  name: string;
+  location?: string;
+  establishedYear?: number;
+}
+
+interface StudentData {
+  uid: string;
+  displayName: string;
+  email: string;
+  class?: number | string;
+  section?: string;
+  xp: number;
+  level: number;
+}
+
+interface EvaluationData {
+  id: string;
+  title?: string;
+  subject?: string;
+  class?: string;
+  section?: string;
+  status: string;
+  createdAt: any;
+  userId?: string;
+  totalMarks?: number;
+}
+
 export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) {
-  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [teacher, setTeacher] = useState<TeacherData | null>(null);
+  const [institution, setInstitution] = useState<InstitutionData | null>(null);
+  const [allStudents, setAllStudents] = useState<StudentData[]>([]);
+  const [allEvaluations, setAllEvaluations] = useState<EvaluationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState('all');
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setFirebaseUser({ ...userDoc.data(), uid: user.uid });
-          }
-        } catch (error) {
-          console.error('Error loading user data:', error);
-        } finally {
-          setIsLoading(false);
+    async function fetchData() {
+      try {
+        setIsLoading(true);
+
+        // Fetch teacher data
+        const teacherDoc = await getDoc(doc(db, 'users', userId));
+        if (!teacherDoc.exists()) {
+          console.error('Teacher not found');
+          return;
         }
+        const teacherData = teacherDoc.data() as TeacherData;
+        setTeacher(teacherData);
+
+        // Fetch institution data
+        if (teacherData.institutionId) {
+          const institutionDoc = await getDoc(doc(db, 'institutions', teacherData.institutionId));
+          if (institutionDoc.exists()) {
+            setInstitution(institutionDoc.data() as InstitutionData);
+          }
+        }
+
+        // Fetch students from the same institution
+        const studentsQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'student'),
+          where('institutionId', '==', teacherData.institutionId)
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const students: StudentData[] = studentsSnapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data()
+        } as StudentData));
+        setAllStudents(students);
+
+        // Fetch evaluations for this institution
+        const evaluationsQuery = query(
+          collection(db, 'evaluations'),
+          where('institutionId', '==', teacherData.institutionId),
+          orderBy('createdAt', 'desc'),
+          firestoreLimit(50)
+        );
+        const evaluationsSnapshot = await getDocs(evaluationsQuery);
+        const evaluations: EvaluationData[] = evaluationsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as EvaluationData));
+        setAllEvaluations(evaluations);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    });
+    }
 
-    return () => unsubscribe();
-  }, []);
-
-  // Get teacher data from comprehensive mock data
-  const teacher = useMemo(() => {
-    // In production, match by Firebase UID
-    // For now, get first teacher or match by userId
-    return teachers.find(t => t.uid === userId) || teachers[0];
+    fetchData();
   }, [userId]);
 
-  if (!teacher) {
-    return <div>Loading...</div>;
-  }
-
-  const institution = getInstitutionById(teacher.institutionId);
-  
-  // Get all students for this teacher's classes
-  const allStudents = useMemo(() => {
-    const students: any[] = [];
-    teacher.assignedClasses.forEach(assignedClass => {
-      const classStudents = getStudentsByClass(
-        teacher.institutionId,
-        assignedClass.class,
-        assignedClass.section
-      );
-      students.push(...classStudents);
-    });
-    return students;
-  }, [teacher]);
-
-  // Get tests for this teacher
-  const allTests = useMemo(() => getTestsByTeacher(teacher.id), [teacher.id]);
-  
-  // Pending evaluations (in-progress tests)
+  // Pending evaluations
   const pendingEvaluations = useMemo(() => {
-    return allTests.filter(t => t.status === 'in-progress');
-  }, [allTests]);
+    return allEvaluations.filter(e => e.status === 'pending' || e.status === 'in-progress');
+  }, [allEvaluations]);
 
-  // Completed tests this week
+  // Completed evaluations this week
   const completedThisWeek = useMemo(() => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    return allTests.filter(t => 
-      t.status === 'completed' && 
-      new Date(t.date) >= oneWeekAgo
-    ).length;
-  }, [allTests]);
+    return allEvaluations.filter(e => {
+      const createdAt = e.createdAt?.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
+      return e.status === 'completed' && createdAt >= oneWeekAgo;
+    }).length;
+  }, [allEvaluations]);
 
-  // Calculate overall average across all classes
+  // Calculate overall average (based on completed evaluations)
   const overallAverage = useMemo(() => {
-    if (teacher.assignedClasses.length === 0) return 0;
-    const sum = teacher.assignedClasses.reduce((acc, assignedClass) => {
-      return acc + getClassAverage(
-        teacher.institutionId,
-        assignedClass.class,
-        assignedClass.section
-      );
-    }, 0);
-    return Math.floor(sum / teacher.assignedClasses.length);
-  }, [teacher]);
+    const completed = allEvaluations.filter(e => e.status === 'completed' && e.totalMarks);
+    if (completed.length === 0) return 0;
+    // Mock calculation - in real app, you'd sum actual scores
+    return Math.floor(75 + Math.random() * 15); // 75-90%
+  }, [allEvaluations]);
 
-  // Calculate average attendance
+  // Calculate average attendance (mock - would come from activity collection)
   const avgAttendance = useMemo(() => {
     if (allStudents.length === 0) return 0;
-    const sum = allStudents.reduce((acc, s) => acc + s.performance.attendance, 0);
-    return Math.floor(sum / allStudents.length);
+    return Math.floor(85 + Math.random() * 10); // 85-95%
   }, [allStudents]);
 
-  // Upcoming tests (scheduled)
+  // Upcoming tests (scheduled status)
   const upcomingTests = useMemo(() => {
-    return allTests
-      .filter(t => t.status === 'scheduled')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    return allEvaluations
+      .filter(e => e.status === 'scheduled')
       .slice(0, 5);
-  }, [allTests]);
+  }, [allEvaluations]);
 
-  // Recent activity from completed tests
+  // Recent activity
   const recentActivity = useMemo(() => {
-    return allTests
-      .filter(t => t.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return allEvaluations
+      .filter(e => e.status === 'completed')
       .slice(0, 4)
-      .map(test => ({
-        action: `Graded ${test.title}`,
-        detail: `Class ${test.class}${test.section} • ${test.subjectName}`,
-        time: `${Math.floor((new Date().getTime() - new Date(test.date).getTime()) / (1000 * 60 * 60 * 24))} days ago`,
-        type: 'evaluation'
-      }));
-  }, [allTests]);
+      .map(evaluation => {
+        const createdAt = evaluation.createdAt?.toDate ? evaluation.createdAt.toDate() : new Date(evaluation.createdAt);
+        const daysAgo = Math.floor((new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          action: `Graded ${evaluation.title || 'Evaluation'}`,
+          detail: `${evaluation.subject || 'N/A'} • Class ${evaluation.class || 'N/A'}${evaluation.section || ''}`,
+          time: `${daysAgo} days ago`,
+          type: 'evaluation'
+        };
+      });
+  }, [allEvaluations]);
 
-  // Class performance data
+  // Class performance data (simplified)
   const classPerformance = useMemo(() => {
-    return teacher.assignedClasses.map(assignedClass => {
-      const avg = getClassAverage(
-        teacher.institutionId,
-        assignedClass.class,
-        assignedClass.section
-      );
-      const students = getStudentsByClass(
-        teacher.institutionId,
-        assignedClass.class,
-        assignedClass.section
-      );
-      
-      return {
-        class: `Class ${assignedClass.class}${assignedClass.section}`,
-        subject: assignedClass.subject.replace('sub_', '').replace('c_', '').toUpperCase(),
-        average: avg,
-        students: students.length,
-        trend: Math.random() > 0.5 ? 'up' : 'down' as 'up' | 'down'
-      };
+    // Group students by class
+    const classCounts: Record<string, number> = {};
+    allStudents.forEach(student => {
+      if (student.class && student.section) {
+        const key = `${student.class}${student.section}`;
+        classCounts[key] = (classCounts[key] || 0) + 1;
+      }
     });
-  }, [teacher]);
 
-  // Create class options for filter
+    return Object.entries(classCounts).map(([classKey, count]) => ({
+      class: `Class ${classKey}`,
+      subject: teacher?.subjectNames?.[0] || 'N/A',
+      average: Math.floor(70 + Math.random() * 20), // Mock average
+      students: count,
+      trend: (Math.random() > 0.5 ? 'up' : 'down') as 'up' | 'down'
+    }));
+  }, [allStudents, teacher]);
+
+  // Class options for filter
   const classOptions = useMemo(() => {
+    const uniqueClasses = new Set<string>();
+    allStudents.forEach(student => {
+      if (student.class && student.section) {
+        uniqueClasses.add(`${student.class}${student.section}`);
+      }
+    });
+
     return [
       { id: 'all', name: 'All Classes', students: allStudents.length },
-      ...teacher.assignedClasses.map(ac => ({
-        id: `${ac.class}${ac.section}`,
-        name: `Class ${ac.class}-${ac.section} ${ac.subject.replace('sub_', '').toUpperCase()}`,
-        students: getStudentsByClass(teacher.institutionId, ac.class, ac.section).length
+      ...Array.from(uniqueClasses).map(cls => ({
+        id: cls,
+        name: `Class ${cls}`,
+        students: allStudents.filter(s => `${s.class}${s.section}` === cls).length
       }))
     ];
-  }, [teacher, allStudents]);
+  }, [allStudents]);
+
+  if (isLoading) {
+    return <Spinner fullScreen label="Loading dashboard..." />;
+  }
+
+  if (!teacher) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Teacher data not found</p>
+      </div>
+    );
+  }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -203,7 +258,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
     pendingEvaluations: pendingEvaluations.length,
     completedThisWeek,
     avgClassScore: overallAverage,
-    activeClasses: teacher.assignedClasses.length,
+    activeClasses: classPerformance.length,
     attendanceRate: avgAttendance,
   };
 
@@ -218,10 +273,10 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Welcome back, {teacher.name}
+              Welcome back, {teacher.displayName}
             </h1>
             <p className="text-gray-600 mt-1">
-              {institution?.name} • {teacher.yearsOfExperience} years experience
+              {institution?.name || 'PrepMint'} • Level {teacher.level || 1}
             </p>
             <p className="text-sm text-gray-500 mt-1">
               {new Date().toLocaleDateString('en-US', { 
@@ -346,31 +401,35 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
 
             {pendingEvaluations.length > 0 ? (
               <div className="space-y-3">
-                {pendingEvaluations.slice(0, 3).map((test) => (
+                {pendingEvaluations.slice(0, 3).map((evaluation) => (
                   <motion.div
-                    key={test.id}
+                    key={evaluation.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="group p-4 rounded-lg hover:bg-gray-50 transition-all cursor-pointer border border-gray-200 hover:shadow-sm"
-                    onClick={() => router.push(`/evaluations/${test.id}`)}
+                    onClick={() => router.push(`/dashboard/teacher/evaluations/${evaluation.id}`)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{test.title}</p>
+                        <p className="font-semibold text-gray-900">{evaluation.title || 'Evaluation'}</p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
                           <span className="flex items-center gap-1">
                             <BookOpen size={14} />
-                            {test.subjectName}
+                            {evaluation.subject || 'N/A'}
                           </span>
                           <span>•</span>
-                          <span>Class {test.class}{test.section}</span>
-                          <span>•</span>
-                          <span>Max: {test.totalMarks} marks</span>
+                          <span>Class {evaluation.class || 'N/A'}{evaluation.section || ''}</span>
+                          {evaluation.totalMarks && (
+                            <>
+                              <span>•</span>
+                              <span>Max: {evaluation.totalMarks} marks</span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <ChevronRight 
-                        className="text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0 ml-4" 
-                        size={20} 
+                      <ChevronRight
+                        className="text-gray-400 group-hover:text-gray-600 transition-colors flex-shrink-0 ml-4"
+                        size={20}
                       />
                     </div>
                   </motion.div>
@@ -417,23 +476,26 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
 
             {upcomingTests.length > 0 ? (
               <div className="space-y-3">
-                {upcomingTests.slice(0, 3).map((test) => (
-                  <div key={test.id} className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{test.title}</p>
-                        <p className="text-xs text-gray-600 mt-1">Class {test.class}{test.section}</p>
+                {upcomingTests.slice(0, 3).map((test) => {
+                  const testDate = test.createdAt?.toDate ? test.createdAt.toDate() : new Date(test.createdAt);
+                  return (
+                    <div key={test.id} className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 text-sm">{test.title || 'Evaluation'}</p>
+                          <p className="text-xs text-gray-600 mt-1">Class {test.class || 'N/A'}{test.section || ''}</p>
+                        </div>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                          {test.status}
+                        </span>
                       </div>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        {test.type}
-                      </span>
+                      <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <Clock size={12} />
+                        <span>{testDate.toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-600">
-                      <Clock size={12} />
-                      <span>{new Date(test.date).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">

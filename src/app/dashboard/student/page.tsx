@@ -39,8 +39,8 @@ export default async function StudentDashboardPage() {
     redirect('/login');
   }
 
-  // Check role OUTSIDE try-catch so redirect works properly
-  if (userRole !== 'student') {
+  // Check role OUTSIDE try-catch so redirect works properly (allow student and dev)
+  if (userRole !== 'student' && userRole !== 'dev') {
     console.log('[Student Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }

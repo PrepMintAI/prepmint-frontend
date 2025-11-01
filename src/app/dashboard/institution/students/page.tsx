@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { StudentsClient } from './StudentsClient';
@@ -13,7 +14,7 @@ export default async function StudentsPage() {
   }
 
   // Authz: validate user
-  let userId: string, userRole: string;
+  let userId: string, userRole: string, institutionId: string | undefined;
   try {
     const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
@@ -21,16 +22,17 @@ export default async function StudentsPage() {
     if (!userDoc.exists) redirect('/login');
     const userData = userDoc.data();
     userRole = userData?.role;
-    if (userRole !== 'institution') redirect(`/dashboard/${userRole}`);
+    institutionId = userData?.institutionId;
+    if (userRole !== 'institution' && userRole !== 'dev') redirect(`/dashboard/${userRole}`);
   } catch {
     return redirect('/login');
   }
 
-  // For mock, pass institutionId static
+  // Pass real institutionId from user data
   return (
     <AppLayout>
       <div className="p-6">
-        <StudentsClient institutionId="inst_001" />
+        <StudentsClient institutionId={institutionId} />
       </div>
     </AppLayout>
   );

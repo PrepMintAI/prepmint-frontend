@@ -13,7 +13,7 @@ type UserProfile = {
   email: string | null;
   emailVerified: boolean; // Email verification status
   displayName?: string | null;
-  role?: 'student' | 'teacher' | 'admin' | 'institution';
+  role?: 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
   xp?: number;
   level?: number;
   badges?: string[];

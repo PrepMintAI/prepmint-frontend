@@ -33,7 +33,7 @@ export default async function BulkEvaluationPage() {
     redirect('/login');
   }
 
-  if (!['teacher', 'admin', 'institution'].includes(userRole)) {
+  if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
     redirect(`/dashboard/${userRole}`);
   }
 

@@ -15,13 +15,14 @@ export default async function InstitutionDashboardPage() {
 
   let userId: string;
   let userRole: string;
+  let institutionId: string | undefined;
 
   try {
     const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
     userId = decoded.uid;
 
     const userDoc = await adminDb().collection('users').doc(userId).get();
-    
+
     if (!userDoc.exists) {
       console.error('[Institution Dashboard] User document not found');
       redirect('/login');
@@ -29,15 +30,16 @@ export default async function InstitutionDashboardPage() {
 
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
+    institutionId = userData?.institutionId;
 
-    console.log('[Institution Dashboard] User role:', userRole);
+    console.log('[Institution Dashboard] User role:', userRole, 'Institution ID:', institutionId);
   } catch (error) {
     console.error('[Institution Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
-  // Check role OUTSIDE try-catch
-  if (userRole !== 'institution') {
+  // Check role OUTSIDE try-catch (allow institution and dev)
+  if (userRole !== 'institution' && userRole !== 'dev') {
     console.log('[Institution Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }
@@ -45,7 +47,7 @@ export default async function InstitutionDashboardPage() {
   return (
     <AppLayout>
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <DashboardClient userId={userId} />
+        <DashboardClient userId={userId} institutionId={institutionId} />
       </div>
     </AppLayout>
   );

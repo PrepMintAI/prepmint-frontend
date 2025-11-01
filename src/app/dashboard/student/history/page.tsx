@@ -1,86 +1,31 @@
-// src/app/history/page.tsx
+// src/app/dashboard/student/history/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth } from '@/lib/firebase.client';
 import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Calendar, Clock, Award, 
+import {
+  Calendar, Clock, Award,
   CheckCircle, XCircle, Eye, Download,
   Search
 } from 'lucide-react';
+import { fetchStudentEvaluations, type StudentEvaluation } from '@/lib/studentData';
 
-// Mock history data
-const mockHistory = [
-  {
-    id: 1,
-    date: '2025-10-23',
-    subject: 'Mathematics',
-    topic: 'Calculus - Integration',
-    score: 92,
-    totalMarks: 100,
-    timeTaken: '45 min',
-    xpEarned: 50,
-    correct: 23,
-    incorrect: 2,
-    status: 'excellent',
-    badge: '🏆'
-  },
-  {
-    id: 2,
-    date: '2025-10-22',
-    subject: 'Physics',
-    topic: 'Thermodynamics',
-    score: 78,
-    totalMarks: 100,
-    timeTaken: '38 min',
-    xpEarned: 40,
-    correct: 19,
-    incorrect: 6,
-    status: 'good',
-    badge: '⭐'
-  },
-  {
-    id: 3,
-    date: '2025-10-21',
-    subject: 'Chemistry',
-    topic: 'Organic Chemistry',
-    score: 85,
-    totalMarks: 100,
-    timeTaken: '42 min',
-    xpEarned: 45,
-    correct: 21,
-    incorrect: 4,
-    status: 'good',
-    badge: '⭐'
-  },
-  {
-    id: 4,
-    date: '2025-10-20',
-    subject: 'Mathematics',
-    topic: 'Trigonometry',
-    score: 100,
-    totalMarks: 100,
-    timeTaken: '35 min',
-    xpEarned: 100,
-    correct: 25,
-    incorrect: 0,
-    status: 'perfect',
-    badge: '💯'
-  },
-];
+interface HistoryEvaluation extends StudentEvaluation {
+  status: 'perfect' | 'excellent' | 'good' | 'average';
+  badge: string;
+}
 
 export default function HistoryPage() {
-  const [_userData] = useState<Record<string, unknown> | null>(null);
+  const [evaluations, setEvaluations] = useState<HistoryEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterSubject, setFilterSubject] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTest, setSelectedTest] = useState<any>(null);
+  const [selectedTest, setSelectedTest] = useState<HistoryEvaluation | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -91,12 +36,39 @@ export default function HistoryPage() {
       }
 
       try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          // User data loaded
-        }
+        // Fetch all evaluations
+        const evals = await fetchStudentEvaluations(user.uid, 100);
+
+        // Map evaluations to history format with status and badge
+        const historyEvals: HistoryEvaluation[] = evals.map(evaluation => {
+          const score = Math.round(evaluation.percentage);
+          let status: 'perfect' | 'excellent' | 'good' | 'average';
+          let badge: string;
+
+          if (score === 100) {
+            status = 'perfect';
+            badge = '💯';
+          } else if (score >= 90) {
+            status = 'excellent';
+            badge = '🏆';
+          } else if (score >= 75) {
+            status = 'good';
+            badge = '⭐';
+          } else {
+            status = 'average';
+            badge = '📚';
+          }
+
+          return {
+            ...evaluation,
+            status,
+            badge,
+          };
+        });
+
+        setEvaluations(historyEvals);
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error loading evaluations:', error);
       } finally {
         setIsLoading(false);
       }
@@ -105,18 +77,23 @@ export default function HistoryPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const filteredHistory = mockHistory.filter(test => {
+  const filteredHistory = evaluations.filter(test => {
     const matchesSubject = filterSubject === 'all' || test.subject === filterSubject;
     const matchesSearch = test.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          test.subject.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSubject && matchesSearch;
   });
 
+  // Get unique subjects for filter
+  const subjects = Array.from(new Set(evaluations.map(e => e.subject)));
+
   const stats = {
-    totalTests: mockHistory.length,
-    avgScore: Math.round(mockHistory.reduce((acc, t) => acc + t.score, 0) / mockHistory.length),
-    totalXP: mockHistory.reduce((acc, t) => acc + t.xpEarned, 0),
-    perfectScores: mockHistory.filter(t => t.score === 100).length,
+    totalTests: evaluations.length,
+    avgScore: evaluations.length > 0
+      ? Math.round(evaluations.reduce((acc, t) => acc + t.percentage, 0) / evaluations.length)
+      : 0,
+    totalXP: evaluations.reduce((acc, t) => acc + t.xpEarned, 0),
+    perfectScores: evaluations.filter(t => t.percentage === 100).length,
   };
 
   const getStatusColor = (status: string) => {
@@ -125,6 +102,16 @@ export default function HistoryPage() {
     if (status === 'good') return 'from-blue-400 to-cyan-500';
     return 'from-gray-400 to-gray-500';
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -205,10 +192,9 @@ export default function HistoryPage() {
               className="px-6 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
             >
               <option value="all">All Subjects</option>
-              <option value="Mathematics">Mathematics</option>
-              <option value="Physics">Physics</option>
-              <option value="Chemistry">Chemistry</option>
-              <option value="Biology">Biology</option>
+              {subjects.map(subject => (
+                <option key={subject} value={subject}>{subject}</option>
+              ))}
             </select>
           </motion.div>
 
@@ -248,27 +234,19 @@ export default function HistoryPage() {
                           <p className="text-sm text-gray-600">{test.subject}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-3xl font-bold text-gray-900">{test.score}%</p>
-                          <p className="text-xs text-gray-600">{test.score}/{test.totalMarks}</p>
+                          <p className="text-3xl font-bold text-gray-900">{Math.round(test.percentage)}%</p>
+                          <p className="text-xs text-gray-600">{test.marksAwarded}/{test.totalMarks}</p>
                         </div>
                       </div>
 
                       <div className="flex flex-wrap gap-4 text-sm">
                         <div className="flex items-center gap-1 text-gray-600">
                           <Calendar size={16} />
-                          <span>{new Date(test.date).toLocaleDateString()}</span>
+                          <span>{test.evaluatedAt.toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-1 text-gray-600">
                           <Clock size={16} />
-                          <span>{test.timeTaken}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-green-600">
-                          <CheckCircle size={16} />
-                          <span>{test.correct} Correct</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-red-600">
-                          <XCircle size={16} />
-                          <span>{test.incorrect} Incorrect</span>
+                          <span>{Math.round(test.percentage)}%</span>
                         </div>
                         <div className="flex items-center gap-1 text-purple-600 font-semibold">
                           <Award size={16} />
@@ -334,20 +312,20 @@ export default function HistoryPage() {
                           <div className="text-5xl mb-2">{selectedTest.badge}</div>
                           <h3 className="text-2xl font-bold mb-1">{selectedTest.topic}</h3>
                           <p className="opacity-90">{selectedTest.subject}</p>
-                          <p className="text-4xl font-bold mt-4">{selectedTest.score}%</p>
+                          <p className="text-4xl font-bold mt-4">{Math.round(selectedTest.percentage)}%</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center p-4 bg-green-50 rounded-lg">
-                          <CheckCircle className="mx-auto mb-2 text-green-600" size={24} />
-                          <p className="text-2xl font-bold text-green-600">{selectedTest.correct}</p>
-                          <p className="text-sm text-gray-600">Correct Answers</p>
+                          <Award className="mx-auto mb-2 text-green-600" size={24} />
+                          <p className="text-2xl font-bold text-green-600">{selectedTest.marksAwarded}</p>
+                          <p className="text-sm text-gray-600">Marks Awarded</p>
                         </div>
-                        <div className="text-center p-4 bg-red-50 rounded-lg">
-                          <XCircle className="mx-auto mb-2 text-red-600" size={24} />
-                          <p className="text-2xl font-bold text-red-600">{selectedTest.incorrect}</p>
-                          <p className="text-sm text-gray-600">Incorrect Answers</p>
+                        <div className="text-center p-4 bg-blue-50 rounded-lg">
+                          <Award className="mx-auto mb-2 text-blue-600" size={24} />
+                          <p className="text-2xl font-bold text-blue-600">{selectedTest.totalMarks}</p>
+                          <p className="text-sm text-gray-600">Total Marks</p>
                         </div>
                       </div>
 

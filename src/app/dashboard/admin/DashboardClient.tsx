@@ -34,7 +34,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'teacher' | 'admin' | 'institution';
+  role: 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
   status: 'active' | 'suspended' | 'pending';
   institution?: string;
   joinedAt: string;
@@ -62,7 +62,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'institutions'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState<'all' | 'student' | 'teacher' | 'admin'>('all');
+  const [filterRole, setFilterRole] = useState<'all' | 'student' | 'teacher' | 'admin' | 'dev'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'suspended' | 'pending'>('all');
 
   useEffect(() => {
@@ -194,6 +194,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'text-purple-600 bg-purple-50 border-purple-200';
+      case 'dev': return 'text-pink-600 bg-pink-50 border-pink-200';
       case 'teacher': return 'text-blue-600 bg-blue-50 border-blue-200';
       case 'student': return 'text-green-600 bg-green-50 border-green-200';
       case 'institution': return 'text-orange-600 bg-orange-50 border-orange-200';
@@ -551,6 +552,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
                 <option value="student">Students</option>
                 <option value="teacher">Teachers</option>
                 <option value="admin">Admins</option>
+                <option value="dev">Developers</option>
               </select>
 
               <select

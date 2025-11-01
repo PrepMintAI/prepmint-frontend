@@ -107,15 +107,18 @@ export default function LoginPage() {
       }
 
       const { role } = await response.json();
-      
-      console.log('[Login] Session created! Redirecting to:', `/dashboard/${role}`);
-      
+
+      // Dev role uses /dashboard (router will handle redirect to student)
+      const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
+
+      console.log('[Login] Session created! Redirecting to:', dashboardPath);
+
       // Clear form
       setEmail('');
       setPassword('');
-      
+
       // Redirect to dashboard
-      router.push(`/dashboard/${role}`);
+      router.push(dashboardPath);
       
     } catch (err) {
       console.error('[Login] Error:', err);
@@ -166,11 +169,15 @@ export default function LoginPage() {
       
       // Check if user profile exists
       const userDoc = await getDoc(doc(db, 'users', result.user.uid));
-      
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const role = userData?.role || 'student';
-        router.push(`/dashboard/${role}`);
+
+        // Dev role uses /dashboard (router will handle redirect to student)
+        const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
+
+        router.push(dashboardPath);
       } else {
         router.push('/dashboard/student');
       }

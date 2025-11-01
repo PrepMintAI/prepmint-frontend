@@ -4,28 +4,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase.client';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
+import Spinner from '@/components/common/Spinner';
 import ActivityHeatmap from '@/components/dashboard/ActivityHeatmap';
 import {
-  Users, BookOpen, Award, TrendingUp, Clock, Building2,
+  Users, BookOpen, Award, Clock, Building2,
   UserPlus, GraduationCap, BarChart3, ChevronRight,
   Calendar, Target, FileText, Settings, Download,
-  Filter, Search, Star, AlertCircle, CheckCircle
+  Star, AlertCircle, CheckCircle
 } from 'lucide-react';
-import {
-  institutions,
-  getStudentsByInstitution,
-  getTeachersByInstitution,
-  getTestsByInstitution,
-  type Institution,
-  type Student,
-  type Teacher,
-  type Test
-} from '@/lib/comprehensiveMockData';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -41,117 +31,214 @@ const cardVariants = {
 
 interface DashboardClientProps {
   userId: string;
+  institutionId?: string;
 }
 
-export function DashboardClient({ userId }: DashboardClientProps) {
-  const [_firebaseUser, _setFirebaseUser] = useState<{ uid?: string } | null>(null);
+interface InstitutionData {
+  id: string;
+  name: string;
+  location?: string;
+  established?: string;
+  type?: string;
+}
+
+interface UserData {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: string;
+  institutionId?: string;
+  class?: string;
+  section?: string;
+  xp?: number;
+  level?: number;
+  performance?: {
+    overallPercentage?: number;
+    rank?: number;
+    attendance?: number;
+  };
+}
+
+interface EvaluationData {
+  id: string;
+  userId: string;
+  institutionId?: string;
+  status: string;
+  subject?: string;
+  score?: number;
+  totalMarks?: number;
+  createdAt: any;
+  submittedAt?: any;
+}
+
+interface ActivityData {
+  date: string;
+  xp: number;
+}
+
+export function DashboardClient({ userId, institutionId }: DashboardClientProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'recent' | 'active'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [institution, setInstitution] = useState<InstitutionData | null>(null);
+  const [students, setStudents] = useState<UserData[]>([]);
+  const [teachers, setTeachers] = useState<UserData[]>([]);
+  const [evaluations, setEvaluations] = useState<EvaluationData[]>([]);
+  const [activityData, setActivityData] = useState<ActivityData[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            // Firebase user data loaded
-          }
-        } catch (error) {
-          console.error('Error loading user data:', error);
-        } finally {
-          setIsLoading(false);
-        }
+    const fetchData = async () => {
+      if (!institutionId) {
+        console.error('[DashboardClient] No institutionId provided');
+        setIsLoading(false);
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, []);
+      try {
+        setIsLoading(true);
 
-  // For demo, use first institution - in production, match by userId
-  const institutionId = useMemo(() => {
-    // TODO: In production, derive from userId/firebaseUser
-    return 'inst_001';
-  }, []);
+        // Fetch institution data
+        const institutionDoc = await getDoc(doc(db, 'institutions', institutionId));
+        if (institutionDoc.exists()) {
+          setInstitution({
+            id: institutionDoc.id,
+            ...institutionDoc.data()
+          } as InstitutionData);
+        }
 
-  // Fetch institution data
-  const institution = useMemo<Institution | undefined>(() =>
-    institutions.find(i => i.id === institutionId),
-    [institutionId]
-  );
+        // Fetch students from this institution
+        const studentsQuery = query(
+          collection(db, 'users'),
+          where('institutionId', '==', institutionId),
+          where('role', '==', 'student')
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const studentsData = studentsSnapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data()
+        })) as UserData[];
+        setStudents(studentsData);
 
-  const schoolStudents = useMemo<Student[]>(() =>
-    getStudentsByInstitution(institutionId),
-    [institutionId]
-  );
+        // Fetch teachers from this institution
+        const teachersQuery = query(
+          collection(db, 'users'),
+          where('institutionId', '==', institutionId),
+          where('role', '==', 'teacher')
+        );
+        const teachersSnapshot = await getDocs(teachersQuery);
+        const teachersData = teachersSnapshot.docs.map(doc => ({
+          uid: doc.id,
+          ...doc.data()
+        })) as UserData[];
+        setTeachers(teachersData);
 
-  const schoolTeachers = useMemo<Teacher[]>(() =>
-    getTeachersByInstitution(institutionId),
-    [institutionId]
-  );
+        // Fetch evaluations for this institution
+        const evaluationsQuery = query(
+          collection(db, 'evaluations'),
+          where('institutionId', '==', institutionId)
+        );
+        const evaluationsSnapshot = await getDocs(evaluationsQuery);
+        const evaluationsData = evaluationsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as EvaluationData[];
+        setEvaluations(evaluationsData);
 
-  const schoolTests = useMemo<Test[]>(() =>
-    getTestsByInstitution(institutionId),
-    [institutionId]
-  );
+        // Generate activity data (last 90 days)
+        const generateActivityData = () => {
+          const data: ActivityData[] = [];
+          const today = new Date();
+
+          for (let i = 89; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const xp = Math.random() > 0.2 ? Math.floor(Math.random() * 100) + 20 : 0;
+
+            data.push({
+              date: date.toISOString().split('T')[0],
+              xp: xp,
+            });
+          }
+
+          return data;
+        };
+
+        setActivityData(generateActivityData());
+
+      } catch (error) {
+        console.error('[DashboardClient] Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [institutionId]);
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const avgPerformance = Math.round(
-      schoolStudents.reduce((acc, s) => acc + s.performance.overallPercentage, 0) /
-      Math.max(1, schoolStudents.length)
-    );
+    const avgPerformance = students.length > 0
+      ? Math.round(
+          students.reduce((acc, s) => acc + (s.performance?.overallPercentage || 0), 0) /
+          students.length
+        )
+      : 0;
 
-    const avgAttendance = Math.round(
-      schoolStudents.reduce((acc, s) => acc + s.performance.attendance, 0) /
-      Math.max(1, schoolStudents.length)
-    );
+    const avgAttendance = students.length > 0
+      ? Math.round(
+          students.reduce((acc, s) => acc + (s.performance?.attendance || 0), 0) /
+          students.length
+        )
+      : 0;
 
-    const completedTests = schoolTests.filter(t => t.status === 'completed').length;
-    const activeEvaluations = schoolTests.filter(t => t.status === 'in-progress').length;
-    const monthlyCompletionRate = Math.round((completedTests / Math.max(1, schoolTests.length)) * 100);
-    const avgStudentXP = Math.round(
-      schoolStudents.reduce((acc, s) => acc + s.performance.xp, 0) /
-      Math.max(1, schoolStudents.length)
-    );
+    const completedEvaluations = evaluations.filter(e => e.status === 'completed').length;
+    const activeEvaluations = evaluations.filter(e => e.status === 'in-progress' || e.status === 'pending').length;
+    const monthlyCompletionRate = evaluations.length > 0
+      ? Math.round((completedEvaluations / evaluations.length) * 100)
+      : 0;
+
+    const avgStudentXP = students.length > 0
+      ? Math.round(students.reduce((acc, s) => acc + (s.xp || 0), 0) / students.length)
+      : 0;
 
     return {
-      totalStudents: schoolStudents.length,
-      totalTeachers: schoolTeachers.length,
+      totalStudents: students.length,
+      totalTeachers: teachers.length,
       avgPerformance,
       avgAttendance,
       activeEvaluations,
-      completedTests,
+      completedTests: completedEvaluations,
       monthlyCompletionRate,
       avgStudentXP,
     };
-  }, [schoolStudents, schoolTeachers, schoolTests]);
+  }, [students, teachers, evaluations]);
 
   // Class distribution
   const classBySection = useMemo(() => {
     const distribution: Record<string, number> = {};
-    schoolStudents.forEach(s => {
-      const key = `Class ${s.class}${s.section}`;
-      distribution[key] = (distribution[key] || 0) + 1;
+    students.forEach(s => {
+      if (s.class && s.section) {
+        const key = `Class ${s.class}${s.section}`;
+        distribution[key] = (distribution[key] || 0) + 1;
+      }
     });
     return Object.entries(distribution)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([name, count]) => ({ name, count }));
-  }, [schoolStudents]);
+  }, [students]);
 
-  // Subject performance aggregate
+  // Subject performance aggregate (based on evaluations)
   const subjectPerformance = useMemo(() => {
     const subjects: {[key: string]: {total: number, count: number}} = {};
 
-    schoolStudents.forEach(student => {
-      student.subjectScores.forEach(score => {
-        if (!subjects[score.subjectName]) {
-          subjects[score.subjectName] = { total: 0, count: 0 };
+    evaluations.forEach(evaluation => {
+      if (evaluation.subject && evaluation.score && evaluation.totalMarks) {
+        if (!subjects[evaluation.subject]) {
+          subjects[evaluation.subject] = { total: 0, count: 0 };
         }
-        subjects[score.subjectName].total += score.averageScore;
-        subjects[score.subjectName].count += 1;
-      });
+        const percentage = (evaluation.score / evaluation.totalMarks) * 100;
+        subjects[evaluation.subject].total += percentage;
+        subjects[evaluation.subject].count += 1;
+      }
     });
 
     return Object.entries(subjects)
@@ -161,51 +248,50 @@ export function DashboardClient({ userId }: DashboardClientProps) {
         students: count,
       }))
       .sort((a, b) => b.average - a.average);
-  }, [schoolStudents]);
+  }, [evaluations]);
 
   // Top performing students
   const topStudents = useMemo(() =>
-    [...schoolStudents]
-      .sort((a, b) => b.performance.overallPercentage - a.performance.overallPercentage)
+    [...students]
+      .sort((a, b) =>
+        (b.performance?.overallPercentage || 0) - (a.performance?.overallPercentage || 0)
+      )
       .slice(0, 5),
-    [schoolStudents]
+    [students]
   );
 
-  // Most engaged teachers (by assigned classes)
+  // Most engaged teachers (by XP or level)
   const topTeachers = useMemo(() =>
-    [...schoolTeachers]
-      .map(teacher => {
-        const studentCount = teacher.assignedClasses.reduce((acc, cls) => {
-          const students = schoolStudents.filter(
-            s => s.class === cls.class && s.section === cls.section
-          );
-          return acc + students.length;
-        }, 0);
-
-        return { ...teacher, studentCount };
-      })
-      .sort((a, b) => b.studentCount - a.studentCount)
-      .slice(0, 5),
-    [schoolTeachers, schoolStudents]
+    [...teachers]
+      .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+      .slice(0, 5)
+      .map(teacher => ({
+        ...teacher,
+        studentCount: students.filter(s => s.class && s.section).length // Placeholder
+      })),
+    [teachers, students]
   );
 
   // Recent activity
   const recentActivity = useMemo(() => {
     const activities = [];
 
-    // Recent test completions
-    const recentTests = schoolTests
-      .filter(t => t.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    // Recent evaluations
+    const recentEvaluations = evaluations
+      .filter(e => e.status === 'completed')
+      .sort((a, b) => {
+        const aTime = a.submittedAt?.toMillis?.() || 0;
+        const bTime = b.submittedAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      })
       .slice(0, 3);
 
-    recentTests.forEach(test => {
-      const teacher = schoolTeachers.find(t => t.id === test.teacherId);
+    recentEvaluations.forEach(evaluation => {
       activities.push({
         type: 'evaluation',
-        title: `${test.title} completed`,
-        detail: `${teacher?.name || 'Teacher'} • Class ${test.class}${test.section}`,
-        time: `${Math.floor((new Date().getTime() - new Date(test.date).getTime()) / (1000 * 60 * 60 * 24))} days ago`,
+        title: `${evaluation.subject || 'Assessment'} completed`,
+        detail: `Score: ${evaluation.score}/${evaluation.totalMarks}`,
+        time: '2 days ago',
         icon: '✅',
         color: 'from-green-400 to-emerald-500'
       });
@@ -216,8 +302,8 @@ export function DashboardClient({ userId }: DashboardClientProps) {
     if (recentTopStudent) {
       activities.push({
         type: 'achievement',
-        title: `${recentTopStudent.name} achieved top rank`,
-        detail: `${recentTopStudent.performance.overallPercentage}% overall • Class ${recentTopStudent.class}${recentTopStudent.section}`,
+        title: `${recentTopStudent.displayName} achieved top rank`,
+        detail: `${recentTopStudent.performance?.overallPercentage || 0}% overall • Class ${recentTopStudent.class}${recentTopStudent.section}`,
         time: '1 day ago',
         icon: '🏆',
         color: 'from-yellow-400 to-orange-500'
@@ -225,42 +311,35 @@ export function DashboardClient({ userId }: DashboardClientProps) {
     }
 
     return activities.slice(0, 5);
-  }, [schoolTests, schoolTeachers, topStudents]);
+  }, [evaluations, topStudents]);
 
-  // Upcoming tests
-  const upcomingTests = useMemo(() =>
-    schoolTests
-      .filter(t => t.status === 'scheduled')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 5),
-    [schoolTests]
-  );
+  // Upcoming tests (placeholder - empty array for now)
+  const upcomingTests = useMemo(() => [], []);
 
-  // Generate activity heatmap data
-  const generateActivityData = () => {
-    const data = [];
-    const today = new Date();
+  if (isLoading) {
+    return <Spinner fullScreen />;
+  }
 
-    for (let i = 89; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const xp = Math.random() > 0.2 ? Math.floor(Math.random() * 100) + 20 : 0;
-
-      data.push({
-        date: date.toISOString().split('T')[0],
-        xp: xp,
-      });
-    }
-
-    return data;
-  };
-
-  const activityData = generateActivityData();
+  if (!institutionId) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle size={48} className="mx-auto mb-4 text-yellow-500" />
+          <p className="text-gray-600 text-lg font-medium">No institution ID found</p>
+          <p className="text-gray-500 text-sm mt-2">Please contact support to link your account to an institution</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!institution) {
     return (
       <div className="flex items-center justify-center h-96">
-        <p className="text-gray-600">Institution not found</p>
+        <div className="text-center">
+          <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
+          <p className="text-gray-600 text-lg font-medium">Institution not found</p>
+          <p className="text-gray-500 text-sm mt-2">The institution data could not be loaded</p>
+        </div>
       </div>
     );
   }
@@ -609,32 +688,39 @@ export function DashboardClient({ userId }: DashboardClientProps) {
             </div>
 
             <div className="space-y-3">
-              {topStudents.map((student, index) => (
-                <div key={student.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                        {student.name[0]}
-                      </div>
-                      {index === 0 && (
-                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs">
-                          🏆
+              {topStudents.length > 0 ? (
+                topStudents.map((student, index) => (
+                  <div key={student.uid} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                          {student.displayName?.[0] || 'S'}
                         </div>
-                      )}
+                        {index === 0 && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs">
+                            🏆
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{student.displayName}</p>
+                        <p className="text-xs text-gray-600">
+                          {student.class && student.section ? `Class ${student.class}${student.section}` : student.email}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{student.name}</p>
-                      <p className="text-xs text-gray-600">
-                        Class {student.class}{student.section} • Roll {student.rollNo}
-                      </p>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-green-600">{student.performance?.overallPercentage || 0}%</p>
+                      <p className="text-xs text-gray-500">Rank #{student.performance?.rank || '-'}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-green-600">{student.performance.overallPercentage}%</p>
-                    <p className="text-xs text-gray-500">Rank #{student.performance.rank}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Star size={48} className="mx-auto mb-2 text-gray-300" />
+                  <p>No students found</p>
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </motion.div>
@@ -668,23 +754,30 @@ export function DashboardClient({ userId }: DashboardClientProps) {
             </div>
 
             <div className="space-y-3">
-              {topTeachers.map((teacher) => (
-                <div key={teacher.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center text-white font-bold">
-                      {teacher.name[0]}
+              {topTeachers.length > 0 ? (
+                topTeachers.map((teacher) => (
+                  <div key={teacher.uid} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center text-white font-bold">
+                        {teacher.displayName?.[0] || 'T'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{teacher.displayName}</p>
+                        <p className="text-xs text-gray-600">{teacher.email}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{teacher.name}</p>
-                      <p className="text-xs text-gray-600">{teacher.yearsOfExperience} years experience</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">{teacher.xp || 0}</p>
+                      <p className="text-xs text-gray-500">XP</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">{teacher.studentCount}</p>
-                    <p className="text-xs text-gray-500">students</p>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <GraduationCap size={48} className="mx-auto mb-2 text-gray-300" />
+                  <p>No teachers found</p>
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </motion.div>
@@ -710,41 +803,10 @@ export function DashboardClient({ userId }: DashboardClientProps) {
               </div>
             </div>
 
-            {upcomingTests.length > 0 ? (
-              <div className="space-y-3">
-                {upcomingTests.map((test) => (
-                  <div key={test.id} className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 text-sm">{test.title}</h4>
-                        <p className="text-xs text-gray-600 mt-1">{test.subjectName}</p>
-                      </div>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                        {test.type}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <BookOpen size={12} />
-                        Class {test.class}{test.section}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} />
-                        {new Date(test.date).toLocaleDateString()}
-                      </span>
-                      <span>•</span>
-                      <span>{test.totalMarks} marks</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Calendar size={48} className="mx-auto mb-2 text-gray-300" />
-                <p>No upcoming tests scheduled</p>
-              </div>
-            )}
+            <div className="text-center py-8 text-gray-500">
+              <Calendar size={48} className="mx-auto mb-2 text-gray-300" />
+              <p>No upcoming tests scheduled</p>
+            </div>
           </Card>
         </motion.div>
 
@@ -794,7 +856,7 @@ export function DashboardClient({ userId }: DashboardClientProps) {
                   <span className="text-sm font-medium text-gray-700">Total Tests</span>
                   <Target className="text-blue-600" size={20} />
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{schoolTests.length}</p>
+                <p className="text-3xl font-bold text-gray-900">{evaluations.length}</p>
                 <p className="text-xs text-gray-600 mt-1">
                   All assessments
                 </p>

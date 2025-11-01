@@ -107,7 +107,7 @@ export function adminDb(): Firestore {
 // CUSTOM TOKEN CLAIMS MANAGEMENT
 // ============================================================================
 
-export type UserRole = 'student' | 'teacher' | 'admin' | 'institution';
+export type UserRole = 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
 
 export interface CustomClaims {
   role: UserRole;

@@ -7,8 +7,8 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Home, User, Settings, Award, TrendingUp, 
+import {
+  Home, User, Settings, Award, TrendingUp,
   BookOpen, Users, BarChart, Menu, X, LogOut,
   Bell, HelpCircle, Search, Clock, ChevronDown,
   Upload
@@ -20,6 +20,23 @@ import { calculateLevel } from '@/lib/gamify';
 interface AppLayoutProps {
   children: ReactNode;
 }
+
+// Extended user type with Firestore profile data
+type UserProfile = {
+  uid: string;
+  email: string | null;
+  emailVerified: boolean;
+  displayName?: string | null;
+  role?: 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
+  xp?: number;
+  level?: number;
+  badges?: string[];
+  institutionId?: string;
+  accountType?: 'individual' | 'institution';
+  streak?: number;
+  lastActive?: string;
+  photoURL?: string | null;
+};
 
 const roleBasedNavigation = {
   student: [
@@ -57,13 +74,33 @@ const roleBasedNavigation = {
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
   ],
+  dev: [
+    { name: 'Student Dashboard', href: '/dashboard/student', icon: Home },
+    { name: 'Teacher Dashboard', href: '/dashboard/teacher', icon: Home },
+    { name: 'Admin Dashboard', href: '/dashboard/admin', icon: Home },
+    { name: 'Institution Dashboard', href: '/dashboard/institution', icon: Home },
+    { name: 'Get Score ⚡', href: '/dashboard/student/score-check', icon: Upload },
+    { name: 'Students (Teacher)', href: '/dashboard/teacher/students', icon: Users },
+    { name: 'Students (Institution)', href: '/dashboard/institution/students', icon: Users },
+    { name: 'Teachers', href: '/dashboard/institution/teachers', icon: Users },
+    { name: 'Evaluations', href: '/dashboard/teacher/evaluations', icon: BookOpen },
+    { name: 'Analytics (Teacher)', href: '/dashboard/teacher/analytics', icon: BarChart },
+    { name: 'Analytics (Institution)', href: '/dashboard/institution/analytics', icon: BarChart },
+    { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
+    { name: 'My Journey', href: '/dashboard/student/history', icon: Clock },
+    { name: 'Rewards', href: '/rewards', icon: Award },
+    { name: 'Users', href: '/dashboard/institution/users', icon: Users },
+    { name: 'Profile', href: '/profile', icon: User },
+    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Help', href: '/help', icon: HelpCircle },
+  ],
 };
 
 const HEADER_HEIGHT = 'h-16';
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -124,12 +161,54 @@ export default function AppLayout({ children }: AppLayoutProps) {
       }
 
       try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        // Fetch complete user profile from Firestore
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
         if (userDoc.exists()) {
-          setUserData({ ...userDoc.data(), uid: user.uid });
+          const firestoreData = userDoc.data();
+
+          // Merge Firebase Auth data with Firestore profile data
+          const completeUserData: UserProfile = {
+            uid: user.uid,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            displayName: user.displayName || firestoreData.displayName,
+            photoURL: user.photoURL || firestoreData.photoURL,
+            // Spread all Firestore fields (role, xp, badges, institutionId, etc.)
+            ...firestoreData,
+          };
+
+          console.log('[AppLayout] User data loaded:', {
+            uid: completeUserData.uid,
+            role: completeUserData.role,
+            email: completeUserData.email,
+          });
+
+          setUserData(completeUserData);
+        } else {
+          console.warn('[AppLayout] No Firestore profile found for user:', user.uid);
+          // Fallback to basic auth data
+          setUserData({
+            uid: user.uid,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            role: 'student', // Default role
+          });
         }
       } catch (error) {
-        console.error('Error loading user:', error);
+        console.error('[AppLayout] Error loading user data from Firebase:', error);
+        // Set basic user data as fallback
+        setUserData({
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          role: 'student',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -160,6 +239,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const navigation = roleBasedNavigation[userData.role as keyof typeof roleBasedNavigation] || roleBasedNavigation.student;
   const currentLevel = userData.role === 'student' ? calculateLevel(userData.xp || 0) : null;
 
+  // For dev role, use student dashboard path
+  const dashboardPath = userData.role === 'dev' ? '/dashboard/student' : `/dashboard/${userData.role}`;
+
   // Determine if sidebar should be visible
   const sidebarVisible = isDesktop || isSidebarOpen;
 
@@ -180,7 +262,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           </button>
           
-          <Link href={`/dashboard/${userData.role}`}>
+          <Link href={dashboardPath}>
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               PrepMint
             </h1>
@@ -314,8 +396,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
       >
         {/* Logo Section */}
         <div className={`border-b border-gray-200 flex-shrink-0 flex items-center px-6 ${HEADER_HEIGHT}`}>
-          <Link 
-            href={`/dashboard/${userData.role}`} 
+          <Link
+            href={dashboardPath}
             onClick={() => !isDesktop && setIsSidebarOpen(false)}
             className="block"
           >

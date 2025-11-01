@@ -36,8 +36,8 @@ export default async function AdminDashboardPage() {
     redirect('/login');
   }
 
-  // Check role OUTSIDE try-catch
-  if (userRole !== 'admin') {
+  // Check role OUTSIDE try-catch (allow both admin and dev)
+  if (userRole !== 'admin' && userRole !== 'dev') {
     console.log('[Admin Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }
