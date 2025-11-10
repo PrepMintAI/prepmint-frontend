@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from './logger';
 
 interface DashboardData {
   xp: number;
@@ -50,7 +51,7 @@ export const useDashboardData = (range: 'week' | 'month' | 'year' = 'week'): Das
      *   .then(res => res.json())
      *   .then((json: DashboardData) => setData(json))
      *   .catch(err => {
-     *     console.error("Failed to fetch dashboard data:", err);
+     *     logger.error("Failed to fetch dashboard data:", err);
      *     setData(fallbackData); // fallback on error
      *   });
      */

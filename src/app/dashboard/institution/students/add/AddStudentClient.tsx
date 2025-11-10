@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { Users, ArrowLeft, Mail, User, Calendar, BookOpen, Save, X, Phone } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 interface StudentFormData {
   name: string;
@@ -64,7 +65,7 @@ export function AddStudentClient({ institutionId }: { institutionId: string }) {
       alert('Student added successfully!');
       router.push('/dashboard/institution/students');
     } catch (error) {
-      console.error('Error adding student:', error);
+      logger.error('Error adding student:', error);
       alert('Failed to add student. Please try again.');
     } finally {
       setIsSubmitting(false);

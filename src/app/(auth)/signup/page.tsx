@@ -9,8 +9,9 @@ import {
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
-  sendEmailVerification
+  sendEmailVerification,
 } from 'firebase/auth';
+import { logger } from '@/lib/logger';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -159,21 +160,21 @@ export default function SignupPage() {
       setInstitutionName('');
 
       try {
-        console.log('[Signup] Validating institution code:', debouncedInstitutionCode);
+        logger.log('[Signup] Validating institution code:', debouncedInstitutionCode);
         const instSnap = await getDoc(doc(db, 'institutions', debouncedInstitutionCode.trim()));
         
         if (instSnap.exists()) {
           const instData = instSnap.data();
           setInstitutionCodeStatus('valid');
           setInstitutionName(instData.name || 'Institution');
-          console.log('[Signup] Valid institution:', instData.name);
+          logger.log('[Signup] Valid institution:', instData.name);
         } else {
           setInstitutionCodeStatus('invalid');
           setInstitutionCodeError('Invalid institution code');
-          console.log('[Signup] Invalid institution code');
+          logger.log('[Signup] Invalid institution code');
         }
       } catch (err) {
-        console.error('[Signup] Institution validation error:', err);
+        logger.error('[Signup] Institution validation error:', err);
         setInstitutionCodeStatus('invalid');
         setInstitutionCodeError('Validation failed. Try again.');
       }
@@ -244,7 +245,7 @@ export default function SignupPage() {
     setSubmitError(null);
 
     if (loading) {
-      console.log('[Signup] Already processing, ignoring');
+      logger.log('[Signup] Already processing, ignoring');
       return;
     }
 
@@ -271,19 +272,19 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      console.log('[Signup] Creating user account...');
+      logger.log('[Signup] Creating user account...');
       
       // Step 1: Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('[Signup] Auth user created:', cred.user.uid);
+      logger.log('[Signup] Auth user created:', cred.user.uid);
 
       // Step 2: Update display name
       await updateProfile(cred.user, { displayName: name.trim() });
 
       // Step 3: Send email verification
-      console.log('[Signup] Sending verification email...');
+      logger.log('[Signup] Sending verification email...');
       await sendEmailVerification(cred.user);
-      console.log('[Signup] Verification email sent');
+      logger.log('[Signup] Verification email sent');
 
       // Step 4: Get ID token
       const idToken = await cred.user.getIdToken(true);
@@ -306,16 +307,16 @@ export default function SignupPage() {
         lastLoginAt: serverTimestamp(),
       };
 
-      console.log('[Signup] Creating Firestore profile...');
+      logger.log('[Signup] Creating Firestore profile...');
       await setDoc(doc(db, 'users', cred.user.uid), userProfile);
 
-      console.log('[Signup] Account created successfully! Redirecting to email verification...');
+      logger.log('[Signup] Account created successfully! Redirecting to email verification...');
 
       // Redirect to email verification page instead of dashboard
       router.push('/verify-email');
       
     } catch (e) {
-      console.error('[Signup] Signup error:', e);
+      logger.error('[Signup] Signup error:', e);
       const errorCode = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
       const errorMessage = getFirebaseErrorMessage(errorCode);
       setSubmitError(errorMessage);
@@ -335,7 +336,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      console.log('[Signup] Attempting Google signup...');
+      logger.log('[Signup] Attempting Google signup...');
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
@@ -385,7 +386,7 @@ export default function SignupPage() {
       router.push(`/dashboard/${sessionData.role}`);
       
     } catch (err) {
-      console.error('[Signup] Google signup error:', err);
+      logger.error('[Signup] Google signup error:', err);
 
       const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
 

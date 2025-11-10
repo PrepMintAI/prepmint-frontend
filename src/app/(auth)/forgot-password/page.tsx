@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase.client';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -35,9 +36,9 @@ export default function ForgotPasswordPage() {
     try {
       await sendPasswordResetEmail(auth, email);
       setSuccess(true);
-      console.log('[ForgotPassword] Password reset email sent to:', email);
+      logger.log('[ForgotPassword] Password reset email sent to:', email);
     } catch (err) {
-      console.error('[ForgotPassword] Error:', err);
+      logger.error('[ForgotPassword] Error:', err);
 
       // Handle Firebase errors
       const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';

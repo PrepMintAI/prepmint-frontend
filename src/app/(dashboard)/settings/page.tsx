@@ -11,6 +11,7 @@ import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
 import { Bell, Shield, Palette } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 interface UserSettings {
   uid: string;
@@ -82,7 +83,7 @@ export default function SettingsPage() {
           }
         }
       } catch (error) {
-        console.error('Error:', error);
+        logger.error('Error:', error);
       } finally {
         setLoading(false);
       }
@@ -101,7 +102,7 @@ export default function SettingsPage() {
       });
       alert('Settings saved successfully!');
     } catch (error) {
-      console.error('Error saving settings:', error);
+      logger.error('Error saving settings:', error);
       alert('Failed to save settings');
     } finally {
       setSaving(false);
@@ -113,7 +114,7 @@ export default function SettingsPage() {
       await signOut(auth);
       router.push('/login');
     } catch (error) {
-      console.error('Error logging out:', error);
+      logger.error('Error logging out:', error);
     }
   };
 

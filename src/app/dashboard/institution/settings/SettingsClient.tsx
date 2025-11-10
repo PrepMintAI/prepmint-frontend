@@ -5,6 +5,7 @@ import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { Settings, ArrowLeft, Save, Mail, Building2, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 interface SettingsFormData {
   institutionName: string;
@@ -45,7 +46,7 @@ export function SettingsClient({ institutionId }: { institutionId: string }) {
 
       alert('Settings updated successfully!');
     } catch (error) {
-      console.error('Error updating settings:', error);
+      logger.error('Error updating settings:', error);
       alert('Failed to update settings. Please try again.');
     } finally {
       setIsSubmitting(false);

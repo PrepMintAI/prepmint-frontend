@@ -15,6 +15,7 @@ import {
   ChevronRight, BarChart3,
   ClipboardList, Filter
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -90,7 +91,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
         // Fetch teacher data
         const teacherDoc = await getDoc(doc(db, 'users', userId));
         if (!teacherDoc.exists()) {
-          console.error('Teacher not found');
+          logger.error('Teacher not found');
           return;
         }
         const teacherData = teacherDoc.data() as TeacherData;
@@ -131,7 +132,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
         } as EvaluationData));
         setAllEvaluations(evaluations);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        logger.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoading(false);
       }

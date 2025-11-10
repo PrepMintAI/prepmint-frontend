@@ -16,6 +16,7 @@ import {
   Clock, Settings, CheckCircle, AlertCircle, XCircle,
   Database, Zap, Globe, Server, ChevronRight
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 // Animation variants
 const cardVariants = {
@@ -74,7 +75,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
             // Firebase user data loaded
           }
         } catch (error) {
-          console.error('Error loading user data:', error);
+          logger.error('Error loading user data:', error);
         } finally {
           setIsLoading(false);
         }
@@ -261,13 +262,13 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {[
-            { id: 'overview', label: 'Overview', icon: <Activity size={18} /> },
-            { id: 'users', label: 'Users', icon: <Users size={18} /> },
-            { id: 'institutions', label: 'Institutions', icon: <Building size={18} /> },
+            { id: 'overview' as const, label: 'Overview', icon: <Activity size={18} /> },
+            { id: 'users' as const, label: 'Users', icon: <Users size={18} /> },
+            { id: 'institutions' as const, label: 'Institutions', icon: <Building size={18} /> },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-600'
@@ -546,7 +547,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
               <select
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value as any)}
+                onChange={(e) => setFilterRole(e.target.value as 'all' | 'student' | 'teacher' | 'admin' | 'dev')}
               >
                 <option value="all">All Roles</option>
                 <option value="student">Students</option>
@@ -558,7 +559,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
               <select
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'suspended' | 'pending')}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>

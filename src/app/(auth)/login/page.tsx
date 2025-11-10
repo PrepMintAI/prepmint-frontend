@@ -8,6 +8,7 @@ import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { logger } from '@/lib/logger';
 
 const getFirebaseErrorMessage = (errorCode: string): string => {
   const errorMessages: Record<string, string> = {
@@ -85,7 +86,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      console.log('[Login] Attempting login...');
+      logger.log('[Login] Attempting login...');
       
       // Step 1: Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -111,7 +112,7 @@ export default function LoginPage() {
       // Dev role uses /dashboard (router will handle redirect to student)
       const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
 
-      console.log('[Login] Session created! Redirecting to:', dashboardPath);
+      logger.log('[Login] Session created! Redirecting to:', dashboardPath);
 
       // Clear form
       setEmail('');
@@ -121,7 +122,7 @@ export default function LoginPage() {
       router.push(dashboardPath);
       
     } catch (err) {
-      console.error('[Login] Error:', err);
+      logger.error('[Login] Error:', err);
 
       const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
       const errorMessage = getFirebaseErrorMessage(errorCode);
@@ -145,7 +146,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      console.log('[Login] Attempting Google login...');
+      logger.log('[Login] Attempting Google login...');
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
@@ -183,7 +184,7 @@ export default function LoginPage() {
       }
       
     } catch (err) {
-      console.error('[Login] Google error:', err);
+      logger.error('[Login] Google error:', err);
 
       const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
 

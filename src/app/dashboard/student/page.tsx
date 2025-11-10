@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { StudentDashboardClient } from './DashboardClient';
+import { logger } from '@/lib/logger';
 
 export default async function StudentDashboardPage() {
   const cookieStore = await cookies();
@@ -25,23 +26,23 @@ export default async function StudentDashboardPage() {
     const userDoc = await adminDb().collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
-      console.error('[Student Dashboard] User document not found');
+      logger.error('[Student Dashboard] User document not found');
       redirect('/login');
     }
 
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
 
-    console.log('[Student Dashboard] User role:', userRole);
+    logger.log('[Student Dashboard] User role:', userRole);
   } catch (error) {
     // Only catch actual errors, not Next.js redirects
-    console.error('[Student Dashboard] Session verification failed:', error);
+    logger.error('[Student Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
   // Check role OUTSIDE try-catch so redirect works properly (allow student and dev)
   if (userRole !== 'student' && userRole !== 'dev') {
-    console.log('[Student Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+    logger.log('[Student Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }
 

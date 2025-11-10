@@ -16,6 +16,7 @@ import {
   Trophy, Target, Flame, BookOpen, Award, TrendingUp,
   Sparkles, Upload, ArrowRight, ChevronRight, Calendar, Clock
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 import {
   fetchStudentEvaluations,
   fetchActivityData,
@@ -74,7 +75,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             setUpcomingTests(tests);
           }
         } catch (error) {
-          console.error('Error loading user data:', error);
+          logger.error('Error loading user data:', error);
         } finally {
           setIsLoading(false);
         }

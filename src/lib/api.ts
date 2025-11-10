@@ -1,6 +1,7 @@
 // src/lib/api.ts
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { logger } from '@/lib/logger';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '/api',
@@ -23,7 +24,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    logger.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
@@ -53,6 +54,10 @@ export const updateUserRole = async (role: string) => {
 // Gamification
 export const awardXp = async (userId: string, amount: number, reason: string) => {
   return api.post('/gamify/xp', { userId, amount, reason });
+};
+
+export const awardBadge = async (userId: string, badgeId: string) => {
+  return api.post('/gamify/badges', { userId, badgeId });
 };
 
 export const getUserBadges = async (userId: string) => {

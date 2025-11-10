@@ -12,6 +12,7 @@
     "create-dev-user": "node scripts/create-dev-user.js"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.22.0",
     "axios": "^1.12.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

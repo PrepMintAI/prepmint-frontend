@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getEvaluationStatus } from '@/lib/api';
+import { logger } from '@/lib/logger';
 
 type EvaluationResult = {
   score?: number;
@@ -78,7 +79,7 @@ export default function useEvaluationPoll(
           }
         }
       } catch (error) {
-        console.error('Polling error:', error);
+        logger.error('Polling error:', error);
 
         // Retry on network errors
         if (!stopped.current) {

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase.client';
+import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody, StatCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -133,7 +134,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
         } as Evaluation));
         setEvaluations(evaluationsData);
       } catch (error) {
-        console.error('Failed to fetch institution analytics data:', error);
+        logger.error('Failed to fetch institution analytics data:', error);
       } finally {
         setIsLoading(false);
       }

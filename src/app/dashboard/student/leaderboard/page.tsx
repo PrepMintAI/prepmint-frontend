@@ -10,6 +10,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/studentData';
+import { logger } from '@/lib/logger';
 
 interface LeaderboardUser {
   rank: number;
@@ -52,7 +53,7 @@ export default function LeaderboardPage() {
             });
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          logger.error('Error fetching user data:', error);
         }
       }
       setIsLoading(false);
@@ -79,7 +80,7 @@ export default function LeaderboardPage() {
           setCurrentUser(prev => prev ? { ...prev, rank: userRank || data.length + 1 } : null);
         }
       } catch (error) {
-        console.error('Error loading leaderboard:', error);
+        logger.error('Error loading leaderboard:', error);
       } finally {
         setIsLoading(false);
       }

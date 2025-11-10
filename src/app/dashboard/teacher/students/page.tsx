@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import { logger } from '@/lib/logger';
 import AppLayout from '@/components/layout/AppLayout';
 import { StudentsClient } from './StudentsClient';
 
@@ -29,7 +30,7 @@ export default async function StudentsPage() {
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
   } catch (error) {
-    console.error('[Students Page] Session verification failed:', error);
+    logger.error('[Students Page] Session verification failed:', error);
     redirect('/login');
   }
 

@@ -2,16 +2,17 @@
 // src/components/dashboard/institution/QuestionPaperGenerator.tsx
 'use client';
 import { useState, useEffect } from "react";
-import { 
-  BookOpen, 
-  Edit2, 
-  RefreshCw, 
-  FileText, 
-  Download, 
-  HelpCircle, 
-  Plus, 
-  Trash2, 
-  CheckCircle, 
+import { logger } from '@/lib/logger';
+import {
+  BookOpen,
+  Edit2,
+  RefreshCw,
+  FileText,
+  Download,
+  HelpCircle,
+  Plus,
+  Trash2,
+  CheckCircle,
   AlertCircle,
   BarChart2,
   Clock,
@@ -301,9 +302,9 @@ export default function QuestionPaperGenerator() {
   };
 
   const handleGeneratePDF = () => {
-    console.log("Generating mock PDF...");
-    console.log("Configuration:", config);
-    console.log("Generated Paper:", generatedPaper);
+    logger.log("Generating mock PDF...");
+    logger.log("Configuration:", config);
+    logger.log("Generated Paper:", generatedPaper);
     
     setIsLoading(true);
     setTimeout(() => {

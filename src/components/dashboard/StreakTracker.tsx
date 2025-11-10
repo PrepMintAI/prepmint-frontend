@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, MoreVertical, RefreshCw, Star } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { logger } from '@/lib/logger';
 
 interface StreakTrackerProps {
   streak: number;
@@ -27,13 +28,13 @@ function StreakTracker({ streak }: StreakTrackerProps) {
 
   // Memoize callbacks
   const handleClaimReward = useCallback(() => {
-    console.log('Claiming streak reward...');
+    logger.log('Claiming streak reward...');
     setShowOptions(false);
   }, []);
 
   const handleResetStreak = useCallback(() => {
     if (confirm('Are you sure you want to reset your streak? This cannot be undone.')) {
-      console.log('Resetting streak...');
+      logger.log('Resetting streak...');
       setShowOptions(false);
     }
   }, []);

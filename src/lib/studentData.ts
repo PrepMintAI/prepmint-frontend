@@ -3,6 +3,7 @@
 
 import { collection, query, where, orderBy, limit, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from './firebase.client';
+import { logger } from './logger';
 
 // ==================== TYPE DEFINITIONS ====================
 
@@ -79,7 +80,7 @@ export async function fetchStudentEvaluations(userId: string, limitCount: number
       };
     });
   } catch (error) {
-    console.error('Error fetching student evaluations:', error);
+    logger.error('Error fetching student evaluations:', error);
     return [];
   }
 }
@@ -130,7 +131,7 @@ export async function fetchActivityData(userId: string, days: number = 90): Prom
       xp,
     }));
   } catch (error) {
-    console.error('Error fetching activity data:', error);
+    logger.error('Error fetching activity data:', error);
     // Return empty data array on error
     return generateEmptyActivityData(days);
   }
@@ -228,7 +229,7 @@ export async function fetchLeaderboard(scope: 'global' | 'institution', institut
       };
     });
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    logger.error('Error fetching leaderboard:', error);
     return [];
   }
 }
@@ -263,7 +264,7 @@ export async function fetchUpcomingTests(institutionId: string, limitCount: numb
       };
     });
   } catch (error) {
-    console.error('Error fetching upcoming tests:', error);
+    logger.error('Error fetching upcoming tests:', error);
     return [];
   }
 }
@@ -299,7 +300,7 @@ export async function fetchStudentStats(userId: string) {
       rank: userData.rank || 0,
     };
   } catch (error) {
-    console.error('Error fetching student stats:', error);
+    logger.error('Error fetching student stats:', error);
     return null;
   }
 }

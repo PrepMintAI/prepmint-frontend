@@ -6,6 +6,7 @@ import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { GraduationCap, ArrowLeft, Mail, User, Calendar, BookOpen, Save, X } from 'lucide-react';
 import { schoolSubjects } from '@/lib/comprehensiveMockData';
+import { logger } from '@/lib/logger';
 
 interface TeacherFormData {
   name: string;
@@ -67,7 +68,7 @@ export function AddTeacherClient({ institutionId }: { institutionId: string }) {
       alert('Teacher added successfully!');
       router.push('/dashboard/institution/teachers');
     } catch (error) {
-      console.error('Error adding teacher:', error);
+      logger.error('Error adding teacher:', error);
       alert('Failed to add teacher. Please try again.');
     } finally {
       setIsSubmitting(false);

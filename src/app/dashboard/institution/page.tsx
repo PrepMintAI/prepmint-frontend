@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { DashboardClient } from './DashboardClient';
+import { logger } from '@/lib/logger';
 
 export default async function InstitutionDashboardPage() {
   const cookieStore = await cookies();
@@ -24,7 +25,7 @@ export default async function InstitutionDashboardPage() {
     const userDoc = await adminDb().collection('users').doc(userId).get();
 
     if (!userDoc.exists) {
-      console.error('[Institution Dashboard] User document not found');
+      logger.error('[Institution Dashboard] User document not found');
       redirect('/login');
     }
 
@@ -32,15 +33,15 @@ export default async function InstitutionDashboardPage() {
     userRole = userData?.role || 'student';
     institutionId = userData?.institutionId;
 
-    console.log('[Institution Dashboard] User role:', userRole, 'Institution ID:', institutionId);
+    logger.log('[Institution Dashboard] User role:', userRole, 'Institution ID:', institutionId);
   } catch (error) {
-    console.error('[Institution Dashboard] Session verification failed:', error);
+    logger.error('[Institution Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
   // Check role OUTSIDE try-catch (allow institution and dev)
   if (userRole !== 'institution' && userRole !== 'dev') {
-    console.log('[Institution Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+    logger.log('[Institution Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }
 

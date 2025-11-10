@@ -12,6 +12,7 @@ import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
 import { Mail, Building2, Calendar, Award, Target, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { logger } from '@/lib/logger';
 
 interface UserProfile {
   id: string;
@@ -58,7 +59,7 @@ export default function ProfilePage() {
           });
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        logger.error('Error fetching user:', error);
       } finally {
         setLoading(false);
       }
@@ -86,7 +87,7 @@ export default function ProfilePage() {
       setUser({ ...user, ...formData });
       setIsEditing(false);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      logger.error('Error updating profile:', error);
       alert('Failed to update profile');
     } finally {
       setSaving(false);

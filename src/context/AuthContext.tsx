@@ -6,6 +6,7 @@ import { User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase.client';
 import Cookies from 'js-cookie';
+import { logger } from '@/lib/logger';
 
 // Extended user type with Firestore profile data
 type UserProfile = {
@@ -52,11 +53,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('[AuthContext] Initializing auth listener...');
+    logger.log('[AuthContext] Initializing auth listener...');
 
     // Add a safety timeout in case Firebase never responds
     const safetyTimeout = setTimeout(() => {
-      console.warn('[AuthContext] Safety timeout reached - forcing loading to false');
+      logger.warn('[AuthContext] Safety timeout reached - forcing loading to false');
       setLoading(false);
     }, 5000); // 5 second safety net
 
@@ -64,11 +65,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       auth,
       async (currentUser) => {
         clearTimeout(safetyTimeout); // Clear safety timeout once callback fires
-        console.log('[AuthContext] Auth state changed:', currentUser?.email || 'No user');
+        logger.log('[AuthContext] Auth state changed:', currentUser?.email || 'No user');
 
         if (!currentUser) {
           // User signed out
-          console.log('[AuthContext] No user authenticated');
+          logger.log('[AuthContext] No user authenticated');
           Cookies.remove('token');
           setFirebaseUser(null);
           setUser(null);
@@ -78,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // Check email verification
         if (!currentUser.emailVerified) {
-          console.log('[AuthContext] Email not verified for user:', currentUser.email);
+          logger.log('[AuthContext] Email not verified for user:', currentUser.email);
           // Don't set user - force verification first
           // Exception: Allow access to verify-email page
           const isVerifyEmailPage = typeof window !== 'undefined' && window.location.pathname === '/verify-email';
@@ -106,11 +107,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-          console.log('[AuthContext] Fetching user profile for:', currentUser.uid);
+          logger.log('[AuthContext] Fetching user profile for:', currentUser.uid);
 
           // Set auth token cookie
           const token = await getIdToken(currentUser, true);
-          Cookies.set('token', token, { 
+          Cookies.set('token', token, {
             expires: 7, // 7 days
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax'
@@ -122,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           if (userSnap.exists()) {
             const profileData = userSnap.data();
-            console.log('[AuthContext] Profile loaded:', profileData.role);
+            logger.log('[AuthContext] Profile loaded:', profileData.role);
 
             setUser({
               uid: currentUser.uid,
@@ -135,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             // Profile doesn't exist yet (e.g., just signed up)
             // Fallback to basic Firebase auth data
-            console.warn('[AuthContext] No Firestore profile found for user:', currentUser.uid);
+            logger.warn('[AuthContext] No Firestore profile found for user:', currentUser.uid);
             setUser({
               uid: currentUser.uid,
               email: currentUser.email,
@@ -148,8 +149,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           setFirebaseUser(currentUser);
         } catch (error) {
-          console.error('[AuthContext] Failed to load user profile from Firestore:', error);
-          
+          logger.error('[AuthContext] Failed to load user profile from Firestore:', error);
+
           // Fallback to Firebase auth user
           setUser({
             uid: currentUser.uid,
@@ -161,20 +162,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
           setFirebaseUser(currentUser);
         } finally {
-          console.log('[AuthContext] Loading complete');
+          logger.log('[AuthContext] Loading complete');
           setLoading(false);
         }
       },
       (error) => {
         // Error callback
-        console.error('[AuthContext] Auth state change error:', error);
+        logger.error('[AuthContext] Auth state change error:', error);
         clearTimeout(safetyTimeout);
         setLoading(false);
       }
     );
 
     return () => {
-      console.log('[AuthContext] Cleaning up auth listener');
+      logger.log('[AuthContext] Cleaning up auth listener');
       clearTimeout(safetyTimeout);
       unsubscribe();
     };

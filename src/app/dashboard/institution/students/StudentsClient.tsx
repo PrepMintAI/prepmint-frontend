@@ -8,6 +8,7 @@ import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
 import { Users, Search, Download, Upload, PlusCircle, ChevronRight, Star, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 interface UserData {
   uid: string;
@@ -36,7 +37,7 @@ export function StudentsClient({ institutionId }: { institutionId?: string }) {
   useEffect(() => {
     const fetchStudents = async () => {
       if (!institutionId) {
-        console.error('[StudentsClient] No institutionId provided');
+        logger.error('[StudentsClient] No institutionId provided');
         setIsLoading(false);
         return;
       }
@@ -55,7 +56,7 @@ export function StudentsClient({ institutionId }: { institutionId?: string }) {
         })) as UserData[];
         setStudents(studentsData);
       } catch (error) {
-        console.error('[StudentsClient] Error fetching students:', error);
+        logger.error('[StudentsClient] Error fetching students:', error);
       } finally {
         setIsLoading(false);
       }

@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, Coins, MoreVertical } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 interface Test {
   title: string;
@@ -22,22 +23,22 @@ export default function UpcomingTests({ upcomingTests }: UpcomingTestsProps) {
 
   const handleStartTest = (test: Test) => {
     // TODO: Trigger backend-connected test launch or route to test detail page
-    console.log('Start test:', test.title);
+    logger.log('Start test:', test.title);
   };
 
   const handleViewDetails = (test: Test) => {
     // TODO: Route to test detail page or open modal
-    console.log('View details for:', test.title);
+    logger.log('View details for:', test.title);
   };
 
   const handleReschedule = (test: Test) => {
     // TODO: Open reschedule modal or connect with backend rescheduling API
-    console.log('Reschedule test:', test.title);
+    logger.log('Reschedule test:', test.title);
   };
 
   const handleRemove = (test: Test) => {
     // TODO: Trigger backend delete or confirmation modal
-    console.log('Remove test:', test.title);
+    logger.log('Remove test:', test.title);
   };
 
   if (!upcomingTests.length) {

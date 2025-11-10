@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase.client';
 import { sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Mail, RefreshCw } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 export default function VerifyEmailPage() {
   const [loading, setLoading] = useState(false);
@@ -39,7 +40,7 @@ export default function VerifyEmailPage() {
       setResendStatus('success');
       setCountdown(60); // 60 second cooldown
     } catch (error) {
-      console.error('[VerifyEmail] Error resending email:', error);
+      logger.error('[VerifyEmail] Error resending email:', error);
       setResendStatus('error');
     } finally {
       setLoading(false);
@@ -83,7 +84,7 @@ export default function VerifyEmailPage() {
         setTimeout(() => setResendStatus('idle'), 3000);
       }
     } catch (error) {
-      console.error('[VerifyEmail] Error checking verification:', error);
+      logger.error('[VerifyEmail] Error checking verification:', error);
       setResendStatus('error');
       setTimeout(() => setResendStatus('idle'), 3000);
     } finally {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase.client';
+import { logger } from '@/lib/logger';
 import { calculateLevel, levelProgress } from '@/lib/gamify';
 import { Bell, Flame, CheckCircle, User, Settings, LogOut, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,30 +89,30 @@ export default function DashboardHeader({
 
   const handleSignOut = async () => {
     try {
-      console.log('[Logout] Starting logout process...');
+      logger.log('[Logout] Starting logout process...');
 
       // 1. Sign out from Firebase
       await signOut(auth);
-      console.log('[Logout] Firebase sign out complete');
+      logger.log('[Logout] Firebase sign out complete');
 
       // 2. Clear session cookie via API
       try {
         await fetch('/api/auth/session', { method: 'DELETE' });
-        console.log('[Logout] Session cookie cleared');
+        logger.log('[Logout] Session cookie cleared');
       } catch (err) {
-        console.error('[Logout] Failed to clear session cookie:', err);
+        logger.error('[Logout] Failed to clear session cookie:', err);
       }
 
       // 3. Clear client-side state
       Cookies.remove('token');
       Cookies.remove('__session');
-      console.log('[Logout] Client cookies cleared');
+      logger.log('[Logout] Client cookies cleared');
 
       // 4. Redirect to login
-      console.log('[Logout] Redirecting to login...');
+      logger.log('[Logout] Redirecting to login...');
       router.push('/login');
     } catch (error) {
-      console.error('[Logout] Sign out error:', error);
+      logger.error('[Logout] Sign out error:', error);
       // Even if there's an error, try to redirect to login
       router.push('/login');
     }

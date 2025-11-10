@@ -7,15 +7,22 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { logger } from '@/lib/logger';
 import {
   Home, User, Settings, Award, TrendingUp,
   BookOpen, Users, BarChart, Menu, X, LogOut,
   Bell, HelpCircle, Search, Clock, ChevronDown,
-  Upload
+  Upload, CheckCircle, AlertCircle, Info
 } from 'lucide-react';
 import Link from 'next/link';
 import Spinner from '@/components/common/Spinner';
 import { calculateLevel } from '@/lib/gamify';
+import {
+  subscribeToNotifications,
+  markAsRead,
+  markAllAsRead,
+  type Notification,
+} from '@/lib/notifications';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -42,6 +49,7 @@ const roleBasedNavigation = {
   student: [
     { name: 'Dashboard', href: '/dashboard/student', icon: Home },
     { name: 'Get Score ⚡', href: '/dashboard/student/score-check', icon: Upload },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
     { name: 'Rewards', href: '/rewards', icon: Award },
     { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
     { name: 'My Journey', href: '/dashboard/student/history', icon: Clock },
@@ -84,6 +92,7 @@ const roleBasedNavigation = {
     { name: 'Students (Institution)', href: '/dashboard/institution/students', icon: Users },
     { name: 'Teachers', href: '/dashboard/institution/teachers', icon: Users },
     { name: 'Evaluations', href: '/dashboard/teacher/evaluations', icon: BookOpen },
+    { name: 'Analytics (Unified)', href: '/dashboard/analytics', icon: BarChart },
     { name: 'Analytics (Teacher)', href: '/dashboard/teacher/analytics', icon: BarChart },
     { name: 'Analytics (Institution)', href: '/dashboard/institution/analytics', icon: BarChart },
     { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
@@ -98,6 +107,32 @@ const roleBasedNavigation = {
 
 const HEADER_HEIGHT = 'h-16';
 
+/**
+ * Format Firestore Timestamp to relative time string
+ */
+function getRelativeTime(timestamp: Notification['createdAt']): string {
+  const now = new Date();
+  const notificationDate = timestamp instanceof Date ? timestamp : (timestamp as any).toDate?.();
+
+  if (!notificationDate) return 'just now';
+
+  const diffMs = now.getTime() - notificationDate.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  // For older dates, show the date
+  return notificationDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export default function AppLayout({ children }: AppLayoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserProfile | null>(null);
@@ -105,6 +140,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -179,7 +217,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             ...firestoreData,
           };
 
-          console.log('[AppLayout] User data loaded:', {
+          logger.log('[AppLayout] User data loaded:', {
             uid: completeUserData.uid,
             role: completeUserData.role,
             email: completeUserData.email,
@@ -187,7 +225,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           setUserData(completeUserData);
         } else {
-          console.warn('[AppLayout] No Firestore profile found for user:', user.uid);
+          logger.warn('[AppLayout] No Firestore profile found for user:', user.uid);
           // Fallback to basic auth data
           setUserData({
             uid: user.uid,
@@ -199,7 +237,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           });
         }
       } catch (error) {
-        console.error('[AppLayout] Error loading user data from Firebase:', error);
+        logger.error('[AppLayout] Error loading user data from Firebase:', error);
         // Set basic user data as fallback
         setUserData({
           uid: user.uid,
@@ -217,14 +255,86 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => unsubscribe();
   }, [router]);
 
+  // Subscribe to notifications when user data is loaded
+  useEffect(() => {
+    if (!userData?.uid) return;
+
+    setNotificationsLoading(true);
+
+    const unsubscribe = subscribeToNotifications(
+      userData.uid,
+      (notifs) => {
+        setNotifications(notifs);
+        setNotificationsLoading(false);
+
+        // Calculate unread count
+        const count = notifs.filter((n) => !n.read).length;
+        setUnreadCount(count);
+      },
+      (error) => {
+        logger.error('[AppLayout] Notifications subscription error:', error);
+        setNotificationsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userData?.uid]);
+
   const handleLogout = async () => {
     if (confirm('Are you sure you want to log out?')) {
       try {
         await signOut(auth);
         router.push('/login');
       } catch (error) {
-        console.error('Logout error:', error);
+        logger.error('Logout error:', error);
       }
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await markAsRead(notificationId);
+    } catch (error) {
+      logger.error('[AppLayout] Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsReadClick = async () => {
+    try {
+      if (!userData?.uid) return;
+      await markAllAsRead(userData.uid);
+    } catch (error) {
+      logger.error('[AppLayout] Error marking all notifications as read:', error);
+    }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read when clicked
+    if (!notification.read) {
+      handleMarkAsRead(notification.id);
+    }
+
+    // Navigate if actionUrl is provided
+    if (notification.actionUrl) {
+      setShowNotifications(false);
+      router.push(notification.actionUrl);
+    }
+  };
+
+  const getNotificationIcon = (notification: Notification) => {
+    const iconProps = { size: 18, className: 'flex-shrink-0' };
+
+    switch (notification.type) {
+      case 'badge':
+        return <CheckCircle {...iconProps} className={`${iconProps.className} text-green-500`} />;
+      case 'evaluation':
+        return <BookOpen {...iconProps} className={`${iconProps.className} text-blue-500`} />;
+      case 'announcement':
+        return <AlertCircle {...iconProps} className={`${iconProps.className} text-amber-500`} />;
+      case 'reminder':
+        return <Clock {...iconProps} className={`${iconProps.className} text-purple-500`} />;
+      default:
+        return <Bell {...iconProps} className={`${iconProps.className} text-gray-500`} />;
     }
   };
 
@@ -272,10 +382,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition-colors relative text-gray-700"
-              aria-label="Notifications"
+              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
             >
               <Bell size={20} className="text-gray-700" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -300,10 +414,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                aria-label="Notifications"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
               >
                 <Bell size={20} className="text-gray-700" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
             </div>
             
@@ -507,18 +625,89 @@ export default function AppLayout({ children }: AppLayoutProps) {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-16 right-4 lg:top-20 lg:right-6 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
+            className="fixed top-16 right-4 lg:top-20 lg:right-6 w-96 max-h-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 flex flex-col"
           >
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
               <h3 className="font-bold text-gray-900">Notifications</h3>
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">Mark all read</button>
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsReadClick}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                >
+                  Mark all read
+                </button>
+              )}
             </div>
-            <div className="max-h-96 overflow-y-auto">
-              <div className="p-8 text-center text-gray-600 text-sm">
-                <Bell size={48} className="mx-auto mb-3 text-gray-300" />
-                <p className="font-medium">No new notifications</p>
-                <p className="text-xs mt-1 text-gray-500">We&apos;ll notify you when something happens</p>
-              </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto">
+              {notificationsLoading ? (
+                <div className="p-8 text-center text-gray-600 text-sm">
+                  <Spinner />
+                  <p className="font-medium mt-4">Loading notifications...</p>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="p-8 text-center text-gray-600 text-sm">
+                  <Bell size={48} className="mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">No notifications yet</p>
+                  <p className="text-xs mt-1 text-gray-500">We&apos;ll notify you when something happens</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {notifications.map((notification) => (
+                    <motion.button
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`w-full p-4 text-left transition-colors ${
+                        notification.read
+                          ? 'hover:bg-gray-50'
+                          : 'bg-blue-50 hover:bg-blue-100'
+                      }`}
+                    >
+                      <div className="flex gap-3 items-start">
+                        {/* Notification Icon */}
+                        <div className="flex-shrink-0 mt-1">
+                          {getNotificationIcon(notification)}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={`text-sm ${notification.read ? 'text-gray-700 font-medium' : 'text-gray-900 font-bold'}`}>
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-2">
+                            {getRelativeTime(notification.createdAt)}
+                          </p>
+                        </div>
+
+                        {/* Mark as Read Button */}
+                        {!notification.read && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAsRead(notification.id);
+                            }}
+                            className="flex-shrink-0 text-blue-600 hover:text-blue-700 font-medium text-xs whitespace-nowrap"
+                          >
+                            Mark read
+                          </button>
+                        )}
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

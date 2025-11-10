@@ -6,17 +6,18 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
+import { logger } from '@/lib/logger';
 
 export default function DashboardPage() {
   const [_isChecking, _setIsChecking] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    console.log('[Dashboard Router] Checking user role...');
+    logger.log('[Dashboard Router] Checking user role...');
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        console.log('[Dashboard Router] No user, redirecting to login');
+        logger.log('[Dashboard Router] No user, redirecting to login');
         router.replace('/login');
         return;
       }
@@ -25,7 +26,7 @@ export default function DashboardPage() {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         
         if (!userDoc.exists()) {
-          console.error('[Dashboard Router] User profile not found');
+          logger.error('[Dashboard Router] User profile not found');
           router.replace('/login');
           return;
         }
@@ -36,10 +37,10 @@ export default function DashboardPage() {
         // Dev role gets student dashboard as default (can access all via sidebar)
         const targetRole = role === 'dev' ? 'student' : role;
 
-        console.log('[Dashboard Router] Redirecting to:', `/dashboard/${targetRole}`, '(role:', role + ')');
+        logger.log('[Dashboard Router] Redirecting to:', `/dashboard/${targetRole}`, '(role:', role + ')');
         router.replace(`/dashboard/${targetRole}`);
       } catch (error) {
-        console.error('[Dashboard Router] Error:', error);
+        logger.error('[Dashboard Router] Error:', error);
         router.replace('/login');
       }
     });

@@ -8,7 +8,8 @@ import {
   serverTimestamp,
   getDoc
 } from 'firebase/firestore';
-import { awardXp as apiAwardXp } from '@/lib/api';
+import { awardXp as apiAwardXp, awardBadge as apiAwardBadge } from '@/lib/api';
+import { logger } from '@/lib/logger';
 
 // ===== XP Management =====
 
@@ -34,9 +35,9 @@ export async function awardXpLocal(
       lastXpAwardedAt: serverTimestamp(),
     });
 
-    console.log(`✅ Awarded ${amount} XP to ${userId}: ${reason}`);
+    logger.log(`Awarded ${amount} XP to ${userId}: ${reason}`);
   } catch (error) {
-    console.error('Failed to award XP locally:', error);
+    logger.error('Failed to award XP locally:', error);
     throw error;
   }
 }
@@ -52,9 +53,9 @@ export async function awardXpBackend(
 ): Promise<void> {
   try {
     await apiAwardXp(userId, amount, reason);
-    console.log(`✅ Awarded ${amount} XP via backend to ${userId}: ${reason}`);
+    logger.log(`Awarded ${amount} XP via backend to ${userId}: ${reason}`);
   } catch (error) {
-    console.error('Failed to award XP via backend:', error);
+    logger.error('Failed to award XP via backend:', error);
     throw error;
   }
 }
@@ -93,25 +94,62 @@ export type Badge = {
 };
 
 /**
- * Award a badge to a user (Firestore)
+ * Award a badge to a user via backend API (recommended for production)
+ *
+ * CRITICAL: Uses server-side transactions to prevent:
+ * - Duplicate badge awards from concurrent requests
+ * - Race conditions in badge deduplication
+ *
+ * @param userId - User ID
+ * @param badgeId - Badge ID to award
+ * @returns Promise resolves when badge is awarded or already exists
+ *
+ * @throws Error if user not found or API call fails
  */
 export async function awardBadge(
-  userId: string, 
+  userId: string,
+  badgeId: string
+): Promise<void> {
+  try {
+    // Award via backend API for transaction safety
+    await apiAwardBadge(userId, badgeId);
+    logger.log(`Awarded badge ${badgeId} to ${userId}`);
+  } catch (error) {
+    logger.error('Failed to award badge:', error);
+    throw error;
+  }
+}
+
+/**
+ * DEPRECATED: Direct Firestore writes for badges
+ *
+ * WARNING: This function is not transaction-safe and can result in:
+ * - Duplicate badges in concurrent scenarios
+ * - Race conditions in the read-check-write pattern
+ * - Inconsistent state if multiple clients award simultaneously
+ *
+ * Use awardBadge() instead, which goes through the backend API
+ * where transaction safety is guaranteed.
+ *
+ * This function is kept for backward compatibility only.
+ */
+export async function awardBadgeLocal(
+  userId: string,
   badgeId: string
 ): Promise<void> {
   try {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
-    
+
     if (!userSnap.exists()) {
       throw new Error('User not found');
     }
 
     const currentBadges = userSnap.data()?.badges || [];
-    
-    // Prevent duplicate badges
+
+    // Prevent duplicate badges (note: not atomic, may have race condition)
     if (currentBadges.includes(badgeId)) {
-      console.warn(`User ${userId} already has badge ${badgeId}`);
+      logger.warn(`User ${userId} already has badge ${badgeId}`);
       return;
     }
 
@@ -123,9 +161,9 @@ export async function awardBadge(
       }),
     });
 
-    console.log(`✅ Awarded badge ${badgeId} to ${userId}`);
+    logger.log(`Awarded badge ${badgeId} to ${userId} (local - non-transactional)`);
   } catch (error) {
-    console.error('Failed to award badge:', error);
+    logger.error('Failed to award badge locally:', error);
     throw error;
   }
 }
@@ -144,7 +182,7 @@ export async function getUserBadges(userId: string): Promise<string[]> {
 
     return userSnap.data()?.badges || [];
   } catch (error) {
-    console.error('Failed to get user badges:', error);
+    logger.error('Failed to get user badges:', error);
     return [];
   }
 }

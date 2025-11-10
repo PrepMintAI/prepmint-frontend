@@ -12,6 +12,7 @@ import Card, { BadgeCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
 import { Award, Trophy, Star, Zap, Target, Gift } from 'lucide-react';
 import { calculateLevel } from '@/lib/gamify';
+import { logger } from '@/lib/logger';
 
 // Available badges/rewards
 const allBadges = [
@@ -43,7 +44,7 @@ export default function RewardsPage() {
           setUserData({ ...userDoc.data(), uid: user.uid });
         }
       } catch (error) {
-        console.error('Error loading rewards:', error);
+        logger.error('Error loading rewards:', error);
       } finally {
         setIsLoading(false);
       }

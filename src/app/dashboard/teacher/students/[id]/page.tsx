@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 // src/app/dashboard/teacher/students/[id]/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -31,7 +32,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
   } catch (error) {
-    console.error('[Student Detail Page] Session verification failed:', error);
+    logger.error('[Student Detail Page] Session verification failed:', error);
     redirect('/login');
   }
 

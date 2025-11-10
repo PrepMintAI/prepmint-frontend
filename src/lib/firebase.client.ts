@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { logger } from '@/lib/logger';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -14,7 +15,7 @@ const firebaseConfig = {
 };
 
 // Debug: Check if config is loaded
-console.log('[Firebase Client] Config loaded:', {
+logger.log('[Firebase Client] Config loaded:', {
   apiKey: firebaseConfig.apiKey ? '✓ Set' : '✗ Missing',
   authDomain: firebaseConfig.authDomain ? '✓ Set' : '✗ Missing',
   projectId: firebaseConfig.projectId ? '✓ Set' : '✗ Missing',
@@ -26,7 +27,7 @@ console.log('[Firebase Client] Config loaded:', {
 // Check if any required config is missing
 const missingConfig = Object.entries(firebaseConfig).filter(([_, value]) => !value);
 if (missingConfig.length > 0) {
-  console.error('[Firebase Client] Missing configuration:', missingConfig.map(([key]) => key));
+  logger.error('[Firebase Client] Missing configuration:', missingConfig.map(([key]) => key));
   throw new Error(`Firebase configuration is incomplete. Missing: ${missingConfig.map(([key]) => key).join(', ')}`);
 }
 
@@ -34,6 +35,6 @@ export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-console.log('[Firebase Client] Initialized successfully');
-console.log('[Firebase Client] Auth instance:', auth ? '✓ Ready' : '✗ Failed');
-console.log('[Firebase Client] Firestore instance:', db ? '✓ Ready' : '✗ Failed');
+logger.log('[Firebase Client] Initialized successfully');
+logger.log('[Firebase Client] Auth instance:', auth ? '✓ Ready' : '✗ Failed');
+logger.log('[Firebase Client] Firestore instance:', db ? '✓ Ready' : '✗ Failed');

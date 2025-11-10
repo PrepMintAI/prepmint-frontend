@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import { logger } from '@/lib/logger';
 import AppLayout from '@/components/layout/AppLayout';
 import { TeacherDashboardClient } from './DashboardClient';
 
@@ -23,22 +24,22 @@ export default async function TeacherDashboardPage() {
     const userDoc = await adminDb().collection('users').doc(userId).get();
     
     if (!userDoc.exists) {
-      console.error('[Teacher Dashboard] User document not found');
+      logger.error('[Teacher Dashboard] User document not found');
       redirect('/login');
     }
 
     const userData = userDoc.data();
     userRole = userData?.role || 'student';
 
-    console.log('[Teacher Dashboard] User role:', userRole);
+    logger.log('[Teacher Dashboard] User role:', userRole);
   } catch (error) {
-    console.error('[Teacher Dashboard] Session verification failed:', error);
+    logger.error('[Teacher Dashboard] Session verification failed:', error);
     redirect('/login');
   }
 
   // Check role OUTSIDE try-catch (allow teacher and dev)
   if (userRole !== 'teacher' && userRole !== 'dev') {
-    console.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+    logger.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
     redirect(`/dashboard/${userRole}`);
   }
 

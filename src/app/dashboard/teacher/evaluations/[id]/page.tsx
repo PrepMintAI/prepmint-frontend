@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 // src/app/evaluations/[id]/page.tsx
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -22,7 +23,7 @@ export default async function EvaluationDetailsPage({ params }: { params: Promis
     userId = decoded.uid;
     userRole = decoded.role || 'student';
   } catch (error) {
-    console.error('[Evaluation Details] Session verification failed:', error);
+    logger.error('[Evaluation Details] Session verification failed:', error);
     redirect('/login');
   }
 

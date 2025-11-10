@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import { logger } from '@/lib/logger';
 import AppLayout from '@/components/layout/AppLayout';
 import AnalyticsClient from './AnalyticsClient';
 
@@ -27,7 +28,7 @@ export default async function AnalyticsDashboardPage() {
     const userDoc = await adminDb().collection('users').doc(userId).get();
 
     if (!userDoc.exists) {
-      console.error('[Analytics Dashboard] User document not found');
+      logger.error('Analytics Dashboard - User document not found');
       redirect('/login');
     }
 
@@ -36,9 +37,9 @@ export default async function AnalyticsDashboardPage() {
     institutionId = userData?.institutionId;
     userName = userData?.displayName;
 
-    console.log('[Analytics Dashboard] User role:', userRole, 'Institution:', institutionId);
+    logger.log('Analytics Dashboard - User role:', userRole, 'Institution:', institutionId);
   } catch (error) {
-    console.error('[Analytics Dashboard] Session verification failed:', error);
+    logger.error('Analytics Dashboard - Session verification failed:', error);
     redirect('/login');
   }
 

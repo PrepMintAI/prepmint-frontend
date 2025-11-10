@@ -5,6 +5,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { uploadForEvaluation } from '@/lib/api';
 import { awardXp, XP_REWARDS } from '@/lib/gamify';
+import { logger } from '@/lib/logger';
 import useEvaluationPoll from '@/hooks/useEvaluationPoll';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
@@ -38,7 +39,7 @@ export default function UploadForm({
   // Poll evaluation status
   const { status, isPolling } = useEvaluationPoll(jobId, {
     onComplete: async (result) => {
-      console.log('✅ Evaluation complete:', result);
+      logger.log('✅ Evaluation complete:', result);
       
       // Award XP for completion
       if (user?.uid) {
@@ -50,14 +51,14 @@ export default function UploadForm({
             await awardXp(user.uid, XP_REWARDS.PERFECT_SCORE, 'Perfect score achieved!');
           }
         } catch (err) {
-          console.error('Failed to award XP:', err);
+          logger.error('Failed to award XP:', err);
         }
       }
       
       onSuccess?.(result);
     },
     onError: (errorMsg) => {
-      console.error('❌ Evaluation failed:', errorMsg);
+      logger.error('❌ Evaluation failed:', errorMsg);
       setError(errorMsg);
       onError?.(errorMsg);
     },
@@ -206,7 +207,7 @@ export default function UploadForm({
 
       const { data } = await uploadForEvaluation(formData);
       
-      console.log('📤 Upload successful, job ID:', data.jobId);
+      logger.log('📤 Upload successful, job ID:', data.jobId);
       setJobId(data.jobId); // Start polling
       
       // Award XP for first upload
@@ -214,7 +215,7 @@ export default function UploadForm({
         await awardXp(user.uid, XP_REWARDS.FIRST_UPLOAD, 'First answer sheet upload');
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      logger.error('Upload error:', err);
       const errorMessage = err && typeof err === 'object' && 'response' in err &&
         err.response && typeof err.response === 'object' && 'data' in err.response &&
         err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data

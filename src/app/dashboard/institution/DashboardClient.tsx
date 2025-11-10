@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase.client';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
@@ -16,6 +16,7 @@ import {
   Calendar, Target, FileText, Settings, Download,
   Star, AlertCircle, CheckCircle
 } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -67,8 +68,8 @@ interface EvaluationData {
   subject?: string;
   score?: number;
   totalMarks?: number;
-  createdAt: any;
-  submittedAt?: any;
+  createdAt: Timestamp | Date;
+  submittedAt?: Timestamp | Date;
 }
 
 interface ActivityData {
@@ -88,7 +89,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
   useEffect(() => {
     const fetchData = async () => {
       if (!institutionId) {
-        console.error('[DashboardClient] No institutionId provided');
+        logger.error('[DashboardClient] No institutionId provided');
         setIsLoading(false);
         return;
       }
@@ -165,7 +166,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
         setActivityData(generateActivityData());
 
       } catch (error) {
-        console.error('[DashboardClient] Error fetching data:', error);
+        logger.error('[DashboardClient] Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -280,8 +281,8 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
     const recentEvaluations = evaluations
       .filter(e => e.status === 'completed')
       .sort((a, b) => {
-        const aTime = a.submittedAt?.toMillis?.() || 0;
-        const bTime = b.submittedAt?.toMillis?.() || 0;
+        const aTime = a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : (a.submittedAt instanceof Date ? a.submittedAt.getTime() : 0);
+        const bTime = b.submittedAt instanceof Timestamp ? b.submittedAt.toMillis() : (b.submittedAt instanceof Date ? b.submittedAt.getTime() : 0);
         return bTime - aTime;
       })
       .slice(0, 3);

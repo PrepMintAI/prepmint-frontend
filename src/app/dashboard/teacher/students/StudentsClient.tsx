@@ -13,6 +13,7 @@ import {
   CheckCircle, Clock, Award, BarChart3
 } from 'lucide-react';
 import { db } from '@/lib/firebase.client';
+import { logger } from '@/lib/logger';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
 interface StudentsClientProps {
@@ -49,7 +50,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
         // Fetch teacher's institution ID first
         const teacherDoc = await getDoc(doc(db, 'users', userId));
         if (!teacherDoc.exists()) {
-          console.error('User not found');
+          logger.error('User not found');
           return;
         }
 
@@ -88,7 +89,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
 
         setStudents(fetchedStudents);
       } catch (error) {
-        console.error('Error fetching students:', error);
+        logger.error('Error fetching students:', error);
       } finally {
         setIsLoading(false);
       }

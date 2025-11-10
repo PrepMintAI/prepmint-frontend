@@ -14,6 +14,7 @@ import {
   Search
 } from 'lucide-react';
 import { fetchStudentEvaluations, type StudentEvaluation } from '@/lib/studentData';
+import { logger } from '@/lib/logger';
 
 interface HistoryEvaluation extends StudentEvaluation {
   status: 'perfect' | 'excellent' | 'good' | 'average';
@@ -68,7 +69,7 @@ export default function HistoryPage() {
 
         setEvaluations(historyEvals);
       } catch (error) {
-        console.error('Error loading evaluations:', error);
+        logger.error('Error loading evaluations:', error);
       } finally {
         setIsLoading(false);
       }

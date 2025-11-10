@@ -1,10 +1,10 @@
 // src/components/layout/InstitutionDashboardHeader.tsx
 "use client";
 
-import { 
-  Bell, 
-  User, 
-  LogOut, 
+import {
+  Bell,
+  User,
+  LogOut,
   Settings as SettingsIcon,
   ChevronDown,
   Menu,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logger } from '@/lib/logger';
 
 // Types
 type Notification = {
@@ -211,7 +212,7 @@ export default function InstitutionDashboardHeader() {
 
   // Logout handler
   const handleLogout = () => {
-    console.log("User logged out");
+    logger.log("User logged out");
     setIsProfileOpen(false);
   };
 

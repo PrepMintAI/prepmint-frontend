@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase.client';
+import { logger } from '@/lib/logger';
 import { doc, getDoc } from 'firebase/firestore';
 
 interface ProtectedRouteProps {
@@ -23,13 +24,13 @@ export default function ProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    console.log('[ProtectedRoute] Checking authentication...');
+    logger.log('[ProtectedRoute] Checking authentication...');
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('[ProtectedRoute] Auth state:', user?.email || 'No user');
+      logger.log('[ProtectedRoute] Auth state:', user?.email || 'No user');
 
       if (!user) {
-        console.log('[ProtectedRoute] No user found, redirecting to:', redirectTo);
+        logger.log('[ProtectedRoute] No user found, redirecting to:', redirectTo);
         router.replace(redirectTo);
         setIsChecking(false);
         return;
@@ -39,35 +40,35 @@ export default function ProtectedRoute({
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         
         if (!userDoc.exists()) {
-          console.error('[ProtectedRoute] User profile not found in Firestore');
+          logger.error('[ProtectedRoute] User profile not found in Firestore');
           router.replace(redirectTo);
           setIsChecking(false);
           return;
         }
 
         const userData = userDoc.data();
-        console.log('[ProtectedRoute] User role:', userData.role);
+        logger.log('[ProtectedRoute] User role:', userData.role);
 
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(userData.role)) {
-          console.warn('[ProtectedRoute] User role not authorized, redirecting to correct dashboard');
+          logger.warn('[ProtectedRoute] User role not authorized, redirecting to correct dashboard');
           router.replace(`/dashboard/${userData.role}`);
           setIsChecking(false);
           return;
         }
 
-        console.log('[ProtectedRoute] User authorized!');
+        logger.log('[ProtectedRoute] User authorized!');
         setIsAuthorized(true);
         setIsChecking(false);
       } catch (error) {
-        console.error('[ProtectedRoute] Error checking auth:', error);
+        logger.error('[ProtectedRoute] Error checking auth:', error);
         router.replace(redirectTo);
         setIsChecking(false);
       }
     });
 
     return () => {
-      console.log('[ProtectedRoute] Cleanup');
+      logger.log('[ProtectedRoute] Cleanup');
       unsubscribe();
     };
   }, [router, redirectTo, allowedRoles]);

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { AnalyticsClient } from './AnalyticsClient';
+import { logger } from '@/lib/logger';
 
 export default async function AnalyticsPage({
   searchParams
@@ -33,7 +34,7 @@ export default async function AnalyticsPage({
       institutionId = userDoc.data()?.institutionId;
     }
   } catch (error) {
-    console.error('[Analytics Page] Session verification failed:', error);
+    logger.error('[Analytics Page] Session verification failed:', error);
     redirect('/login');
   }
 

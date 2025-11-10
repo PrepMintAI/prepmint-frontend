@@ -13,6 +13,7 @@ import {
   TrendingUp, Award, Plus, Zap
 } from 'lucide-react';
 import { db } from '@/lib/firebase.client';
+import { logger } from '@/lib/logger';
 import { collection, query, where, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 interface EvaluationsClientProps {
@@ -106,7 +107,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
 
         setEvaluations(fetchedEvaluations);
       } catch (error) {
-        console.error('Error fetching evaluations:', error);
+        logger.error('Error fetching evaluations:', error);
       } finally {
         setIsLoading(false);
       }
