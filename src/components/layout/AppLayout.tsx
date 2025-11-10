@@ -12,7 +12,7 @@ import {
   Home, User, Settings, Award, TrendingUp,
   BookOpen, Users, BarChart, Menu, X, LogOut,
   Bell, HelpCircle, Search, Clock, ChevronDown,
-  Upload, CheckCircle, AlertCircle, Info
+  Upload, CheckCircle, AlertCircle, Info, GraduationCap
 } from 'lucide-react';
 import Link from 'next/link';
 import Spinner from '@/components/common/Spinner';
@@ -69,7 +69,9 @@ const roleBasedNavigation = {
   ],
   admin: [
     { name: 'Dashboard', href: '/dashboard/admin', icon: Home },
-    { name: 'Users', href: '/dashboard/admin/users', icon: Users },
+    { name: 'All Users', href: '/dashboard/admin/users', icon: Users },
+    { name: 'Students', href: '/dashboard/admin/students', icon: GraduationCap },
+    { name: 'Teachers', href: '/dashboard/admin/teachers', icon: BookOpen },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
     { name: 'Send Notification', href: '/dashboard/admin/notifications', icon: Bell },
     { name: 'Rewards', href: '/rewards', icon: Award },
