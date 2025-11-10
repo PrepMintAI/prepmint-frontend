@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { adminAuth, setUserClaims, UserRole } from '@/lib/firebase.admin';
+import { adminAuth, adminDb, setUserClaims, UserRole } from '@/lib/firebase.admin';
 import { logger } from '@/lib/logger';
 
 // Mark this route as dynamic (not statically generated during build)
@@ -48,13 +48,25 @@ export async function POST(request: NextRequest) {
     }
 
     const requesterId = decodedToken.uid;
-    const requesterRole = decodedToken.role || 'student';
 
-    // SECURITY STEP 3: Verify requester has admin role
-    if (requesterRole !== 'admin') {
+    // SECURITY STEP 3: Fetch requester role from Firestore (not token - tokens can be stale)
+    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
+
+    if (!requesterDoc.exists) {
+      logger.warn('[set-claims] Requester user document not found');
+      return NextResponse.json(
+        { error: 'Unauthorized: User profile not found' },
+        { status: 401 }
+      );
+    }
+
+    const requesterRole = requesterDoc.data()?.role || 'student';
+
+    // SECURITY STEP 4: Verify requester has admin or dev role
+    if (requesterRole !== 'admin' && requesterRole !== 'dev') {
       logger.warn(`[set-claims] Forbidden: User ${requesterId} (role: ${requesterRole}) attempted to set claims`);
       return NextResponse.json(
-        { error: 'Forbidden: Admin role required to set custom claims' },
+        { error: 'Forbidden: Admin or dev role required to set custom claims' },
         { status: 403 }
       );
     }

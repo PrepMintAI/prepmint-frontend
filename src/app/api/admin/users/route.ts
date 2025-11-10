@@ -2,6 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import { logger } from '@/lib/logger';
+import {
+  isValidEmail,
+  sanitizeDisplayName,
+  isValidDisplayName,
+  isValidPassword,
+  isValidRole
+} from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,11 +32,33 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'create': {
+        // SECURITY: Validate all input fields
+        if (!isValidEmail(data.email)) {
+          return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+        }
+
+        const sanitizedName = sanitizeDisplayName(data.displayName);
+        if (!isValidDisplayName(sanitizedName)) {
+          return NextResponse.json({ error: 'Display name must be 2-100 characters' }, { status: 400 });
+        }
+
+        if (!isValidRole(data.role)) {
+          return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+        }
+
+        // Validate password if provided
+        const password = data.password || 'TempPassword123!';
+        if (!isValidPassword(password)) {
+          return NextResponse.json({
+            error: 'Password must be 8+ characters with uppercase, lowercase, and number'
+          }, { status: 400 });
+        }
+
         // Create Firebase Auth user
         const userRecord = await adminAuth().createUser({
           email: data.email,
-          password: data.password || 'TempPassword123!',
-          displayName: data.displayName,
+          password: password,
+          displayName: sanitizedName,
           emailVerified: false,
         });
 
@@ -40,7 +69,7 @@ export async function POST(request: NextRequest) {
           .set({
             uid: userRecord.uid,
             email: data.email,
-            displayName: data.displayName,
+            displayName: sanitizedName,
             role: data.role || 'student',
             xp: 0,
             level: 1,

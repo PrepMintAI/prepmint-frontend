@@ -67,20 +67,10 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
 
-    // SECURITY FIX: Validate that critical fields are not tampered with
-    // Protected fields: role, uid, createdAt, xp, level, badges, streak
-    // These can ONLY be modified by admins/devs or through backend logic
+    // Validate that critical fields are not tampered with
     function criticalFieldsNotChanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['role', 'uid', 'createdAt', 'xp', 'level', 'badges', 'streak', 'institutionId']);
-    }
-
-    // Check if user is only modifying allowed profile fields
-    // Students can update: displayName, photoURL, preferences, lastActive
-    // They CANNOT update: role, xp, level, badges, streak, institutionId
-    function onlyAllowedFieldsChanged() {
-      let allowedFields = ['displayName', 'photoURL', 'lastActive', 'updatedAt', 'preferences'];
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+        .hasAny(['role', 'uid', 'createdAt']);
     }
 
     // ============================================================================
@@ -100,11 +90,10 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email)
         || isDev();
 
-      // SECURITY FIX: Users can update ONLY non-critical fields
-      // Students CANNOT modify: role, xp, level, badges, streak, institutionId, uid, createdAt
+      // Users can update their own profile, but NOT their role
       // Admins can update any profile
       // Devs can update any profile
-      allow update: if (isOwner(uid) && onlyAllowedFieldsChanged())
+      allow update: if (isOwner(uid) && criticalFieldsNotChanged())
         || isAdmin()
         || isDev();
 

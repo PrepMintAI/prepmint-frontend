@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { adminAuth, awardBadgeServer } from '@/lib/firebase.admin';
+import { adminAuth, adminDb, awardBadgeServer } from '@/lib/firebase.admin';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +48,17 @@ export async function POST(request: NextRequest) {
     }
 
     const requesterId = decodedToken.uid;
-    const requesterRole = decodedToken.role || 'student';
+
+    // SECURITY: Fetch role from Firestore (not token - tokens can be stale)
+    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
+    if (!requesterDoc.exists) {
+      logger.warn('[gamify/badges] Requester user document not found');
+      return NextResponse.json(
+        { error: 'Unauthorized: User profile not found' },
+        { status: 401 }
+      );
+    }
+    const requesterRole = requesterDoc.data()?.role || 'student';
 
     // Parse request body
     let body;
@@ -87,17 +97,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SECURITY: Check authorization
-    // Users can award badges to themselves, or teachers/admin can award to anyone
-    const isOwnUser = requesterId === userId;
-    const canAwardToOthers = requesterRole === 'teacher' || requesterRole === 'admin';
+    // SECURITY FIX: Only teachers, admins, and devs can award badges
+    // Students CANNOT award badges to themselves or anyone else (prevents cheating)
+    const canAwardBadges = requesterRole === 'teacher' || requesterRole === 'admin' || requesterRole === 'dev';
 
-    if (!isOwnUser && !canAwardToOthers) {
+    if (!canAwardBadges) {
       logger.warn(
-        `[gamify/badges] Forbidden: User ${requesterId} (role: ${requesterRole}) attempted to award badge ${badgeId} to ${userId}`
+        `[gamify/badges] SECURITY: User ${requesterId} (role: ${requesterRole}) attempted to award badge ${badgeId} to ${userId}`
       );
       return NextResponse.json(
-        { error: 'Forbidden: Cannot award badges to other users' },
+        { error: 'Forbidden: Only teachers and admins can award badges' },
         { status: 403 }
       );
     }
