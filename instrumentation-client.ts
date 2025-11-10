@@ -6,6 +6,9 @@ Sentry.init({
   // Only send errors in production
   enabled: process.env.NODE_ENV === "production",
 
+  // Disable telemetry to suppress warnings
+  telemetry: false,
+
   // Set sample rates for performance monitoring
   tracesSampleRate: 1.0,
 
