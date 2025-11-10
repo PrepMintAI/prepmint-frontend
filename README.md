@@ -1,6 +1,6 @@
 # PrepMint - AI-Powered Educational Assessment Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-14+-black)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15+-black)](https://nextjs.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-10+-orange)](https://firebase.google.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -53,6 +53,12 @@ AI-powered educational assessment platform with role-based dashboards (Student, 
 
 **Dashboards**: Student (XP/level tracking, uploads, heatmap), Teacher (evaluation queue, analytics), Admin (system stats, user management), Institution (analytics, member management)
 
+**Analytics**: Comprehensive role-based analytics dashboard at `/dashboard/analytics` with:
+- **Student Analytics**: XP/level tracking, subject performance, recent evaluations, performance trends (30-day), strengths & weaknesses analysis
+- **Teacher Analytics**: Class overview, student rankings, subject-wise analysis, individual student drill-down with performance comparison
+- **Institution Analytics**: Multi-level view (school/class/student), filterable analytics with performance charts, enrollment metrics, top performers
+- **Admin Analytics**: Platform-wide statistics, user distribution, evaluation activity timeline, top institutions, recent activity feed
+
 **Gamification**: XP rewards, level progression, badges, activity heatmaps, daily streaks, subject progress tracking
 
 **Security**: Client-side validation, Firestore role-based rules, email verification, file upload validation (PDF/JPEG/PNG, max 10MB), XSS/CSRF protection, httpOnly session cookies
@@ -63,7 +69,7 @@ AI-powered educational assessment platform with role-based dashboards (Student, 
 
 | Category | Technology |
 |----------|-----------|
-| **Frontend** | Next.js 14+ (App Router), React 18, TypeScript |
+| **Frontend** | Next.js 15.4+ (App Router), React 18, TypeScript 5+ |
 | **Styling** | Tailwind CSS, Framer Motion |
 | **Backend** | Firebase (Auth, Firestore, Cloud Functions) |
 | **State Management** | React Context API |
@@ -97,6 +103,7 @@ src/
 │   ├── (auth)/: login, signup, forgot-password, verify-email
 │   └── dashboard/:
 │       ├── page.tsx (role-based router)
+│       ├── analytics/: Common analytics with role-based views (AdminAnalytics, AnalyticsClient)
 │       ├── student/, teacher/, admin/, institution/
 │       └── api/: auth, role, evaluation endpoints
 ├── components/
