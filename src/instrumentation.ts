@@ -14,6 +14,11 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("../sentry.edge.config");
   }
+
+  // Client-side Sentry initialization (browser)
+  if (typeof window !== "undefined") {
+    await import("../instrumentation-client");
+  }
 }
 
 export async function onRequestError(error: Error, request: Request) {

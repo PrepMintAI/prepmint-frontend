@@ -19,6 +19,12 @@ export default withSentryConfig(
     // Only print logs for uploading source maps related errors
     silent: !process.env.CI,
 
+    // Disable telemetry
+    telemetry: false,
+
+    // Disable source map uploads in development when no auth token is present
+    disableSourceMapUpload: !process.env.SENTRY_AUTH_TOKEN,
+
     // For all available options, see:
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
