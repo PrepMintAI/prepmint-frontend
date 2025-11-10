@@ -26,7 +26,10 @@ import { logger } from './logger';
 export interface Notification {
   id: string;
   userId: string;
-  type: 'evaluation' | 'badge' | 'announcement' | 'reminder';
+  senderId?: string;
+  senderName?: string;
+  senderRole?: string;
+  type: 'evaluation' | 'badge' | 'announcement' | 'reminder' | 'message' | 'info' | 'warning' | 'error';
   title: string;
   message: string;
   read: boolean;
@@ -460,6 +463,304 @@ export async function clearAllNotifications(userId: string): Promise<number> {
     logger.error('clearAllNotifications - Error clearing notifications:', error);
     throw new Error(
       `Failed to clear notifications: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+// ==================== NOTIFICATION SENDING FUNCTIONS ====================
+
+/**
+ * Create a new notification
+ *
+ * @param notification - Notification data (without id)
+ * @returns Promise<string> ID of the created notification
+ *
+ * @example
+ * const notificationId = await createNotification({
+ *   userId: 'user123',
+ *   senderId: 'sender456',
+ *   senderName: 'John Doe',
+ *   senderRole: 'teacher',
+ *   type: 'announcement',
+ *   title: 'New Assignment',
+ *   message: 'You have a new assignment',
+ *   read: false,
+ *   createdAt: Timestamp.now()
+ * });
+ */
+export async function createNotification(
+  notification: Omit<Notification, 'id'>
+): Promise<string> {
+  try {
+    const { addDoc } = await import('firebase/firestore');
+    const docRef = await addDoc(collection(db, 'notifications'), notification);
+    logger.log('Notification created:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    logger.error('createNotification - Error creating notification:', error);
+    throw new Error(
+      `Failed to create notification: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Send notification to a single user
+ *
+ * @param userId - Recipient user ID
+ * @param senderId - Sender user ID
+ * @param senderName - Sender's display name
+ * @param senderRole - Sender's role
+ * @param title - Notification title
+ * @param message - Notification message
+ * @param type - Notification type
+ * @param actionUrl - Optional action URL
+ * @param metadata - Optional metadata
+ * @returns Promise<string> ID of the created notification
+ *
+ * @example
+ * await sendNotificationToUser(
+ *   'student123',
+ *   'teacher456',
+ *   'Ms. Smith',
+ *   'teacher',
+ *   'Grade Posted',
+ *   'Your assignment has been graded',
+ *   'evaluation'
+ * );
+ */
+export async function sendNotificationToUser(
+  userId: string,
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  title: string,
+  message: string,
+  type: Notification['type'] = 'info',
+  actionUrl?: string,
+  metadata?: Record<string, unknown>
+): Promise<string> {
+  return createNotification({
+    userId,
+    senderId,
+    senderName,
+    senderRole,
+    type,
+    title,
+    message,
+    read: false,
+    createdAt: Timestamp.now(),
+    actionUrl,
+    metadata,
+  });
+}
+
+/**
+ * Send notification to multiple users (bulk)
+ *
+ * @param userIds - Array of recipient user IDs
+ * @param senderId - Sender user ID
+ * @param senderName - Sender's display name
+ * @param senderRole - Sender's role
+ * @param title - Notification title
+ * @param message - Notification message
+ * @param type - Notification type
+ * @param actionUrl - Optional action URL
+ * @param metadata - Optional metadata
+ * @returns Promise<number> Number of notifications sent
+ *
+ * @example
+ * await sendBulkNotifications(
+ *   ['student1', 'student2', 'student3'],
+ *   'teacher123',
+ *   'Mr. Johnson',
+ *   'teacher',
+ *   'Class Announcement',
+ *   'Class is canceled tomorrow',
+ *   'announcement'
+ * );
+ */
+export async function sendBulkNotifications(
+  userIds: string[],
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  title: string,
+  message: string,
+  type: Notification['type'] = 'info',
+  actionUrl?: string,
+  metadata?: Record<string, unknown>
+): Promise<number> {
+  try {
+    if (!userIds || userIds.length === 0) {
+      return 0;
+    }
+
+    const batch = writeBatch(db);
+    const notificationsRef = collection(db, 'notifications');
+    let count = 0;
+
+    for (const userId of userIds) {
+      const notificationData = {
+        userId,
+        senderId,
+        senderName,
+        senderRole,
+        type,
+        title,
+        message,
+        read: false,
+        createdAt: Timestamp.now(),
+        actionUrl,
+        metadata,
+      };
+
+      const docRef = doc(notificationsRef);
+      batch.set(docRef, notificationData);
+      count++;
+    }
+
+    await batch.commit();
+    logger.log(`Bulk notifications sent: ${count} recipients`);
+    return count;
+  } catch (error) {
+    logger.error('sendBulkNotifications - Error sending bulk notifications:', error);
+    throw new Error(
+      `Failed to send bulk notifications: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Send notification to all users in an institution
+ *
+ * @param institutionId - Institution ID
+ * @param senderId - Sender user ID
+ * @param senderName - Sender's display name
+ * @param senderRole - Sender's role
+ * @param title - Notification title
+ * @param message - Notification message
+ * @param type - Notification type
+ * @param targetRole - Optional: Send only to specific role in institution
+ * @param actionUrl - Optional action URL
+ * @param metadata - Optional metadata
+ * @returns Promise<number> Number of notifications sent
+ *
+ * @example
+ * await sendInstitutionNotification(
+ *   'school123',
+ *   'admin456',
+ *   'Principal Williams',
+ *   'admin',
+ *   'School Holiday',
+ *   'School will be closed next Monday',
+ *   'announcement'
+ * );
+ */
+export async function sendInstitutionNotification(
+  institutionId: string,
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  title: string,
+  message: string,
+  type: Notification['type'] = 'info',
+  targetRole?: 'student' | 'teacher' | 'admin' | 'institution',
+  actionUrl?: string,
+  metadata?: Record<string, unknown>
+): Promise<number> {
+  try {
+    const usersRef = collection(db, 'users');
+    const constraints: QueryConstraint[] = [
+      where('institutionId', '==', institutionId)
+    ];
+
+    if (targetRole) {
+      constraints.push(where('role', '==', targetRole));
+    }
+
+    const usersQuery = query(usersRef, ...constraints);
+    const usersSnapshot = await getDocs(usersQuery);
+
+    const userIds = usersSnapshot.docs.map(doc => doc.id);
+
+    return sendBulkNotifications(
+      userIds,
+      senderId,
+      senderName,
+      senderRole,
+      title,
+      message,
+      type,
+      actionUrl,
+      metadata
+    );
+  } catch (error) {
+    logger.error('sendInstitutionNotification - Error sending institution notification:', error);
+    throw new Error(
+      `Failed to send institution notification: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Send notification to all users of a specific role
+ *
+ * @param targetRole - Target role to send notification to
+ * @param senderId - Sender user ID
+ * @param senderName - Sender's display name
+ * @param senderRole - Sender's role
+ * @param title - Notification title
+ * @param message - Notification message
+ * @param type - Notification type
+ * @param actionUrl - Optional action URL
+ * @param metadata - Optional metadata
+ * @returns Promise<number> Number of notifications sent
+ *
+ * @example
+ * await sendRoleNotification(
+ *   'student',
+ *   'admin123',
+ *   'Admin',
+ *   'admin',
+ *   'Platform Update',
+ *   'New features are now available',
+ *   'announcement'
+ * );
+ */
+export async function sendRoleNotification(
+  targetRole: 'student' | 'teacher' | 'admin' | 'institution',
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  title: string,
+  message: string,
+  type: Notification['type'] = 'info',
+  actionUrl?: string,
+  metadata?: Record<string, unknown>
+): Promise<number> {
+  try {
+    const usersRef = collection(db, 'users');
+    const usersQuery = query(usersRef, where('role', '==', targetRole));
+    const usersSnapshot = await getDocs(usersQuery);
+
+    const userIds = usersSnapshot.docs.map(doc => doc.id);
+
+    return sendBulkNotifications(
+      userIds,
+      senderId,
+      senderName,
+      senderRole,
+      title,
+      message,
+      type,
+      actionUrl,
+      metadata
+    );
+  } catch (error) {
+    logger.error('sendRoleNotification - Error sending role notification:', error);
+    throw new Error(
+      `Failed to send role notification: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }

@@ -8,16 +8,10 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase.client';
 import { logger } from '@/lib/logger';
 import { calculateLevel, levelProgress } from '@/lib/gamify';
-import { Bell, Flame, CheckCircle, User, Settings, LogOut, Award } from 'lucide-react';
+import { Flame, User, Settings, LogOut, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Cookies from 'js-cookie';
-
-interface Notification {
-  id: number;
-  message: string;
-  read: boolean;
-  timestamp?: Date;
-}
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 interface DashboardHeaderProps {
   isSidebarCollapsed: boolean;
@@ -34,12 +28,9 @@ export default function DashboardHeader({
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const router = useRouter();
-  
-  const [showNotifications, setShowNotifications] = useState(false);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  
-  const notifRef = useRef<HTMLDivElement>(null);
+
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Calculate level and progress from XP
@@ -47,30 +38,9 @@ export default function DashboardHeader({
   const level = calculateLevel(currentXp);
   const progress = levelProgress(currentXp);
 
-  // Fetch notifications (replace with real API call)
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      // TODO: Replace with actual API call
-      // const res = await fetch('/api/notifications');
-      // const data = await res.json();
-      
-      const dummyData = [
-        { id: 1, message: '🔥 You have maintained your streak for 7 days!', read: false },
-        { id: 2, message: '🎉 You earned 100 XP for completing a quiz!', read: false },
-        { id: 3, message: '👥 New member joined your community group.', read: true },
-      ];
-      setNotifications(dummyData);
-    };
-
-    fetchNotifications();
-  }, []);
-
-  // Auto-close panels on outside click
+  // Auto-close user menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setShowNotifications(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
@@ -78,14 +48,6 @@ export default function DashboardHeader({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAllAsRead = async () => {
-    // TODO: Call API to mark all notifications as read
-    // await fetch('/api/notifications/mark-all-read', { method: 'POST' });
-    setNotifications((prev) => prev.map(n => ({ ...n, read: true })));
-  };
 
   const handleSignOut = async () => {
     try {
@@ -157,66 +119,8 @@ export default function DashboardHeader({
           </motion.div>
         )}
 
-        {/* Notification Bell */}
-        <div className="relative" ref={notifRef}>
-          <button
-            className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
-            onClick={() => setShowNotifications(!showNotifications)}
-            aria-label="Notifications"
-          >
-            <Bell className="text-gray-600" size={20} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Notification Panel */}
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute right-0 mt-2 w-80 bg-white shadow-xl rounded-lg z-50 p-4 border border-gray-200"
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
-                  {unreadCount > 0 && (
-                    <button
-                      className="text-xs text-blue-600 hover:underline"
-                      onClick={markAllAsRead}
-                    >
-                      Mark all as read
-                    </button>
-                  )}
-                </div>
-                <ul className="space-y-2 text-sm text-gray-700 max-h-60 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <li className="text-center text-gray-400 py-4">No notifications</li>
-                  ) : (
-                    notifications.map((notif) => (
-                      <li
-                        key={notif.id}
-                        className={`p-2 rounded-lg flex items-start gap-2 transition-colors ${
-                          notif.read ? 'bg-gray-50' : 'bg-blue-50 hover:bg-blue-100'
-                        }`}
-                      >
-                        {!notif.read ? (
-                          <div className="w-2 h-2 mt-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-                        ) : (
-                          <CheckCircle size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                        )}
-                        <span className="flex-1">{notif.message}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Notification Center */}
+        <NotificationCenter />
 
         {/* User Profile Menu */}
         <div className="relative" ref={userMenuRef}>
