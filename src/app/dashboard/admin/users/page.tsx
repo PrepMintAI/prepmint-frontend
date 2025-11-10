@@ -1,7 +1,7 @@
 // src/app/dashboard/admin/users/page.tsx
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { adminAuth } from '@/lib/firebase.admin';
+import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import UsersManagementClient from './UsersManagementClient';
 
 export default async function AdminUsersPage() {
@@ -14,8 +14,14 @@ export default async function AdminUsersPage() {
   try {
     const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
 
-    // Check if user is admin (you might want to add this to the decoded token)
-    // For now, we'll let the client component handle the role check
+    // Fetch user role from Firestore and verify admin access
+    const userDoc = await adminDb().collection('users').doc(decoded.uid).get();
+    const userData = userDoc.data();
+    const userRole = userData?.role || 'student';
+
+    if (userRole !== 'admin') {
+      redirect('/dashboard');
+    }
 
     return <UsersManagementClient />;
   } catch (error) {

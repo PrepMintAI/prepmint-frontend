@@ -1,7 +1,7 @@
 // src/app/dashboard/admin/students/page.tsx
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { adminAuth } from '@/lib/firebase.admin';
+import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import StudentsManagementClient from './StudentsManagementClient';
 
 export default async function AdminStudentsPage() {
@@ -12,7 +12,17 @@ export default async function AdminStudentsPage() {
   }
 
   try {
-    await adminAuth().verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+
+    // Fetch user role from Firestore and verify admin access
+    const userDoc = await adminDb().collection('users').doc(decoded.uid).get();
+    const userData = userDoc.data();
+    const userRole = userData?.role || 'student';
+
+    if (userRole !== 'admin') {
+      redirect('/dashboard');
+    }
+
     return <StudentsManagementClient />;
   } catch (error) {
     redirect('/login');
