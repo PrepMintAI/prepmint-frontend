@@ -159,10 +159,16 @@ export default function StudentsManagementClient() {
   const handleSubmit = async (data: UserFormData) => {
     try {
       if (editingStudent) {
-        await updateDocument(editingStudent.id, {
+        const updateData: any = {
           displayName: data.displayName,
-          institutionId: data.institutionId || undefined,
-        });
+        };
+
+        // Only include institutionId if it has a value
+        if (data.institutionId) {
+          updateData.institutionId = data.institutionId;
+        }
+
+        await updateDocument(editingStudent.id, updateData);
       } else {
         // Create new student via API
         const response = await fetch('/api/admin/users', {

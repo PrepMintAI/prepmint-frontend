@@ -242,7 +242,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-1">System overview and management</p>
         </div>
-        <Button variant="primary" icon={<Settings size={18} />}>
+        <Button variant="primary" leftIcon={<Settings size={18} />}>
           System Settings
         </Button>
       </div>
@@ -284,7 +284,6 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
           label="System Health"
           value={`${stats.systemHealth}%`}
           icon={<Shield size={24} />}
-          variant="success"
         />
       </motion.div>
 

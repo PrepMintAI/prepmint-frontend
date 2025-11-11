@@ -181,12 +181,18 @@ export default function UsersManagementClient() {
     try {
       if (editingUser) {
         // Update existing user
-        await updateDocument(editingUser.id, {
+        const updateData: any = {
           displayName: data.displayName,
           role: data.role,
-          institutionId: data.institutionId || undefined,
           accountType: data.accountType,
-        });
+        };
+
+        // Only include institutionId if it has a value
+        if (data.institutionId) {
+          updateData.institutionId = data.institutionId;
+        }
+
+        await updateDocument(editingUser.id, updateData);
       } else {
         // Create new user via API
         const response = await fetch('/api/admin/users', {

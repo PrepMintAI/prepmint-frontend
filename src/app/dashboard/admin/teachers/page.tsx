@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import AppLayout from '@/components/layout/AppLayout';
 import TeachersManagementClient from './TeachersManagementClient';
 
 export default async function AdminTeachersPage() {
@@ -23,7 +24,13 @@ export default async function AdminTeachersPage() {
       redirect('/dashboard');
     }
 
-    return <TeachersManagementClient />;
+    return (
+      <AppLayout>
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          <TeachersManagementClient />
+        </div>
+      </AppLayout>
+    );
   } catch (error) {
     redirect('/login');
   }

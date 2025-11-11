@@ -171,10 +171,16 @@ export default function TeachersManagementClient() {
   const handleSubmit = async (data: UserFormData) => {
     try {
       if (editingTeacher) {
-        await updateDocument(editingTeacher.id, {
+        const updateData: any = {
           displayName: data.displayName,
-          institutionId: data.institutionId || undefined,
-        });
+        };
+
+        // Only include institutionId if it has a value
+        if (data.institutionId) {
+          updateData.institutionId = data.institutionId;
+        }
+
+        await updateDocument(editingTeacher.id, updateData);
       } else {
         // Create new teacher via API
         const response = await fetch('/api/admin/users', {
