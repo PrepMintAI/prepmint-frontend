@@ -125,13 +125,27 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
     });
   }, [students, searchQuery, classFilter, statusFilter]);
 
-  // Calculate stats (using mock data for now)
+  // Calculate stats based on real data
   const stats = useMemo(() => {
+    const total = students.length;
+    const active = students.filter(s => s.xp > 100).length;
+
+    // Calculate average performance based on XP and level
+    // Assuming level correlates with performance (level 1-10 = 60-100%)
+    const avgPerformance = students.length > 0
+      ? Math.round(students.reduce((sum, s) => sum + Math.min(60 + (s.level * 4), 100), 0) / students.length)
+      : 0;
+
+    // Calculate attendance based on activity (students with XP > 50 are considered active)
+    const attendanceRate = students.length > 0
+      ? Math.round((students.filter(s => s.xp > 50).length / students.length) * 100)
+      : 0;
+
     return {
-      total: students.length,
-      active: students.filter(s => s.xp > 100).length,
-      avgPerformance: Math.round(75 + Math.random() * 15), // Mock: 75-90%
-      avgAttendance: Math.round(85 + Math.random() * 10), // Mock: 85-95%
+      total,
+      active,
+      avgPerformance,
+      avgAttendance: attendanceRate,
     };
   }, [students]);
 

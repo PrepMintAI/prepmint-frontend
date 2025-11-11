@@ -2,7 +2,6 @@
 import LandingHeader from "@/components/layout/LandingHeader";
 import HeroSection from "@/components/landing/HeroSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
-import GamifiedXP from "@/components/landing/GamifiedXP";
 import HowItWorks from "@/components/landing/HowItWorks";
 import InstitutionSection from "@/components/landing/InstitutionSection";
 import Testimonials from "@/components/landing/Testimonials";
@@ -16,9 +15,8 @@ export default function HomePage() {
         <HeroSection />
         <FeaturesSection />
         <HowItWorks />
-        <GamifiedXP />            
-        <Testimonials />
         <InstitutionSection />
+        <Testimonials />
       </main>
       <LandingFooter />
     </div>

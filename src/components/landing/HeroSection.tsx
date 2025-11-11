@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Users, Award, Zap, Sparkles, TrendingUp } from 'lucide-react';
+import { ChevronRight, Building2, Clock, CheckCircle2, Sparkles, TrendingUp, FileCheck } from 'lucide-react';
 import Link from 'next/link';
 
 type Particle = {
@@ -84,7 +84,7 @@ export default function HeroSection() {
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
                 <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm font-medium text-gray-200">AI-Powered Learning Platform</span>
+                <span className="text-sm font-medium text-gray-200">AI-Powered Evaluation Platform</span>
               </motion.div>
 
               <motion.h1
@@ -93,9 +93,9 @@ export default function HeroSection() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.7 }}
               >
-                <span className="block text-white">Transform Learning</span>
+                <span className="block text-white">Automate Answer Sheet</span>
                 <span className="block mt-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                  Into Achievement
+                  Evaluation with AI
                 </span>
               </motion.h1>
 
@@ -105,7 +105,7 @@ export default function HeroSection() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.7 }}
               >
-                AI-powered assessments, instant feedback, and gamified progress tracking. PrepMint makes exam preparation engaging, effective, and rewarding.
+                Save 90% of evaluation time with AI-powered grading. Upload answer sheets, get instant results with detailed analytics, and focus on what matters - teaching.
               </motion.p>
 
               <motion.div
@@ -114,25 +114,25 @@ export default function HeroSection() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6, duration: 0.7 }}
               >
-                <Link href="/signup">
+                <Link href="/signup?type=institution">
                   <motion.button
                     className="w-full sm:w-auto px-8 py-4 rounded-full font-bold bg-gradient-to-r from-cyan-500 to-emerald-500 text-white shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center group"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    Get Started Free
+                    Book a Free Demo
                     <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
 
-                <Link href="#for-schools">
+                <Link href="#how-it-works">
                   <motion.button
                     className="w-full sm:w-auto px-8 py-4 rounded-full font-bold border-2 border-cyan-400/50 text-cyan-400 hover:bg-cyan-500/10 backdrop-blur-sm transition-colors flex items-center justify-center group"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Users className="mr-2 w-5 h-5" />
-                    For Institutions
+                    <FileCheck className="mr-2 w-5 h-5" />
+                    See How It Works
                   </motion.button>
                 </Link>
               </motion.div>
@@ -145,22 +145,22 @@ export default function HeroSection() {
                 transition={{ delay: 0.8, duration: 0.7 }}
               >
                 <div className="flex items-center text-gray-300 gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400/10 border border-yellow-400/20">
-                    <Award className="w-4 h-4 text-yellow-400" />
-                  </div>
-                  <span className="text-sm font-medium">10K+ Active Learners</span>
-                </div>
-                <div className="flex items-center text-gray-300 gap-2">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-400/10 border border-cyan-400/20">
-                    <Zap className="w-4 h-4 text-cyan-400" />
+                    <Clock className="w-4 h-4 text-cyan-400" />
                   </div>
-                  <span className="text-sm font-medium">95% Success Rate</span>
+                  <span className="text-sm font-medium">15+ Hours Saved Weekly</span>
                 </div>
                 <div className="flex items-center text-gray-300 gap-2">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-400/10 border border-emerald-400/20">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <span className="text-sm font-medium">Avg 40% Score Boost</span>
+                  <span className="text-sm font-medium">98% Accuracy Rate</span>
+                </div>
+                <div className="flex items-center text-gray-300 gap-2">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400/10 border border-yellow-400/20">
+                    <Building2 className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <span className="text-sm font-medium">100+ Institutions Trust Us</span>
                 </div>
               </motion.div>
             </motion.div>
@@ -175,54 +175,54 @@ export default function HeroSection() {
               <div className="relative w-full max-w-lg">
                 {/* Glassmorphism Card */}
                 <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
-                  {/* Holographic Dashboard */}
+                  {/* Evaluation Dashboard */}
                   <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/30 border border-white/10 rounded-2xl w-full aspect-square flex flex-col items-center justify-center p-6">
-                    {/* Glowing XP Meter */}
+                    {/* Evaluation Progress Circle */}
                     <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-cyan-400 flex items-center justify-center mb-6">
                       <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-spin" style={{ animationDuration: '15s' }}></div>
                       <div className="text-center">
-                        <div className="text-3xl sm:text-4xl font-extrabold text-white">85%</div>
-                        <div className="text-xs text-gray-300">Progress</div>
+                        <div className="text-3xl sm:text-4xl font-extrabold text-white">150</div>
+                        <div className="text-xs text-gray-300">Papers/Hour</div>
                       </div>
                     </div>
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-2 gap-3 w-full">
                       <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                        <div className="text-2xl font-bold text-cyan-400">1,250</div>
-                        <div className="text-xs text-gray-400">XP Earned</div>
+                        <div className="text-2xl font-bold text-cyan-400">2.5 min</div>
+                        <div className="text-xs text-gray-400">Avg Time</div>
                       </div>
                       <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                        <div className="text-2xl font-bold text-emerald-400">Level 8</div>
-                        <div className="text-xs text-gray-400">Achievement</div>
+                        <div className="text-2xl font-bold text-emerald-400">98%</div>
+                        <div className="text-xs text-gray-400">Accuracy</div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Floating Achievement Badge */}
+                  {/* Floating Success Badge */}
                   <motion.div
-                    className="absolute -top-4 -right-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-3 shadow-lg transform rotate-6"
+                    className="absolute -top-4 -right-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl p-3 shadow-lg transform rotate-6"
                     initial={{ scale: 0, rotate: 0 }}
                     animate={{ scale: 1, rotate: 6 }}
                     transition={{ delay: 1, type: 'spring', stiffness: 300 }}
                   >
                     <div className="flex items-center gap-2">
-                      <Award className="w-5 h-5 text-white" />
-                      <span className="text-white font-bold text-sm">Top Scorer!</span>
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                      <span className="text-white font-bold text-sm">Evaluated!</span>
                     </div>
                   </motion.div>
 
-                  {/* XP Reward Popup */}
+                  {/* Time Saved Popup */}
                   <motion.div
-                    className="absolute -bottom-4 -left-4 bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-2xl p-4 shadow-lg transform -rotate-3"
+                    className="absolute -bottom-4 -left-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl p-4 shadow-lg transform -rotate-3"
                     initial={{ scale: 0, rotate: 0 }}
                     animate={{ scale: 1, rotate: -3 }}
                     transition={{ delay: 1.2, type: 'spring', stiffness: 300 }}
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                      <span className="text-white font-bold">+50 XP</span>
-                      <Sparkles className="w-4 h-4 text-white" />
+                      <Clock className="w-4 h-4 text-white" />
+                      <span className="text-white font-bold">15 hrs saved</span>
+                      <TrendingUp className="w-4 h-4 text-white" />
                     </div>
                   </motion.div>
                 </div>

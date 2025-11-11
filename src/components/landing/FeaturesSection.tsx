@@ -2,50 +2,50 @@
 'use client';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Bot, CheckCircle2, FileText, Zap, BarChart3, Trophy } from 'lucide-react';
+import { Brain, Zap, CheckCircle2, FileText, BarChart3, Shield, Clock, TrendingUp } from 'lucide-react';
 
 const features = [
   {
     icon: Brain,
     iconBg: 'from-purple-500 to-indigo-500',
-    title: 'AI-Powered Assessments',
-    description: 'Intelligent evaluation system that analyzes your answers with deep understanding, not just pattern matching.',
-    benefit: 'Save 90% grading time'
+    title: 'AI-Powered Evaluation',
+    description: 'Advanced AI analyzes handwritten and digital answer sheets with human-level accuracy, understanding context and concepts.',
+    benefit: '98% accuracy'
   },
   {
     icon: Zap,
     iconBg: 'from-cyan-500 to-blue-500',
-    title: 'Instant Feedback',
-    description: 'Get detailed explanations and personalized improvement suggestions within seconds of submission.',
-    benefit: 'Learn 3x faster'
-  },
-  {
-    icon: Trophy,
-    iconBg: 'from-yellow-500 to-orange-500',
-    title: 'Gamified Progress',
-    description: 'Earn XP, unlock badges, and level up as you master concepts. Learning becomes addictively fun.',
-    benefit: '95% completion rate'
+    title: 'Instant Results',
+    description: 'Get comprehensive evaluation results within minutes, not days. Upload answer sheets and receive detailed feedback immediately.',
+    benefit: 'Save 90% time'
   },
   {
     icon: BarChart3,
     iconBg: 'from-emerald-500 to-teal-500',
-    title: 'Performance Analytics',
-    description: 'Track your growth with detailed insights. Identify weak areas and watch your progress soar.',
+    title: 'Detailed Analytics',
+    description: 'Deep insights into student performance, class trends, and learning gaps. Track progress with actionable data visualizations.',
     benefit: 'Data-driven insights'
   },
   {
-    icon: Bot,
+    icon: Clock,
+    iconBg: 'from-orange-500 to-amber-500',
+    title: 'Bulk Processing',
+    description: 'Evaluate hundreds of answer sheets simultaneously. Perfect for mid-terms, finals, and large-scale assessments.',
+    benefit: '150+ papers/hour'
+  },
+  {
+    icon: Shield,
     iconBg: 'from-pink-500 to-rose-500',
-    title: '24/7 AI Tutor',
-    description: 'MintBot is always ready to help. Get explanations tailored to your learning style, anytime.',
-    benefit: 'Never stuck again'
+    title: 'Consistent Grading',
+    description: 'Eliminate human bias and inconsistency. Every student is evaluated with the same rigorous standards.',
+    benefit: 'Fair & unbiased'
   },
   {
     icon: FileText,
     iconBg: 'from-indigo-500 to-purple-500',
-    title: 'Question Generator',
-    description: 'Create custom question papers instantly. Perfect for practice tests or institutional assessments.',
-    benefit: 'Unlimited practice'
+    title: 'Flexible Formats',
+    description: 'Support for handwritten papers, PDFs, images, and digital submissions. Works with any question format or subject.',
+    benefit: 'Universal support'
   }
 ];
 
@@ -71,11 +71,14 @@ export default function FeaturesSection() {
           </motion.div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
-            Everything You Need to Excel
+            The Problem: Manual Evaluation is Slow
           </h2>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
-            Smart tools designed to make learning engaging, efficient, and effective for students and educators alike.
+          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+            Teachers spend 15+ hours weekly on grading. Results are inconsistent. Feedback is delayed. Students suffer.
           </p>
+          <div className="inline-block bg-gradient-to-r from-emerald-100 to-cyan-100 border border-emerald-200 rounded-2xl px-6 py-4">
+            <p className="text-2xl font-bold text-gray-900">The Solution: <span className="bg-gradient-to-r from-cyan-600 to-emerald-600 bg-clip-text text-transparent">PrepMint AI</span></p>
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
@@ -121,6 +124,46 @@ export default function FeaturesSection() {
           })}
         </div>
 
+        {/* Benefits Summary */}
+        <motion.div
+          className="mt-16 bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="text-center mb-10">
+            <h3 className="text-3xl md:text-4xl font-bold mb-4">Why Institutions Choose PrepMint</h3>
+            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+              Join 100+ schools and coaching institutes that have transformed their assessment process
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 mb-4">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">90%</div>
+              <div className="text-gray-300 font-medium">Time Saved on Grading</div>
+            </div>
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 mb-4">
+                <CheckCircle2 className="w-8 h-8 text-white" />
+              </div>
+              <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">98%</div>
+              <div className="text-gray-300 font-medium">Evaluation Accuracy</div>
+            </div>
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 mb-4">
+                <TrendingUp className="w-8 h-8 text-white" />
+              </div>
+              <div className="text-4xl font-extrabold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">60%</div>
+              <div className="text-gray-300 font-medium">Cost Reduction</div>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Bottom CTA */}
         <motion.div
           className="mt-16 text-center"
@@ -129,14 +172,14 @@ export default function FeaturesSection() {
           viewport={{ once: true }}
           transition={{ delay: 0.4 }}
         >
-          <p className="text-gray-600 mb-4">Ready to experience the future of learning?</p>
+          <p className="text-gray-600 mb-4 text-lg">Ready to transform your evaluation process?</p>
           <motion.a
-            href="/signup"
+            href="/signup?type=institution"
             className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            Get Started Free
+            Try PrepMint for Your Institution
             <CheckCircle2 className="w-5 h-5" />
           </motion.a>
         </motion.div>

@@ -23,9 +23,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "PrepMint | Learn with XP, AI, and Rewards",
+  title: "PrepMint | AI-Powered Answer Sheet Evaluation for Institutions",
   description:
-    "Gamified learning platform with quizzes, XP, streaks, and AI tutoring. Crack competitive exams with fun.",
+    "Automate answer sheet evaluation with AI. Save 90% of grading time, get instant results with 98% accuracy. Perfect for schools, colleges, and coaching institutes.",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
