@@ -4,7 +4,7 @@
 import { useState, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';

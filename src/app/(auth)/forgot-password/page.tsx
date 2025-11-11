@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { auth } from '@/lib/firebase.client';
+import { authInstance as auth } from '@/lib/firebase.client';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';

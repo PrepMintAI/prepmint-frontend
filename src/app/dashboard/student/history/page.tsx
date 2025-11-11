@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase.client';
+import { authInstance as auth } from '@/lib/firebase.client';
 import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion, AnimatePresence } from 'framer-motion';
