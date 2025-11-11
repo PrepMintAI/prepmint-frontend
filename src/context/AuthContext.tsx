@@ -133,34 +133,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               photoURL: currentUser.photoURL,
               ...profileData, // Merge Firestore fields (role, xp, badges, etc.)
             });
+            setFirebaseUser(currentUser);
           } else {
             // Profile doesn't exist yet (e.g., just signed up)
-            // Fallback to basic Firebase auth data
-            logger.warn('[AuthContext] No Firestore profile found for user:', currentUser.uid);
-            setUser({
-              uid: currentUser.uid,
-              email: currentUser.email,
-              emailVerified: currentUser.emailVerified,
-              displayName: currentUser.displayName,
-              photoURL: currentUser.photoURL,
-              role: 'student', // Default role
-            });
+            // This is a critical error - user must have a profile
+            logger.error('[AuthContext] CRITICAL: No Firestore profile found for authenticated user:', currentUser.uid);
+            logger.error('[AuthContext] User must have a profile in /users/{uid} collection');
+
+            // Sign out the user and redirect to login
+            Cookies.remove('token');
+            setFirebaseUser(null);
+            setUser(null);
+            alert('Your account profile is missing. Please contact support or sign up again.');
+
+            // Don't set any user data - force re-authentication
           }
-
-          setFirebaseUser(currentUser);
         } catch (error) {
-          logger.error('[AuthContext] Failed to load user profile from Firestore:', error);
+          logger.error('[AuthContext] CRITICAL: Failed to load user profile from Firestore:', error);
+          logger.error('[AuthContext] Error details:', error instanceof Error ? error.message : 'Unknown error');
 
-          // Fallback to Firebase auth user
-          setUser({
-            uid: currentUser.uid,
-            email: currentUser.email,
-            emailVerified: currentUser.emailVerified,
-            displayName: currentUser.displayName,
-            photoURL: currentUser.photoURL,
-            role: 'student', // Default role
-          });
-          setFirebaseUser(currentUser);
+          // Critical error - sign out the user
+          Cookies.remove('token');
+          setFirebaseUser(null);
+          setUser(null);
+          alert('Failed to load your profile. Please try logging in again. If the issue persists, contact support.');
+
+          // Don't set fallback data - this prevents role confusion
         } finally {
           logger.log('[AuthContext] Loading complete');
           setLoading(false);

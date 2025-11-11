@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
 import { AdminDashboardClient } from './DashboardClient';
+import FirebaseAdminNotConfigured from '@/components/admin/FirebaseAdminCheck';
 import { logger } from '@/lib/logger';
 
 export default async function AdminDashboardPage() {
@@ -22,7 +23,7 @@ export default async function AdminDashboardPage() {
     userId = decoded.uid;
 
     const userDoc = await adminDb().collection('users').doc(userId).get();
-    
+
     if (!userDoc.exists) {
       logger.error('[Admin Dashboard] User document not found');
       redirect('/login');
@@ -34,6 +35,15 @@ export default async function AdminDashboardPage() {
     logger.log('[Admin Dashboard] User role:', userRole);
   } catch (error) {
     logger.error('[Admin Dashboard] Session verification failed:', error);
+
+    // Check if the error is due to Firebase Admin not being initialized
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
+      logger.error('[Admin Dashboard] Firebase Admin SDK not configured - showing configuration page');
+      return <FirebaseAdminNotConfigured />;
+    }
+
+    // For other errors, redirect to login
     redirect('/login');
   }
 

@@ -90,15 +90,22 @@ try {
  * Safe getter that ensures instances are initialized
  */
 export function adminAuth(): Auth {
-  if (adminAuthInstance) {
+  if (adminAuthInstance && getApps().length > 0) {
     return adminAuthInstance;
   }
-  // Fallback: attempt to get Auth instance at runtime
+
+  // Check if Firebase Admin is initialized
+  if (getApps().length === 0) {
+    throw new Error('[Firebase Admin] Not initialized - please configure FIREBASE_ADMIN credentials');
+  }
+
+  // Attempt to get Auth instance at runtime
   try {
-    return getAuth();
-  } catch {
-    // Return a dummy instance to prevent errors during build
-    return {} as Auth;
+    const instance = getAuth();
+    adminAuthInstance = instance;
+    return instance;
+  } catch (error) {
+    throw new Error('[Firebase Admin] Failed to get Auth instance: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -107,15 +114,22 @@ export function adminAuth(): Auth {
  * Safe getter that ensures instances are initialized
  */
 export function adminDb(): Firestore {
-  if (adminDbInstance) {
+  if (adminDbInstance && getApps().length > 0) {
     return adminDbInstance;
   }
-  // Fallback: attempt to get Firestore instance at runtime
+
+  // Check if Firebase Admin is initialized
+  if (getApps().length === 0) {
+    throw new Error('[Firebase Admin] Not initialized - please configure FIREBASE_ADMIN credentials');
+  }
+
+  // Attempt to get Firestore instance at runtime
   try {
-    return getFirestore();
-  } catch {
-    // Return a dummy instance to prevent errors during build
-    return {} as Firestore;
+    const instance = getFirestore();
+    adminDbInstance = instance;
+    return instance;
+  } catch (error) {
+    throw new Error('[Firebase Admin] Failed to get Firestore instance: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 

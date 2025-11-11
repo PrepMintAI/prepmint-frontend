@@ -230,28 +230,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           setUserData(completeUserData);
         } else {
-          logger.warn('[AppLayout] No Firestore profile found for user:', user.uid);
-          // Fallback to basic auth data
-          setUserData({
-            uid: user.uid,
-            email: user.email,
-            emailVerified: user.emailVerified,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            role: 'student', // Default role
-          });
+          logger.error('[AppLayout] CRITICAL: No Firestore profile found for user:', user.uid);
+          // Sign out and redirect to login - profile is required
+          await signOut(auth);
+          router.replace('/login');
+          return;
         }
       } catch (error) {
-        logger.error('[AppLayout] Error loading user data from Firebase:', error);
-        // Set basic user data as fallback
-        setUserData({
-          uid: user.uid,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          role: 'student',
-        });
+        logger.error('[AppLayout] CRITICAL: Error loading user data from Firebase:', error);
+        // Sign out and redirect to login on error
+        await signOut(auth);
+        router.replace('/login');
+        return;
       } finally {
         setIsLoading(false);
       }
