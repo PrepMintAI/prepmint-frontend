@@ -6,13 +6,19 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const session = req.cookies.get("__session")?.value;
 
-  const isAdminRoute = url.pathname.startsWith("/admin");
+  // SECURITY FIX: Protect all role-specific dashboard routes
+  const isProtectedRoute = url.pathname.startsWith("/admin") ||
+                          url.pathname.startsWith("/dashboard/admin") ||
+                          url.pathname.startsWith("/dashboard/teacher") ||
+                          url.pathname.startsWith("/dashboard/institution") ||
+                          url.pathname.startsWith("/dashboard/student") ||
+                          url.pathname.startsWith("/dashboard/analytics");
 
   // Create response (with security headers for all routes)
   let response: NextResponse;
 
-  // If it's not an admin route, create a normal next response
-  if (!isAdminRoute) {
+  // If it's not a protected route, create a normal next response
+  if (!isProtectedRoute) {
     response = NextResponse.next();
   } else {
     // If no session, send to login
@@ -22,9 +28,9 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // ✅ Lightweight check: we don't know role yet, just let through
-    //    Role will be validated inside the admin page itself via /api/role
-    //    Note: Both 'admin' and 'dev' roles have full access to admin routes
+    // ✅ Session exists, let through
+    // Role will be validated on the server-side in each page component
+    // This prevents unauthorized users from even reaching the page
     response = NextResponse.next();
   }
 
@@ -60,5 +66,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/dashboard/admin/:path*",
+    "/dashboard/teacher/:path*",
+    "/dashboard/institution/:path*",
+    "/dashboard/student/:path*",
+    "/dashboard/analytics/:path*"
+  ],
 };

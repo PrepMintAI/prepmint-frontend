@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { adminAuth, awardXpServer } from '@/lib/firebase.admin';
+import { adminAuth, adminDb, awardXpServer } from '@/lib/firebase.admin';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +48,17 @@ export async function POST(request: NextRequest) {
     }
 
     const requesterId = decodedToken.uid;
-    const requesterRole = decodedToken.role || 'student';
+
+    // SECURITY: Fetch role from Firestore (not token - tokens can be stale)
+    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
+    if (!requesterDoc.exists) {
+      logger.warn('[gamify/xp] Requester user document not found');
+      return NextResponse.json(
+        { error: 'Unauthorized: User profile not found' },
+        { status: 401 }
+      );
+    }
+    const requesterRole = requesterDoc.data()?.role || 'student';
 
     // Parse request body
     let body;
@@ -71,36 +81,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate amount is positive
-    if (amount <= 0) {
+    // Validate amount is positive and reasonable (max 1000 per award)
+    if (amount <= 0 || amount > 1000) {
       return NextResponse.json(
-        { error: 'Bad Request: XP amount must be positive' },
+        { error: 'Bad Request: XP amount must be between 1 and 1000' },
         { status: 400 }
       );
     }
 
     // Validate reason is a string
-    if (typeof reason !== 'string' || reason.trim().length === 0) {
+    if (typeof reason !== 'string' || reason.trim().length === 0 || reason.length > 200) {
       return NextResponse.json(
-        { error: 'Bad Request: Reason must be a non-empty string' },
+        { error: 'Bad Request: Reason must be 1-200 characters' },
         { status: 400 }
       );
     }
 
-    // SECURITY: Check authorization
-    // Users can award XP to themselves, or teachers/admin can award to anyone
-    const isOwnUser = requesterId === userId;
-    const canAwardToOthers = requesterRole === 'teacher' || requesterRole === 'admin';
+    // SECURITY FIX: Only teachers, admins, and devs can award XP
+    // Students CANNOT award XP to themselves or anyone else (prevents cheating)
+    const canAwardXP = requesterRole === 'teacher' || requesterRole === 'admin' || requesterRole === 'dev';
 
-    if (!isOwnUser && !canAwardToOthers) {
+    if (!canAwardXP) {
       logger.warn(
-        `[gamify/xp] Forbidden: User ${requesterId} (role: ${requesterRole}) attempted to award XP to ${userId}`
+        `[gamify/xp] SECURITY: User ${requesterId} (role: ${requesterRole}) attempted to award ${amount} XP to ${userId}`
       );
       return NextResponse.json(
-        { error: 'Forbidden: Cannot award XP to other users' },
+        { error: 'Forbidden: Only teachers and admins can award XP' },
         { status: 403 }
       );
     }
+
+    // Additional validation: teachers/institutions can only award to students in their scope
+    // (This would require additional logic to check institution/class membership)
+    // For now, admins and devs can award to anyone, teachers are trusted
 
     // Award XP using atomic transaction
     const result = await awardXpServer(userId, amount, reason);

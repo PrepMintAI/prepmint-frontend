@@ -12,7 +12,7 @@ import {
   Home, User, Settings, Award, TrendingUp,
   BookOpen, Users, BarChart, Menu, X, LogOut,
   Bell, HelpCircle, Search, Clock, ChevronDown,
-  Upload, CheckCircle, AlertCircle, Info
+  Upload, CheckCircle, AlertCircle, Info, GraduationCap
 } from 'lucide-react';
 import Link from 'next/link';
 import Spinner from '@/components/common/Spinner';
@@ -61,15 +61,19 @@ const roleBasedNavigation = {
     { name: 'Dashboard', href: '/dashboard/teacher', icon: Home },
     { name: 'Students', href: '/dashboard/teacher/students', icon: Users },
     { name: 'Evaluations', href: '/dashboard/teacher/evaluations', icon: BookOpen },
-    { name: 'Analytics', href: '/dashboard/teacher/analytics', icon: BarChart },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
+    { name: 'Send Notification', href: '/dashboard/teacher/notifications', icon: Bell },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
   ],
   admin: [
     { name: 'Dashboard', href: '/dashboard/admin', icon: Home },
-    { name: 'Users', href: '/dashboard/institution/users', icon: Users },
-    { name: 'Analytics', href: '/dashboard/institution/analytics', icon: BarChart },
+    { name: 'All Users', href: '/dashboard/admin/users', icon: Users },
+    { name: 'Students', href: '/dashboard/admin/students', icon: GraduationCap },
+    { name: 'Teachers', href: '/dashboard/admin/teachers', icon: BookOpen },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
+    { name: 'Send Notification', href: '/dashboard/admin/notifications', icon: Bell },
     { name: 'Rewards', href: '/rewards', icon: Award },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
@@ -78,7 +82,8 @@ const roleBasedNavigation = {
     { name: 'Dashboard', href: '/dashboard/institution', icon: Home },
     { name: 'Students', href: '/dashboard/institution/students', icon: Users },
     { name: 'Teachers', href: '/dashboard/institution/teachers', icon: Users },
-    { name: 'Analytics', href: '/dashboard/institution/analytics', icon: BarChart },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
+    { name: 'Send Notification', href: '/dashboard/institution/notifications', icon: Bell },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
   ],
