@@ -188,7 +188,7 @@ if (typeof window !== 'undefined' && app) {
   });
 }
 
-// Create a Proxy for db that lazily gets the instance
+// Create a Proxy for db that directly accesses the module-level db variable
 // This maintains backward compatibility while supporting the new architecture
 // On server-side, returns a dummy object to prevent build errors
 const dbProxy = new Proxy({} as Firestore, {
@@ -198,11 +198,28 @@ const dbProxy = new Proxy({} as Firestore, {
       return () => {};
     }
 
-    const instance = getFirestoreSync();
-    if (!instance) {
-      throw new Error('Firestore not initialized - make sure FirestoreProvider is wrapping your app');
+    // Directly access the module-level db variable
+    if (!db) {
+      // Try one more time to get it - use getFirestore which will return existing instance
+      try {
+        if (app) {
+          db = getFirestore(app);
+          logger.log('[Firebase Client Proxy] Got Firestore instance on-demand');
+        }
+      } catch (e) {
+        // If getFirestore fails, it means Firestore truly isn't available
+        logger.error('[Firebase Client Proxy] Failed to get Firestore:', e);
+        // Return a dummy to prevent crash - the actual Firestore operation will fail gracefully
+        return undefined;
+      }
     }
-    return (instance as any)[prop];
+
+    if (!db) {
+      logger.warn('[Firebase Client Proxy] Firestore still null after retry, returning undefined for:', prop);
+      return undefined;
+    }
+
+    return (db as any)[prop];
   },
 });
 
