@@ -27,8 +27,8 @@ export default function LandingHeader() {
     <motion.header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-white/90 backdrop-blur-lg shadow-lg border-b border-gray-200/50'
-          : 'bg-white/70 backdrop-blur-sm border-b border-gray-100/50'
+          ? 'bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-200/50'
+          : 'bg-gray-900/40 backdrop-blur-md border-b border-white/10'
       }`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
@@ -58,7 +58,11 @@ export default function LandingHeader() {
               <motion.a
                 key={item.label}
                 href={item.href}
-                className="px-3 lg:px-4 py-2 text-gray-700 hover:text-cyan-600 font-medium rounded-lg transition-colors relative group"
+                className={`px-3 lg:px-4 py-2 font-medium rounded-lg transition-colors relative group ${
+                  isScrolled
+                    ? 'text-gray-700 hover:text-cyan-600'
+                    : 'text-gray-200 hover:text-cyan-400'
+                }`}
                 whileHover={{ y: -1 }}
               >
                 {item.label}
@@ -71,7 +75,11 @@ export default function LandingHeader() {
           <div className="hidden md:flex items-center space-x-3">
             <Link href="/login">
               <motion.button
-                className="px-5 py-2.5 rounded-full font-semibold text-gray-700 hover:text-cyan-600 hover:bg-gray-100 transition-all"
+                className={`px-5 py-2.5 rounded-full font-semibold transition-all ${
+                  isScrolled
+                    ? 'text-gray-700 hover:text-cyan-600 hover:bg-gray-100'
+                    : 'text-gray-200 hover:text-white hover:bg-white/10'
+                }`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -91,15 +99,17 @@ export default function LandingHeader() {
 
           {/* Mobile Menu Button */}
           <motion.button
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className={`md:hidden p-2 rounded-lg transition-colors ${
+              isScrolled ? 'hover:bg-gray-100' : 'hover:bg-white/10'
+            }`}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             whileTap={{ scale: 0.95 }}
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
-              <X className="w-6 h-6 text-gray-700" />
+              <X className={`w-6 h-6 ${isScrolled ? 'text-gray-700' : 'text-gray-200'}`} />
             ) : (
-              <Menu className="w-6 h-6 text-gray-700" />
+              <Menu className={`w-6 h-6 ${isScrolled ? 'text-gray-700' : 'text-gray-200'}`} />
             )}
           </motion.button>
         </div>
@@ -112,14 +122,20 @@ export default function LandingHeader() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden overflow-hidden border-t border-gray-200"
+              className={`md:hidden overflow-hidden border-t ${
+                isScrolled ? 'border-gray-200 bg-white' : 'border-white/10 bg-gray-900/90'
+              }`}
             >
               <nav className="py-4 space-y-2">
                 {navItems.map((item, index) => (
                   <motion.a
                     key={item.label}
                     href={item.href}
-                    className="block px-4 py-3 text-gray-700 hover:text-cyan-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                    className={`block px-4 py-3 rounded-lg font-medium transition-colors ${
+                      isScrolled
+                        ? 'text-gray-700 hover:text-cyan-600 hover:bg-gray-50'
+                        : 'text-gray-200 hover:text-cyan-400 hover:bg-white/5'
+                    }`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
@@ -128,10 +144,16 @@ export default function LandingHeader() {
                     {item.label}
                   </motion.a>
                 ))}
-                <div className="pt-4 pb-2 px-4 space-y-3 border-t border-gray-200">
+                <div className={`pt-4 pb-2 px-4 space-y-3 border-t ${
+                  isScrolled ? 'border-gray-200' : 'border-white/10'
+                }`}>
                   <Link href="/login">
                     <motion.button
-                      className="w-full px-4 py-3 rounded-full font-semibold text-gray-700 hover:text-cyan-600 hover:bg-gray-100 transition-all"
+                      className={`w-full px-4 py-3 rounded-full font-semibold transition-all ${
+                        isScrolled
+                          ? 'text-gray-700 hover:text-cyan-600 hover:bg-gray-100'
+                          : 'text-gray-200 hover:text-white hover:bg-white/10'
+                      }`}
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Log in
