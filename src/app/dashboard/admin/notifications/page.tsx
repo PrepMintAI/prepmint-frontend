@@ -3,7 +3,9 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
 import AppLayout from '@/components/layout/AppLayout';
+import FirebaseAdminNotConfigured from '@/components/admin/FirebaseAdminCheck';
 import NotificationsClient from './NotificationsClient';
+import { logger } from '@/lib/logger';
 
 export default async function AdminNotificationsPage() {
   const sessionCookie = (await cookies()).get('__session')?.value;
@@ -20,7 +22,7 @@ export default async function AdminNotificationsPage() {
     const userData = userDoc.data();
     const userRole = userData?.role || 'student';
 
-    if (userRole !== 'admin') {
+    if (userRole !== 'admin' && userRole !== 'dev') {
       redirect('/dashboard');
     }
 
@@ -32,6 +34,14 @@ export default async function AdminNotificationsPage() {
       </AppLayout>
     );
   } catch (error) {
+    logger.error('[Admin Notifications] Session verification failed:', error);
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
+      logger.error('[Admin Notifications] Firebase Admin SDK not configured');
+      return <FirebaseAdminNotConfigured />;
+    }
+
     redirect('/login');
   }
 }

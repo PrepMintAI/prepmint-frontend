@@ -230,18 +230,26 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           setUserData(completeUserData);
         } else {
-          logger.error('[AppLayout] CRITICAL: No Firestore profile found for user:', user.uid);
-          // Sign out and redirect to login - profile is required
-          await signOut(auth);
-          router.replace('/login');
-          return;
+          logger.error('[AppLayout] WARNING: No Firestore profile found for user:', user.uid);
+          // Keep user signed in with basic data - server will handle redirects
+          setUserData({
+            uid: user.uid,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          });
         }
       } catch (error) {
-        logger.error('[AppLayout] CRITICAL: Error loading user data from Firebase:', error);
-        // Sign out and redirect to login on error
-        await signOut(auth);
-        router.replace('/login');
-        return;
+        logger.error('[AppLayout] ERROR: Error loading user data from Firebase:', error);
+        // Keep user signed in with basic data - prevent infinite loops
+        setUserData({
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        });
       } finally {
         setIsLoading(false);
       }

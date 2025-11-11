@@ -136,30 +136,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setFirebaseUser(currentUser);
           } else {
             // Profile doesn't exist yet (e.g., just signed up)
-            // This is a critical error - user must have a profile
-            logger.error('[AuthContext] CRITICAL: No Firestore profile found for authenticated user:', currentUser.uid);
-            logger.error('[AuthContext] User must have a profile in /users/{uid} collection');
+            // This should not happen for existing users
+            logger.error('[AuthContext] WARNING: No Firestore profile found for authenticated user:', currentUser.uid);
 
-            // Sign out the user and redirect to login
-            Cookies.remove('token');
-            setFirebaseUser(null);
-            setUser(null);
-            alert('Your account profile is missing. Please contact support or sign up again.');
-
-            // Don't set any user data - force re-authentication
+            // Keep user signed in with basic Firebase Auth data
+            // Let server-side pages handle the redirect if needed
+            setUser({
+              uid: currentUser.uid,
+              email: currentUser.email,
+              emailVerified: currentUser.emailVerified,
+              displayName: currentUser.displayName,
+              photoURL: currentUser.photoURL,
+            });
+            setFirebaseUser(currentUser);
           }
         } catch (error) {
-          logger.error('[AuthContext] CRITICAL: Failed to load user profile from Firestore:', error);
+          logger.error('[AuthContext] ERROR: Failed to load user profile from Firestore:', error);
           logger.error('[AuthContext] Error details:', error instanceof Error ? error.message : 'Unknown error');
 
-          // Critical error - sign out the user
-          Cookies.remove('token');
-          setFirebaseUser(null);
-          setUser(null);
-          alert('Failed to load your profile. Please try logging in again. If the issue persists, contact support.');
-
-          // Don't set fallback data - this prevents role confusion
-        } finally {
+          // Keep user signed in with basic Firebase Auth data
+          // This prevents infinite login loops
+          setUser({
+            uid: currentUser.uid,
+            email: currentUser.email,
+            emailVerified: currentUser.emailVerified,
+            displayName: currentUser.displayName,
+            photoURL: currentUser.photoURL,
+          });
+          setFirebaseUser(currentUser);
+        } finally{
           logger.log('[AuthContext] Loading complete');
           setLoading(false);
         }

@@ -104,7 +104,19 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create session');
+        const errorData = await response.json();
+
+        // Check for Firebase Admin configuration error
+        if (errorData.code === 'FIREBASE_ADMIN_NOT_CONFIGURED') {
+          setFirebaseError(
+            'Server configuration error: Firebase Admin SDK is not configured. ' +
+            'Please contact the administrator to configure Firebase Admin credentials.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        throw new Error(errorData.details || 'Failed to create session');
       }
 
       const { role } = await response.json();
