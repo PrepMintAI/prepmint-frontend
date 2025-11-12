@@ -20,7 +20,7 @@ export async function GET() {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     return NextResponse.json({
       role: profile?.role ?? 'student',
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     const callerRole = callerProfile?.role ?? 'student';
 

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('role')
       .eq('id', requesterId)
-      .single();
+      .single<{ role: string }>();
 
     if (profileError || !requesterProfile) {
       logger.warn('[gamify/badges] Requester user profile not found');

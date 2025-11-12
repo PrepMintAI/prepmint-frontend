@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     if (!userProfile || userProfile.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
         // Create user profile (database trigger should handle this, but we'll do it manually for control)
         const { error: profileError } = await adminSupabase
           .from('users')
-          .insert({
+          // @ts-ignore - Type inference issue with Supabase admin client
+          .insert([{
             id: authData.user.id,
             email: data.email,
             display_name: sanitizedName,
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
             streak: 0,
             institution_id: data.institutionId || null,
             account_type: data.accountType || 'individual',
-          });
+          }]);
 
         if (profileError) {
           logger.error('Failed to create user profile:', profileError);
@@ -146,7 +147,8 @@ export async function POST(request: NextRequest) {
             // Create user profile
             const { error: profileError } = await adminSupabase
               .from('users')
-              .insert({
+              // @ts-ignore - Type inference issue with Supabase admin client
+              .insert([{
                 id: authData.user.id,
                 email: user.email,
                 display_name: user.displayName,
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest) {
                 streak: 0,
                 institution_id: user.institutionId || null,
                 account_type: user.accountType || 'individual',
-              });
+              }]);
 
             if (profileError) {
               // Clean up auth user if profile creation fails

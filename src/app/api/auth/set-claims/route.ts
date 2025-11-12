@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('role')
       .eq('id', requesterId)
-      .single();
+      .single<{ role: string }>();
 
     if (!requesterProfile) {
       logger.warn('[set-claims] Requester user profile not found');
@@ -132,18 +132,14 @@ export async function POST(request: NextRequest) {
     }
 
     // SECURITY STEP 9: Update user profile in database
-    const updateData: any = {
-      role,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (institutionId) {
-      updateData.institution_id = institutionId;
-    }
+    const updatePayload = institutionId
+      ? { role, institution_id: institutionId, updated_at: new Date().toISOString() }
+      : { role, updated_at: new Date().toISOString() };
 
     const { error: updateError } = await adminSupabase
       .from('users')
-      .update(updateData)
+      // @ts-ignore - Type inference issue with Supabase admin client
+      .update(updatePayload)
       .eq('id', uid);
 
     if (updateError) throw updateError;

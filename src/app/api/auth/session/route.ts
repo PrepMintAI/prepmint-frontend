@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .single<{ role: string }>();
 
     const role = profile?.role || 'student';
 

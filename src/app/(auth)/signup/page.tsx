@@ -164,7 +164,7 @@ export default function SignupPage() {
           .from('institutions')
           .select('id, name')
           .eq('id', debouncedInstitutionCode.trim())
-          .single();
+          .single<{ id: string; name: string }>();
 
         if (error || !data) {
           setInstitutionCodeStatus('invalid');

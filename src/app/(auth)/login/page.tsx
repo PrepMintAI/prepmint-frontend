@@ -109,13 +109,13 @@ export default function LoginPage() {
         .from('users')
         .select('role')
         .eq('id', data.user.id)
-        .single();
+        .single<{ role: string }>();
 
       if (profileError) {
         logger.warn('[Login] Could not fetch profile, using default role');
       }
 
-      const role = profile?.role || data.user.user_metadata?.role || 'student';
+      const role = (profile?.role || data.user.user_metadata?.role || 'student') as string;
 
       // Dev role uses /dashboard (router will handle redirect to student)
       const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
