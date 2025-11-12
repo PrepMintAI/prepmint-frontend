@@ -39,7 +39,7 @@ export default function AnalyticsDashboardPage() {
     <AppLayout>
       <AnalyticsClient
         userId={userId}
-        userRole={userRole}
+        role={userRole}
         institutionId={institutionId}
         userName={userName}
       />

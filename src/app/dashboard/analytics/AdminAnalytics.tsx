@@ -38,33 +38,33 @@ import {
 // ===== Types =====
 
 interface UserData {
-  uid: string;
+  id: string;
   role: 'student' | 'teacher' | 'admin' | 'institution';
-  displayName: string;
+  display_name: string;
   email: string;
   xp?: number;
   level?: number;
-  institutionId?: string;
-  createdAt?: any;
-  lastLoginAt?: any;
+  institution_id?: string;
+  created_at?: any;
+  last_login_at?: any;
 }
 
 interface InstitutionData {
   id: string;
   name: string;
-  studentCount?: number;
-  teacherCount?: number;
-  createdAt?: any;
+  student_count?: number;
+  teacher_count?: number;
+  created_at?: any;
 }
 
 interface EvaluationData {
   id: string;
   status: 'pending' | 'completed' | 'failed';
-  userId: string;
-  institutionId?: string;
-  createdAt: any;
+  user_id: string;
+  institution_id?: string;
+  created_at: any;
   score?: number;
-  totalScore?: number;
+  total_marks?: number;
 }
 
 interface PlatformStats {
@@ -154,13 +154,13 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
 
     // Calculate average score
     const completedWithScores = evaluations.filter(
-      (e) => e.status === 'completed' && e.score !== undefined && e.totalScore !== undefined
+      (e) => e.status === 'completed' && e.score !== undefined && e.total_marks !== undefined
     );
     const avgScore =
       completedWithScores.length > 0
         ? Math.round(
             completedWithScores.reduce(
-              (sum, e) => sum + ((e.score || 0) / (e.totalScore || 1)) * 100,
+              (sum, e) => sum + ((e.score || 0) / (e.total_marks || 1)) * 100,
               0
             ) / completedWithScores.length
           )
@@ -170,8 +170,8 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsersLast7Days = users.filter((u) => {
-      if (!u.lastLoginAt) return false;
-      const lastLogin = new Date(u.lastLoginAt);
+      if (!u.last_login_at) return false;
+      const lastLogin = new Date(u.last_login_at);
       return lastLogin >= sevenDaysAgo;
     }).length;
 
@@ -231,10 +231,9 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     const dateMap: Record<string, { completed: number; failed: number; pending: number }> = {};
 
     evaluations.forEach((evaluation) => {
-      const date =
-        evaluation.created_at instanceof Timestamp
-          ? evaluation.created_at.toDate()
-          : new Date(evaluation.created_at);
+      const date = evaluation.created_at
+          ? new Date(evaluation.created_at)
+          : new Date();
 
       if (date >= thirtyDaysAgo) {
         const dateStr = date.toLocaleDateString('en-US');
@@ -267,23 +266,16 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
   const recentActivity = useMemo(() => {
     return evaluations
       .sort((a, b) => {
-        const aTime =
-          a.created_at instanceof Timestamp
-            ? a.created_at.toMillis()
-            : new Date(a.created_at).getTime();
-        const bTime =
-          b.created_at instanceof Timestamp
-            ? b.created_at.toMillis()
-            : new Date(b.created_at).getTime();
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bTime - aTime;
       })
       .slice(0, 10)
       .map((evaluation) => {
-        const user = users.find((u) => u.uid === evaluation.userId);
-        const date =
-          evaluation.created_at instanceof Timestamp
-            ? evaluation.created_at.toDate()
-            : new Date(evaluation.created_at);
+        const user = users.find((u) => u.id === evaluation.user_id);
+        const date = evaluation.created_at
+            ? new Date(evaluation.created_at)
+            : new Date();
 
         return {
           id: evaluation.id,

@@ -116,12 +116,13 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
           .single();
 
         if (!institutionError && institutionData) {
+          const inst = institutionData as any;
           setInstitution({
-            id: institutionData.id,
-            name: institutionData.name,
-            location: institutionData.location,
-            established: institutionData.established,
-            type: institutionData.type,
+            id: inst.id,
+            name: inst.name,
+            location: inst.location,
+            established: inst.established,
+            type: inst.type,
           });
         }
 
@@ -133,7 +134,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
           .eq('role', 'student');
 
         if (!studentsError && studentsData) {
-          const students: UserData[] = studentsData.map(student => ({
+          const students: UserData[] = (studentsData as any[]).map(student => ({
             uid: student.id,
             email: student.email || '',
             displayName: student.display_name || '',
@@ -154,7 +155,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
           .eq('role', 'teacher');
 
         if (!teachersError && teachersData) {
-          const teachers: UserData[] = teachersData.map(teacher => ({
+          const teachers: UserData[] = (teachersData as any[]).map(teacher => ({
             uid: teacher.id,
             email: teacher.email || '',
             displayName: teacher.display_name || '',
@@ -172,7 +173,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
           .eq('institution_id', instId);
 
         if (!evaluationsError && evaluationsData) {
-          const evaluations: EvaluationData[] = evaluationsData.map(evaluation => ({
+          const evaluations: EvaluationData[] = (evaluationsData as any[]).map(evaluation => ({
             id: evaluation.id,
             userId: evaluation.user_id,
             institutionId: evaluation.institution_id,
@@ -323,8 +324,8 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
     const recentEvaluations = evaluations
       .filter(e => e.status === 'completed')
       .sort((a, b) => {
-        const aTime = a.submittedAt instanceof Timestamp ? a.submittedAt.toMillis() : (a.submittedAt instanceof Date ? a.submittedAt.getTime() : 0);
-        const bTime = b.submittedAt instanceof Timestamp ? b.submittedAt.toMillis() : (b.submittedAt instanceof Date ? b.submittedAt.getTime() : 0);
+        const aTime = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const bTime = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
         return bTime - aTime;
       })
       .slice(0, 3);

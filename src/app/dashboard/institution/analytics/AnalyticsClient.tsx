@@ -60,7 +60,7 @@ interface EvaluationData {
   score?: number;
   totalMarks?: number;
   status: string;
-  createdAt: Timestamp | Date;
+  createdAt: string | Date;
 }
 
 interface SubjectPerformance {
@@ -106,8 +106,8 @@ const getFilteredStudents = (
     filtered = filtered.filter(s => s.section === filters.sectionFilter);
   }
 
-  if (filters.user_id) {
-    filtered = filtered.filter(s => s.uid === filters.user_id);
+  if (filters.studentId) {
+    filtered = filtered.filter(s => s.uid === filters.studentId);
   }
 
   return filtered;
@@ -320,7 +320,7 @@ const SchoolView = ({ students, evaluations, filters }: SchoolViewProps) => {
                     {idx + 1}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{student.display_name}</p>
+                    <p className="font-medium text-gray-900">{student.displayName}</p>
                     <p className="text-xs text-gray-600">Class {student.class}{student.section}</p>
                   </div>
                 </div>
@@ -484,10 +484,10 @@ const ClassView = ({ students, evaluations, filters }: ClassViewProps) => {
                   <div key={student.uid} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                        {student.display_name[0]}
+                        {student.displayName[0]}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{student.display_name}</p>
+                        <p className="font-medium text-gray-900">{student.displayName}</p>
                         <p className="text-xs text-gray-600">{student.email}</p>
                       </div>
                     </div>
@@ -566,10 +566,10 @@ const StudentView = ({ students, evaluations, filters }: StudentViewProps) => {
       >
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl">
-            {student.display_name[0]}
+            {student.displayName[0]}
           </div>
           <div>
-            <h2 className="text-3xl font-bold">{student.display_name}</h2>
+            <h2 className="text-3xl font-bold">{student.displayName}</h2>
             <p className="text-pink-100">Class {student.class}{student.section}</p>
           </div>
         </div>
@@ -641,8 +641,8 @@ const StudentView = ({ students, evaluations, filters }: StudentViewProps) => {
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {studentEvaluations
                 .sort((a, b) => {
-                  const aTime = a.created_at instanceof Timestamp ? a.created_at.toMillis() : (a.created_at instanceof Date ? a.created_at.getTime() : 0);
-                  const bTime = b.created_at instanceof Timestamp ? b.created_at.toMillis() : (b.created_at instanceof Date ? b.created_at.getTime() : 0);
+                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                   return bTime - aTime;
                 })
                 .slice(0, 10)
@@ -744,7 +744,7 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
     getFilteredStudents(students, { ...filters, viewLevel: 'student' })
       .map(s => ({
         id: s.uid,
-        name: s.display_name,
+        name: s.displayName,
         rollNo: s.email.split('@')[0],
         class: s.class || '',
         section: s.section || '',
