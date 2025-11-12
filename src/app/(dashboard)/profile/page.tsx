@@ -3,9 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { authInstance as auth, db } from '@/lib/firebase.client';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -24,10 +23,11 @@ interface UserProfile {
   institutionName?: string;
   bio?: string;
   phoneNumber?: string;
-  createdAt?: { toDate?: () => Date };
+  createdAt?: string;
 }
 
 export default function ProfilePage() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -40,49 +40,52 @@ export default function ProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
+    if (authLoading) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as Omit<UserProfile, 'id'>;
-          const userData: UserProfile = { id: currentUser.uid, ...data };
-          setUser(userData);
-          setFormData({
-            displayName: (data.displayName as string) || '',
-            bio: (data.bio as string) || '',
-            phoneNumber: (data.phoneNumber as string) || '',
-          });
-        }
-      } catch (error) {
-        logger.error('Error fetching user:', error);
-      } finally {
-        setLoading(false);
-      }
+    if (!authUser) {
+      router.push('/login');
+      return;
+    }
+
+    const uid = authUser.uid || authUser.id;
+    const userData: UserProfile = {
+      id: uid,
+      displayName: authUser.displayName || authUser.display_name || '',
+      email: authUser.email || '',
+      role: authUser.role || 'student',
+      xp: authUser.xp || 0,
+      badges: authUser.badges || [],
+      institutionName: authUser.institutionName || authUser.institution_name,
+      bio: authUser.bio || '',
+      phoneNumber: authUser.phoneNumber || authUser.phone_number,
+      createdAt: authUser.createdAt || authUser.created_at,
+    };
+
+    setUser(userData);
+    setFormData({
+      displayName: userData.displayName,
+      bio: userData.bio || '',
+      phoneNumber: userData.phoneNumber || '',
     });
-
-    return () => unsubscribe();
-  }, [router]);
+    setLoading(false);
+  }, [authUser, authLoading, router]);
 
   const handleSave = async () => {
     if (!user) return;
 
     setSaving(true);
     try {
-      await updateProfile(auth.currentUser!, {
-        displayName: formData.displayName,
-      });
+      const { error } = await supabase
+        .from('users')
+        .update({
+          display_name: formData.displayName,
+          bio: formData.bio,
+          phone_number: formData.phoneNumber,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-      await updateDoc(doc(db, 'users', user.id), {
-        displayName: formData.displayName,
-        bio: formData.bio,
-        phoneNumber: formData.phoneNumber,
-        updatedAt: new Date(),
-      });
+      if (error) throw error;
 
       setUser({ ...user, ...formData });
       setIsEditing(false);
@@ -94,7 +97,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return <Spinner fullScreen label="Loading profile..." />;
   }
 
