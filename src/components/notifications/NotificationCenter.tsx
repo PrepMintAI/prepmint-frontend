@@ -15,7 +15,6 @@ import {
 } from '@/lib/notifications';
 import { logger } from '@/lib/logger';
 import { formatDistanceToNow } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
 
 export default function NotificationCenter() {
   const { user } = useAuth();
@@ -115,9 +114,9 @@ export default function NotificationCenter() {
     }
   };
 
-  const formatTimestamp = (timestamp: Timestamp | Date) => {
+  const formatTimestamp = (timestamp: string | Date) => {
     try {
-      const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
+      const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
       return 'Just now';
