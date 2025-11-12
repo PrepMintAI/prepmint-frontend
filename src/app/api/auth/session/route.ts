@@ -19,7 +19,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the ID token
-    const decodedToken = await adminAuth().verifyIdToken(idToken);
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth().verifyIdToken(idToken);
+    } catch (authError) {
+      const errorMessage = authError instanceof Error ? authError.message : String(authError);
+
+      // Check if error is due to Firebase Admin not being initialized
+      if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
+        logger.error('[Session API] Firebase Admin not configured');
+        return NextResponse.json(
+          {
+            error: 'Server configuration error',
+            details: 'Firebase Admin SDK is not configured. Please set FIREBASE_ADMIN environment variables.',
+            code: 'FIREBASE_ADMIN_NOT_CONFIGURED'
+          },
+          { status: 503 } // Service Unavailable
+        );
+      }
+
+      // Other auth errors
+      throw authError;
+    }
+
     const uid = decodedToken.uid;
 
     logger.log('[Session API] Creating session for user:', uid);

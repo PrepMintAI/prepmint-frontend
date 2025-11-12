@@ -18,13 +18,17 @@ import { logger } from '@/lib/logger';
  * Use this for client-side gamification or when backend isn't handling it
  */
 export async function awardXpLocal(
-  userId: string, 
-  amount: number, 
+  userId: string,
+  amount: number,
   reason: string = ''
 ): Promise<void> {
+  if (!db) {
+    throw new Error('Firestore not initialized - cannot award XP locally');
+  }
+
   try {
     const userRef = doc(db, 'users', userId);
-    
+
     await updateDoc(userRef, {
       xp: increment(amount),
       xpLog: arrayUnion({
@@ -137,6 +141,10 @@ export async function awardBadgeLocal(
   userId: string,
   badgeId: string
 ): Promise<void> {
+  if (!db) {
+    throw new Error('Firestore not initialized - cannot award badge locally');
+  }
+
   try {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -172,10 +180,15 @@ export async function awardBadgeLocal(
  * Get all badges for a user
  */
 export async function getUserBadges(userId: string): Promise<string[]> {
+  if (!db) {
+    logger.warn('Firestore not initialized - cannot get user badges');
+    return [];
+  }
+
   try {
     const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
-    
+
     if (!userSnap.exists()) {
       return [];
     }

@@ -21,16 +21,21 @@ if (!getApps().length) {
 
   // Only initialize if we have all required credentials
   if (projectId && clientEmail && privateKey) {
-    const serviceAccount: ServiceAccount = {
-      projectId,
-      clientEmail,
-      privateKey,
-    };
+    try {
+      const serviceAccount: ServiceAccount = {
+        projectId,
+        clientEmail,
+        privateKey,
+      };
 
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: serviceAccount.projectId,
-    });
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.projectId,
+      });
+    } catch (certError) {
+      logger.warn('[Firebase Admin] Failed to initialize (expected during build):', certError);
+      // Don't throw - allow build to continue
+    }
   } else if (process.env.NODE_ENV !== 'production') {
     logger.warn('[Firebase Admin] Missing credentials - Firebase Admin SDK not initialized');
     logger.warn('[Firebase Admin] This is expected during build time');
@@ -49,19 +54,30 @@ try {
     const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
     if (projectId && clientEmail && privateKey) {
-      const serviceAccount: ServiceAccount = { projectId, clientEmail, privateKey };
-      initializeApp({
-        credential: cert(serviceAccount),
-        projectId: serviceAccount.projectId,
-      });
-      logger.log('[Firebase Admin] Initialized successfully');
+      try {
+        const serviceAccount: ServiceAccount = { projectId, clientEmail, privateKey };
+        initializeApp({
+          credential: cert(serviceAccount),
+          projectId: serviceAccount.projectId,
+        });
+        logger.log('[Firebase Admin] Initialized successfully');
+      } catch (certError) {
+        logger.warn('[Firebase Admin] Failed to initialize with provided credentials (expected during build):', certError);
+        // Don't throw - allow build to continue
+      }
     } else {
       logger.warn('[Firebase Admin] Missing credentials - Firebase Admin SDK not initialized');
     }
   }
 
-  adminAuthInstance = getAuth();
-  adminDbInstance = getFirestore();
+  if (getApps().length > 0) {
+    adminAuthInstance = getAuth();
+    adminDbInstance = getFirestore();
+  } else {
+    // Use dummy instances if Firebase wasn't initialized
+    adminAuthInstance = {} as Auth;
+    adminDbInstance = {} as Firestore;
+  }
 } catch (error) {
   logger.error('[Firebase Admin] Initialization failed:', error);
   // Dummy fallbacks to prevent build errors
@@ -74,15 +90,22 @@ try {
  * Safe getter that ensures instances are initialized
  */
 export function adminAuth(): Auth {
-  if (adminAuthInstance) {
+  if (adminAuthInstance && getApps().length > 0) {
     return adminAuthInstance;
   }
-  // Fallback: attempt to get Auth instance at runtime
+
+  // Check if Firebase Admin is initialized
+  if (getApps().length === 0) {
+    throw new Error('[Firebase Admin] Not initialized - please configure FIREBASE_ADMIN credentials');
+  }
+
+  // Attempt to get Auth instance at runtime
   try {
-    return getAuth();
-  } catch {
-    // Return a dummy instance to prevent errors during build
-    return {} as Auth;
+    const instance = getAuth();
+    adminAuthInstance = instance;
+    return instance;
+  } catch (error) {
+    throw new Error('[Firebase Admin] Failed to get Auth instance: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -91,15 +114,22 @@ export function adminAuth(): Auth {
  * Safe getter that ensures instances are initialized
  */
 export function adminDb(): Firestore {
-  if (adminDbInstance) {
+  if (adminDbInstance && getApps().length > 0) {
     return adminDbInstance;
   }
-  // Fallback: attempt to get Firestore instance at runtime
+
+  // Check if Firebase Admin is initialized
+  if (getApps().length === 0) {
+    throw new Error('[Firebase Admin] Not initialized - please configure FIREBASE_ADMIN credentials');
+  }
+
+  // Attempt to get Firestore instance at runtime
   try {
-    return getFirestore();
-  } catch {
-    // Return a dummy instance to prevent errors during build
-    return {} as Firestore;
+    const instance = getFirestore();
+    adminDbInstance = instance;
+    return instance;
+  } catch (error) {
+    throw new Error('[Firebase Admin] Failed to get Firestore instance: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 

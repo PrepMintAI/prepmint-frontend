@@ -24,7 +24,7 @@ interface StudentDocument extends FirestoreDocument {
 }
 
 export default function StudentsManagementClient() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<StudentDocument | null>(null);
 
@@ -48,7 +48,20 @@ export default function StudentsManagementClient() {
     filters: [where('role', '==', 'student')],
   });
 
-  if (user?.role !== 'admin') {
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if current user is admin or dev
+  if (user?.role !== 'admin' && user?.role !== 'dev') {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start gap-3">
@@ -56,7 +69,7 @@ export default function StudentsManagementClient() {
           <div>
             <h3 className="font-semibold text-red-900">Access Denied</h3>
             <p className="text-sm text-red-700 mt-1">
-              You don&apos;t have permission to access this page.
+              You don&apos;t have permission to access this page. Current role: {user?.role || 'none'}
             </p>
           </div>
         </div>
@@ -159,10 +172,16 @@ export default function StudentsManagementClient() {
   const handleSubmit = async (data: UserFormData) => {
     try {
       if (editingStudent) {
-        await updateDocument(editingStudent.id, {
+        const updateData: any = {
           displayName: data.displayName,
-          institutionId: data.institutionId || undefined,
-        });
+        };
+
+        // Only include institutionId if it has a value
+        if (data.institutionId) {
+          updateData.institutionId = data.institutionId;
+        }
+
+        await updateDocument(editingStudent.id, updateData);
       } else {
         // Create new student via API
         const response = await fetch('/api/admin/users', {
@@ -273,6 +292,7 @@ export default function StudentsManagementClient() {
           onExport={handleExport}
           onRefresh={refresh}
           onSearch={(term) => search(term, ['displayName', 'email'])}
+          onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}
           enableImport={false}

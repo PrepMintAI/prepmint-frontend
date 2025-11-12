@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { auth } from '@/lib/firebase.client';
+import { authInstance as auth } from '@/lib/firebase.client';
 import { sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Mail, RefreshCw } from 'lucide-react';
@@ -13,7 +13,15 @@ export default function VerifyEmailPage() {
   const [resendStatus, setResendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [countdown, setCountdown] = useState(0);
   const [checking, setChecking] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    // Get user email on client-side only
+    if (typeof window !== 'undefined' && auth.currentUser) {
+      setUserEmail(auth.currentUser.email);
+    }
+  }, []);
 
   useEffect(() => {
     // Countdown timer for resend button
@@ -91,8 +99,6 @@ export default function VerifyEmailPage() {
       setChecking(false);
     }
   };
-
-  const userEmail = auth.currentUser?.email;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617] px-4 py-8">

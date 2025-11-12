@@ -2,7 +2,10 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import AppLayout from '@/components/layout/AppLayout';
+import FirebaseAdminNotConfigured from '@/components/admin/FirebaseAdminCheck';
 import StudentsManagementClient from './StudentsManagementClient';
+import { logger } from '@/lib/logger';
 
 export default async function AdminStudentsPage() {
   const sessionCookie = (await cookies()).get('__session')?.value;
@@ -19,12 +22,27 @@ export default async function AdminStudentsPage() {
     const userData = userDoc.data();
     const userRole = userData?.role || 'student';
 
-    if (userRole !== 'admin') {
+    if (userRole !== 'admin' && userRole !== 'dev') {
       redirect('/dashboard');
     }
 
-    return <StudentsManagementClient />;
+    return (
+      <AppLayout>
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          <StudentsManagementClient />
+        </div>
+      </AppLayout>
+    );
   } catch (error) {
+    logger.error('[Admin Students] Session verification failed:', error);
+
+    // Check if the error is due to Firebase Admin not being initialized
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
+      logger.error('[Admin Students] Firebase Admin SDK not configured');
+      return <FirebaseAdminNotConfigured />;
+    }
+
     redirect('/login');
   }
 }

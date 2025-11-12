@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db, clearFirestoreCache } from '@/lib/firebase.client';
 import Cookies from 'js-cookie';
 import { logger } from '@/lib/logger';
 
@@ -70,7 +70,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!currentUser) {
           // User signed out
           logger.log('[AuthContext] No user authenticated');
-          Cookies.remove('token');
+          // NOTE: Don't try to remove __session cookie here - it's httpOnly and can only be removed by server
+          // The /api/auth/session DELETE endpoint should be called before signOut()
           setFirebaseUser(null);
           setUser(null);
           setLoading(false);
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const isVerifyEmailPage = typeof window !== 'undefined' && window.location.pathname === '/verify-email';
 
           if (!isVerifyEmailPage) {
-            Cookies.remove('token');
+            // NOTE: Don't try to remove __session cookie - it's httpOnly
             setFirebaseUser(null);
             setUser(null);
             setLoading(false);
@@ -109,13 +110,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           logger.log('[AuthContext] Fetching user profile for:', currentUser.uid);
 
-          // Set auth token cookie
-          const token = await getIdToken(currentUser, true);
-          Cookies.set('token', token, {
-            expires: 7, // 7 days
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
-          });
+          // NOTE: Don't set cookie here! The session cookie is created by /api/auth/session
+          // during login. We just need to fetch the user profile from Firestore.
+
+          // Check if Firestore is ready
+          if (!db) {
+            logger.error('[AuthContext] Firestore not initialized yet');
+            throw new Error('Firestore not initialized');
+          }
 
           // Fetch Firestore profile
           const userDocRef = doc(db, 'users', currentUser.uid);
@@ -133,35 +135,76 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               photoURL: currentUser.photoURL,
               ...profileData, // Merge Firestore fields (role, xp, badges, etc.)
             });
+            setFirebaseUser(currentUser);
           } else {
             // Profile doesn't exist yet (e.g., just signed up)
-            // Fallback to basic Firebase auth data
-            logger.warn('[AuthContext] No Firestore profile found for user:', currentUser.uid);
+            // This should not happen for existing users
+            logger.error('[AuthContext] WARNING: No Firestore profile found for authenticated user:', currentUser.uid);
+
+            // Keep user signed in with basic Firebase Auth data
+            // Let server-side pages handle the redirect if needed
             setUser({
               uid: currentUser.uid,
               email: currentUser.email,
               emailVerified: currentUser.emailVerified,
               displayName: currentUser.displayName,
               photoURL: currentUser.photoURL,
-              role: 'student', // Default role
             });
+            setFirebaseUser(currentUser);
+          }
+        } catch (error) {
+          logger.error('[AuthContext] ERROR: Failed to load user profile from Firestore:', error);
+          logger.error('[AuthContext] Error details:', error instanceof Error ? error.message : 'Unknown error');
+
+          // Check if it's a persistence/cache error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const isCacheError =
+            errorMessage.includes('persistence') ||
+            errorMessage.includes('IndexedDB') ||
+            errorMessage.includes('quota') ||
+            errorMessage.includes('not initialized') ||
+            errorMessage.includes('INTERNAL ASSERTION');
+
+          if (isCacheError) {
+            logger.error('[AuthContext] Cache error detected - clearing Firestore cache');
+
+            // Clear cache and reload
+            clearFirestoreCache()
+              .then(() => {
+                logger.log('[AuthContext] Cache cleared, reloading...');
+                alert(
+                  'A database synchronization issue was detected.\n\n' +
+                  'The page will reload to fix this. Please log in again.'
+                );
+                setTimeout(() => window.location.reload(), 1000);
+              })
+              .catch((clearError) => {
+                logger.error('[AuthContext] Failed to clear cache:', clearError);
+                // Still keep user signed in with basic data
+                setUser({
+                  uid: currentUser.uid,
+                  email: currentUser.email,
+                  emailVerified: currentUser.emailVerified,
+                  displayName: currentUser.displayName,
+                  photoURL: currentUser.photoURL,
+                });
+                setFirebaseUser(currentUser);
+                setLoading(false);
+              });
+            return; // Don't set loading to false yet - page will reload
           }
 
-          setFirebaseUser(currentUser);
-        } catch (error) {
-          logger.error('[AuthContext] Failed to load user profile from Firestore:', error);
-
-          // Fallback to Firebase auth user
+          // For non-cache errors, keep user signed in with basic Firebase Auth data
+          // This prevents infinite login loops
           setUser({
             uid: currentUser.uid,
             email: currentUser.email,
             emailVerified: currentUser.emailVerified,
             displayName: currentUser.displayName,
             photoURL: currentUser.photoURL,
-            role: 'student', // Default role
           });
           setFirebaseUser(currentUser);
-        } finally {
+        } finally{
           logger.log('[AuthContext] Loading complete');
           setLoading(false);
         }

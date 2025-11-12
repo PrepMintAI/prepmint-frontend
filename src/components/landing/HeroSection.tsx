@@ -35,7 +35,7 @@ export default function HeroSection() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 text-white overflow-hidden">
       {/* Hero Section */}
-      <section className="relative pt-24 pb-20 md:pt-32 md:pb-28 overflow-hidden">
+      <section className="relative pt-20 pb-16 sm:pt-24 sm:pb-20 md:pt-32 md:pb-28 overflow-hidden">
         {/* Animated Gradient Background */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-600/20 via-blue-700/20 to-emerald-600/20 animate-pulse"></div>
@@ -68,39 +68,39 @@ export default function HeroSection() {
         </div>
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+          <div className="flex flex-col lg:flex-row items-center gap-8 sm:gap-12 lg:gap-16">
             {/* Left Content */}
             <motion.div
-              className="lg:w-1/2 text-center lg:text-left"
+              className="lg:w-1/2 text-center lg:text-left w-full"
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7 }}
             >
               {/* Badge */}
               <motion.div
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-4 sm:mb-6"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm font-medium text-gray-200">AI-Powered Evaluation Platform</span>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
+                <span className="text-xs sm:text-sm font-medium text-gray-200">AI-Powered Evaluation Platform</span>
               </motion.div>
 
               <motion.h1
-                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold mb-4 sm:mb-6 leading-tight"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.7 }}
               >
                 <span className="block text-white">Automate Answer Sheet</span>
-                <span className="block mt-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                <span className="block mt-1 sm:mt-2 bg-gradient-to-r from-cyan-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
                   Evaluation with AI
                 </span>
               </motion.h1>
 
               <motion.p
-                className="text-lg sm:text-xl text-gray-300 mb-10 max-w-2xl mx-auto lg:mx-0"
+                className="text-base sm:text-lg md:text-xl text-gray-300 mb-8 sm:mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.7 }}
@@ -109,29 +109,29 @@ export default function HeroSection() {
               </motion.p>
 
               <motion.div
-                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+                className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6, duration: 0.7 }}
               >
-                <Link href="/signup?type=institution">
+                <Link href="/signup?type=institution" className="w-full sm:w-auto">
                   <motion.button
-                    className="w-full sm:w-auto px-8 py-4 rounded-full font-bold bg-gradient-to-r from-cyan-500 to-emerald-500 text-white shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center group"
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-sm sm:text-base bg-gradient-to-r from-cyan-500 to-emerald-500 text-white shadow-lg hover:shadow-cyan-500/50 transition-all flex items-center justify-center group"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
                     Book a Free Demo
-                    <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
 
-                <Link href="#how-it-works">
+                <Link href="#how-it-works" className="w-full sm:w-auto">
                   <motion.button
-                    className="w-full sm:w-auto px-8 py-4 rounded-full font-bold border-2 border-cyan-400/50 text-cyan-400 hover:bg-cyan-500/10 backdrop-blur-sm transition-colors flex items-center justify-center group"
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-full font-bold text-sm sm:text-base border-2 border-cyan-400/50 text-cyan-400 hover:bg-cyan-500/10 backdrop-blur-sm transition-colors flex items-center justify-center group"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <FileCheck className="mr-2 w-5 h-5" />
+                    <FileCheck className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                     See How It Works
                   </motion.button>
                 </Link>
@@ -139,90 +139,90 @@ export default function HeroSection() {
 
               {/* Trust indicators */}
               <motion.div
-                className="flex flex-wrap items-center justify-center lg:justify-start gap-6 mt-10"
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 mt-8 sm:mt-10"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8, duration: 0.7 }}
               >
                 <div className="flex items-center text-gray-300 gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-400/10 border border-cyan-400/20">
-                    <Clock className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-cyan-400/10 border border-cyan-400/20">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
                   </div>
-                  <span className="text-sm font-medium">15+ Hours Saved Weekly</span>
+                  <span className="text-xs sm:text-sm font-medium">15+ Hours Saved</span>
                 </div>
                 <div className="flex items-center text-gray-300 gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-400/10 border border-emerald-400/20">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-400/10 border border-emerald-400/20">
+                    <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
                   </div>
-                  <span className="text-sm font-medium">98% Accuracy Rate</span>
+                  <span className="text-xs sm:text-sm font-medium">98% Accuracy</span>
                 </div>
                 <div className="flex items-center text-gray-300 gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-yellow-400/10 border border-yellow-400/20">
-                    <Building2 className="w-4 h-4 text-yellow-400" />
+                  <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-yellow-400/10 border border-yellow-400/20">
+                    <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
                   </div>
-                  <span className="text-sm font-medium">100+ Institutions Trust Us</span>
+                  <span className="text-xs sm:text-sm font-medium">100+ Institutions</span>
                 </div>
               </motion.div>
             </motion.div>
 
             {/* Right Visual Panel */}
             <motion.div
-              className="lg:w-1/2 flex justify-center w-full"
+              className="lg:w-1/2 flex justify-center w-full mt-8 lg:mt-0"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7, delay: 0.3 }}
             >
-              <div className="relative w-full max-w-lg">
+              <div className="relative w-full max-w-md lg:max-w-lg px-4 sm:px-0">
                 {/* Glassmorphism Card */}
-                <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 sm:p-8">
+                <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl shadow-2xl p-4 sm:p-6 md:p-8">
                   {/* Evaluation Dashboard */}
-                  <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/30 border border-white/10 rounded-2xl w-full aspect-square flex flex-col items-center justify-center p-6">
+                  <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/30 border border-white/10 rounded-xl sm:rounded-2xl w-full aspect-square flex flex-col items-center justify-center p-4 sm:p-6">
                     {/* Evaluation Progress Circle */}
-                    <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-cyan-400 flex items-center justify-center mb-6">
-                      <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-spin" style={{ animationDuration: '15s' }}></div>
+                    <div className="relative w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-3 sm:border-4 border-cyan-400 flex items-center justify-center mb-4 sm:mb-6">
+                      <div className="absolute inset-0 rounded-full border-3 sm:border-4 border-emerald-400 animate-spin" style={{ animationDuration: '15s' }}></div>
                       <div className="text-center">
-                        <div className="text-3xl sm:text-4xl font-extrabold text-white">150</div>
-                        <div className="text-xs text-gray-300">Papers/Hour</div>
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white">150</div>
+                        <div className="text-[10px] sm:text-xs text-gray-300">Papers/Hour</div>
                       </div>
                     </div>
 
                     {/* Stats Grid */}
-                    <div className="grid grid-cols-2 gap-3 w-full">
-                      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                        <div className="text-2xl font-bold text-cyan-400">2.5 min</div>
-                        <div className="text-xs text-gray-400">Avg Time</div>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
+                      <div className="bg-white/5 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/10">
+                        <div className="text-lg sm:text-2xl font-bold text-cyan-400">2.5 min</div>
+                        <div className="text-[10px] sm:text-xs text-gray-400">Avg Time</div>
                       </div>
-                      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                        <div className="text-2xl font-bold text-emerald-400">98%</div>
-                        <div className="text-xs text-gray-400">Accuracy</div>
+                      <div className="bg-white/5 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/10">
+                        <div className="text-lg sm:text-2xl font-bold text-emerald-400">98%</div>
+                        <div className="text-[10px] sm:text-xs text-gray-400">Accuracy</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Floating Success Badge */}
                   <motion.div
-                    className="absolute -top-4 -right-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl p-3 shadow-lg transform rotate-6"
+                    className="absolute -top-2 sm:-top-4 -right-2 sm:-right-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-xl sm:rounded-2xl p-2 sm:p-3 shadow-lg transform rotate-6"
                     initial={{ scale: 0, rotate: 0 }}
                     animate={{ scale: 1, rotate: 6 }}
                     transition={{ delay: 1, type: 'spring', stiffness: 300 }}
                   >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-white" />
-                      <span className="text-white font-bold text-sm">Evaluated!</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      <span className="text-white font-bold text-xs sm:text-sm">Evaluated!</span>
                     </div>
                   </motion.div>
 
                   {/* Time Saved Popup */}
                   <motion.div
-                    className="absolute -bottom-4 -left-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl p-4 shadow-lg transform -rotate-3"
+                    className="absolute -bottom-2 sm:-bottom-4 -left-2 sm:-left-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-lg transform -rotate-3"
                     initial={{ scale: 0, rotate: 0 }}
                     animate={{ scale: 1, rotate: -3 }}
                     transition={{ delay: 1.2, type: 'spring', stiffness: 300 }}
                   >
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-white" />
-                      <span className="text-white font-bold">15 hrs saved</span>
-                      <TrendingUp className="w-4 h-4 text-white" />
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                      <span className="text-white font-bold text-xs sm:text-sm">15 hrs saved</span>
+                      <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                     </div>
                   </motion.div>
                 </div>
@@ -250,9 +250,9 @@ export default function HeroSection() {
         </div>
 
         {/* Wave animation at bottom */}
-        <div className="relative w-full overflow-hidden mt-16">
+        <div className="relative w-full overflow-hidden mt-12 sm:mt-16">
           <svg
-            className="block w-full h-12 md:h-20"
+            className="block w-full h-8 sm:h-12 md:h-20"
             xmlns="http://www.w3.org/2000/svg"
             preserveAspectRatio="none"
             viewBox="0 0 1200 120"

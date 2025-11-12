@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { xpForNextLevel } from '@/lib/gamify';
 import Card, { StatCard } from '@/components/common/Card';

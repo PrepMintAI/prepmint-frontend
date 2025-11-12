@@ -44,6 +44,7 @@ export interface TableManagerProps<T extends FirestoreDocument> {
   onImport?: (file: File) => void;
   onRefresh?: () => void;
   onSearch?: (term: string) => void;
+  onRowClick?: (row: T) => void;
   // Pagination
   hasMore?: boolean;
   onLoadMore?: () => void;
@@ -73,6 +74,7 @@ export default function TableManager<T extends FirestoreDocument>({
   onImport,
   onRefresh,
   onSearch,
+  onRowClick,
   hasMore,
   onLoadMore,
   enableSearch = true,
@@ -300,10 +302,22 @@ export default function TableManager<T extends FirestoreDocument>({
                     key={row.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="hover:bg-gray-50 transition-colors"
+                    className={`hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                    onClick={(e) => {
+                      // Don't trigger row click if clicking on checkbox or action buttons
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.tagName === 'INPUT' ||
+                        target.tagName === 'BUTTON' ||
+                        target.closest('button')
+                      ) {
+                        return;
+                      }
+                      onRowClick?.(row);
+                    }}
                   >
                     {enableBulkDelete && (
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedRows.has(row.id)}

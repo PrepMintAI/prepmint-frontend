@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db } from '@/lib/firebase.client';
 import { logger } from '@/lib/logger';
 import { doc, getDoc } from 'firebase/firestore';
 

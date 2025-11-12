@@ -4,7 +4,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '@/lib/logger';
@@ -230,27 +230,25 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
           setUserData(completeUserData);
         } else {
-          logger.warn('[AppLayout] No Firestore profile found for user:', user.uid);
-          // Fallback to basic auth data
+          logger.error('[AppLayout] WARNING: No Firestore profile found for user:', user.uid);
+          // Keep user signed in with basic data - server will handle redirects
           setUserData({
             uid: user.uid,
             email: user.email,
             emailVerified: user.emailVerified,
             displayName: user.displayName,
             photoURL: user.photoURL,
-            role: 'student', // Default role
           });
         }
       } catch (error) {
-        logger.error('[AppLayout] Error loading user data from Firebase:', error);
-        // Set basic user data as fallback
+        logger.error('[AppLayout] ERROR: Error loading user data from Firebase:', error);
+        // Keep user signed in with basic data - prevent infinite loops
         setUserData({
           uid: user.uid,
           email: user.email,
           emailVerified: user.emailVerified,
           displayName: user.displayName,
           photoURL: user.photoURL,
-          role: 'student',
         });
       } finally {
         setIsLoading(false);

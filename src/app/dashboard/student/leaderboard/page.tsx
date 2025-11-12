@@ -7,7 +7,7 @@ import Card from '@/components/common/Card';
 import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, Zap, Target, Users, Globe } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db } from '@/lib/firebase.client';
 import { doc, getDoc } from 'firebase/firestore';
 import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/studentData';
 import { logger } from '@/lib/logger';
