@@ -4,8 +4,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase.client';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
@@ -68,8 +68,8 @@ interface EvaluationData {
   subject?: string;
   score?: number;
   totalMarks?: number;
-  createdAt: Timestamp | Date;
-  submittedAt?: Timestamp | Date;
+  createdAt: string | Date;
+  submittedAt?: string | Date;
 }
 
 interface ActivityData {
@@ -78,6 +78,9 @@ interface ActivityData {
 }
 
 export function DashboardClient({ userId, institutionId }: DashboardClientProps) {
+  // Use AuthContext instead of Firebase auth
+  const { user: authUser, loading: authLoading } = useAuth();
+
   const [isLoading, setIsLoading] = useState(true);
   const [institution, setInstitution] = useState<InstitutionData | null>(null);
   const [students, setStudents] = useState<UserData[]>([]);
@@ -88,7 +91,15 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!institutionId) {
+      if (authLoading) return; // Wait for auth to complete
+
+      if (!authUser) {
+        router.replace('/login');
+        return;
+      }
+
+      const instId = institutionId || authUser.institutionId || authUser.institution_id;
+      if (!instId) {
         logger.error('[DashboardClient] No institutionId provided');
         setIsLoading(false);
         return;
@@ -98,51 +109,82 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
         setIsLoading(true);
 
         // Fetch institution data
-        const institutionDoc = await getDoc(doc(db, 'institutions', institutionId));
-        if (institutionDoc.exists()) {
+        const { data: institutionData, error: institutionError } = await supabase
+          .from('institutions')
+          .select('id, name, location, established, type')
+          .eq('id', instId)
+          .single();
+
+        if (!institutionError && institutionData) {
           setInstitution({
-            id: institutionDoc.id,
-            ...institutionDoc.data()
-          } as InstitutionData);
+            id: institutionData.id,
+            name: institutionData.name,
+            location: institutionData.location,
+            established: institutionData.established,
+            type: institutionData.type,
+          });
         }
 
         // Fetch students from this institution
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
-          uid: doc.id,
-          ...doc.data()
-        })) as UserData[];
-        setStudents(studentsData);
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('id, email, display_name, role, class, section, xp, level')
+          .eq('institution_id', instId)
+          .eq('role', 'student');
+
+        if (!studentsError && studentsData) {
+          const students: UserData[] = studentsData.map(student => ({
+            uid: student.id,
+            email: student.email || '',
+            displayName: student.display_name || '',
+            role: student.role,
+            class: student.class,
+            section: student.section,
+            xp: student.xp,
+            level: student.level,
+          }));
+          setStudents(students);
+        }
 
         // Fetch teachers from this institution
-        const teachersQuery = query(
-          collection(db, 'users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'teacher')
-        );
-        const teachersSnapshot = await getDocs(teachersQuery);
-        const teachersData = teachersSnapshot.docs.map(doc => ({
-          uid: doc.id,
-          ...doc.data()
-        })) as UserData[];
-        setTeachers(teachersData);
+        const { data: teachersData, error: teachersError } = await supabase
+          .from('users')
+          .select('id, email, display_name, role, xp, level')
+          .eq('institution_id', instId)
+          .eq('role', 'teacher');
+
+        if (!teachersError && teachersData) {
+          const teachers: UserData[] = teachersData.map(teacher => ({
+            uid: teacher.id,
+            email: teacher.email || '',
+            displayName: teacher.display_name || '',
+            role: teacher.role,
+            xp: teacher.xp,
+            level: teacher.level,
+          }));
+          setTeachers(teachers);
+        }
 
         // Fetch evaluations for this institution
-        const evaluationsQuery = query(
-          collection(db, 'evaluations'),
-          where('institutionId', '==', institutionId)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as EvaluationData[];
-        setEvaluations(evaluationsData);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('id, user_id, institution_id, status, subject, score, total_marks, created_at, submitted_at')
+          .eq('institution_id', instId);
+
+        if (!evaluationsError && evaluationsData) {
+          const evaluations: EvaluationData[] = evaluationsData.map(evaluation => ({
+            id: evaluation.id,
+            userId: evaluation.user_id,
+            institutionId: evaluation.institution_id,
+            status: evaluation.status,
+            subject: evaluation.subject,
+            score: evaluation.score,
+            totalMarks: evaluation.total_marks,
+            createdAt: evaluation.created_at,
+            submittedAt: evaluation.submitted_at,
+          }));
+          setEvaluations(evaluations);
+        }
 
         // Generate activity data (last 90 days)
         const generateActivityData = () => {
@@ -173,7 +215,7 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
     };
 
     fetchData();
-  }, [institutionId]);
+  }, [authLoading, authUser, institutionId, router]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -317,11 +359,22 @@ export function DashboardClient({ userId, institutionId }: DashboardClientProps)
   // Upcoming tests (placeholder - empty array for now)
   const upcomingTests = useMemo(() => [], []);
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return <Spinner fullScreen />;
   }
 
-  if (!institutionId) {
+  if (!authUser) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <p className="text-gray-600">Please log in to access the institution dashboard</p>
+        </div>
+      </div>
+    );
+  }
+
+  const instId = institutionId || authUser.institutionId || authUser.institution_id;
+  if (!instId) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
