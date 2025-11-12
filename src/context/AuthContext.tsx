@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!currentUser) {
           // User signed out
           logger.log('[AuthContext] No user authenticated');
-          Cookies.remove('token');
+          Cookies.remove('__session');
           setFirebaseUser(null);
           setUser(null);
           setLoading(false);
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const isVerifyEmailPage = typeof window !== 'undefined' && window.location.pathname === '/verify-email';
 
           if (!isVerifyEmailPage) {
-            Cookies.remove('token');
+            Cookies.remove('__session');
             setFirebaseUser(null);
             setUser(null);
             setLoading(false);
@@ -109,9 +109,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           logger.log('[AuthContext] Fetching user profile for:', currentUser.uid);
 
-          // Set auth token cookie
+          // Set auth token cookie (using __session for Firebase Admin SDK compatibility)
           const token = await getIdToken(currentUser, true);
-          Cookies.set('token', token, {
+          Cookies.set('__session', token, {
             expires: 7, // 7 days
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax'
