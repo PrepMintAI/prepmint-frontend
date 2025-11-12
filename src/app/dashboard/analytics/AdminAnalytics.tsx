@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody, StatCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -108,7 +107,7 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
         setError(null);
 
         // Fetch all users
-        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersSnapshot = await getDocs(supabase.from('users'));
         const usersData = usersSnapshot.docs.map((doc) => ({
           uid: doc.id,
           ...doc.data(),
@@ -125,7 +124,7 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
 
         // Fetch evaluations (last 1000)
         const evaluationsQuery = query(
-          collection(db, 'evaluations'),
+          supabase.from('evaluations'),
           orderBy('createdAt', 'desc'),
           limit(1000)
         );
@@ -221,9 +220,9 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     return institutions
       .map((inst) => ({
         ...inst,
-        studentCount: users.filter((u) => u.institutionId === inst.id && u.role === 'student')
+        studentCount: users.filter((u) => u.institution_id === inst.id && u.role === 'student')
           .length,
-        teacherCount: users.filter((u) => u.institutionId === inst.id && u.role === 'teacher')
+        teacherCount: users.filter((u) => u.institution_id === inst.id && u.role === 'teacher')
           .length,
       }))
       .sort((a, b) => b.studentCount - a.studentCount)
@@ -239,9 +238,9 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
 
     evaluations.forEach((evaluation) => {
       const date =
-        evaluation.createdAt instanceof Timestamp
-          ? evaluation.createdAt.toDate()
-          : new Date(evaluation.createdAt);
+        evaluation.created_at instanceof Timestamp
+          ? evaluation.created_at.toDate()
+          : new Date(evaluation.created_at);
 
       if (date >= thirtyDaysAgo) {
         const dateStr = date.toLocaleDateString('en-US');
@@ -275,26 +274,26 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     return evaluations
       .sort((a, b) => {
         const aTime =
-          a.createdAt instanceof Timestamp
-            ? a.createdAt.toMillis()
-            : new Date(a.createdAt).getTime();
+          a.created_at instanceof Timestamp
+            ? a.created_at.toMillis()
+            : new Date(a.created_at).getTime();
         const bTime =
-          b.createdAt instanceof Timestamp
-            ? b.createdAt.toMillis()
-            : new Date(b.createdAt).getTime();
+          b.created_at instanceof Timestamp
+            ? b.created_at.toMillis()
+            : new Date(b.created_at).getTime();
         return bTime - aTime;
       })
       .slice(0, 10)
       .map((evaluation) => {
         const user = users.find((u) => u.uid === evaluation.userId);
         const date =
-          evaluation.createdAt instanceof Timestamp
-            ? evaluation.createdAt.toDate()
-            : new Date(evaluation.createdAt);
+          evaluation.created_at instanceof Timestamp
+            ? evaluation.created_at.toDate()
+            : new Date(evaluation.created_at);
 
         return {
           id: evaluation.id,
-          userName: user?.displayName || 'Unknown User',
+          userName: user?.display_name || 'Unknown User',
           status: evaluation.status,
           date,
         };

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody, StatCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -111,7 +110,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
         // Fetch all students in institution
         const studentsQuery = query(
-          collection(db, 'users'),
+          supabase.from('users'),
           where('institutionId', '==', institutionId),
           where('role', '==', 'student')
         );
@@ -124,7 +123,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
         // Fetch all evaluations for institution
         const evaluationsQuery = query(
-          collection(db, 'evaluations'),
+          supabase.from('evaluations'),
           where('institutionId', '==', institutionId)
         );
         const evaluationsSnapshot = await getDocs(evaluationsQuery);
@@ -171,22 +170,22 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     cutoffDate.setDate(cutoffDate.getDate() - filters.dateRange);
 
     const filtered = evaluations.filter((evaluation) => {
-      const evalDate = evaluation.createdAt?.toDate?.() || new Date(evaluation.createdAt);
+      const evalDate = evaluation.created_at?.toDate?.() || new Date(evaluation.created_at);
       if (evalDate < cutoffDate) return false;
 
       // Filter by student if viewing single student
       if (filters.viewLevel === 'student' && filters.selectedStudent) {
-        if (evaluation.studentId !== filters.selectedStudent) return false;
+        if (evaluation.user_id !== filters.selectedStudent) return false;
       } else if (filters.viewLevel === 'class' || filters.viewLevel === 'school') {
         // Filter by class if selected
         if (filters.selectedClass !== 'all') {
-          const student = students.find((s) => s.uid === evaluation.studentId);
+          const student = students.find((s) => s.uid === evaluation.user_id);
           if (student?.class !== filters.selectedClass) return false;
         }
 
         // Filter by section if selected
         if (filters.selectedSection !== 'all') {
-          const student = students.find((s) => s.uid === evaluation.studentId);
+          const student = students.find((s) => s.uid === evaluation.user_id);
           if (student?.section !== filters.selectedSection) return false;
         }
       }
@@ -204,7 +203,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     uniqueClasses.forEach((cls) => {
       const classStudents = students.filter((s) => s.class === cls);
       const classEvals = filteredEvaluations.filter((e) => {
-        const student = students.find((s) => s.uid === e.studentId);
+        const student = students.find((s) => s.uid === e.user_id);
         return student?.class === cls;
       });
 
@@ -216,10 +215,10 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
       let topPerformer = null;
       if (classEvals.length > 0) {
         const bestEval = classEvals.reduce((best, curr) => (curr.score > best.score ? curr : best));
-        const student = students.find((s) => s.uid === bestEval.studentId);
+        const student = students.find((s) => s.uid === bestEval.user_id);
         if (student) {
           topPerformer = {
-            name: student.displayName,
+            name: student.display_name,
             score: bestEval.score,
           };
         }
@@ -247,7 +246,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
       uniqueSections.forEach((section) => {
         const sectionStudents = students.filter((s) => s.class === filters.selectedClass && s.section === section);
         const sectionEvals = filteredEvaluations.filter((e) => {
-          const student = students.find((s) => s.uid === e.studentId);
+          const student = students.find((s) => s.uid === e.user_id);
           return student?.class === filters.selectedClass && student?.section === section;
         });
 
@@ -308,12 +307,12 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
   const studentListData = useMemo(() => {
     return filteredStudents
       .map((student) => {
-        const studentEvals = filteredEvaluations.filter((e) => e.studentId === student.uid);
+        const studentEvals = filteredEvaluations.filter((e) => e.user_id === student.uid);
         const avgScore = studentEvals.length > 0 ? studentEvals.reduce((sum, e) => sum + e.score, 0) / studentEvals.length : 0;
 
         return {
           uid: student.uid,
-          name: student.displayName,
+          name: student.display_name,
           class: student.class || '-',
           section: student.section || '-',
           rollNo: student.rollNo || '-',
@@ -331,7 +330,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     const dayMap: Record<string, { completed: number; failed: number }> = {};
 
     filteredEvaluations.forEach((evaluation) => {
-      const date = evaluation.createdAt?.toDate?.() || new Date(evaluation.createdAt);
+      const date = evaluation.created_at?.toDate?.() || new Date(evaluation.created_at);
       const dayKey = date.toLocaleDateString('en-US');
 
       if (!dayMap[dayKey]) {
@@ -630,7 +629,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
   const renderStudentView = () => {
     const selectedStudent = students.find((s) => s.uid === filters.selectedStudent);
-    const studentEvals = filteredEvaluations.filter((e) => e.studentId === filters.selectedStudent);
+    const studentEvals = filteredEvaluations.filter((e) => e.user_id === filters.selectedStudent);
     const avgScore = studentEvals.length > 0 ? studentEvals.reduce((sum, e) => sum + e.score, 0) / studentEvals.length : 0;
 
     return (
@@ -667,7 +666,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
             {/* Student Info */}
             <Card variant="elevated" padding="lg">
-              <CardHeader title={`${selectedStudent.displayName}'s Profile`} subtitle={`${selectedStudent.class}-${selectedStudent.section} (Roll No: ${selectedStudent.rollNo})`} />
+              <CardHeader title={`${selectedStudent.display_name}'s Profile`} subtitle={`${selectedStudent.class}-${selectedStudent.section} (Roll No: ${selectedStudent.rollNo})`} />
               <CardBody>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -693,7 +692,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                         <div>
                           <p className="font-medium text-gray-900">Test ID: {evaluation.testId.substring(0, 8)}...</p>
                           <p className="text-sm text-gray-600">
-                            {evaluation.createdAt?.toDate?.()?.toLocaleDateString() || new Date(evaluation.createdAt).toLocaleDateString()}
+                            {evaluation.created_at?.toDate?.()?.toLocaleDateString() || new Date(evaluation.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right">
@@ -814,7 +813,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                     <option value="">Select Student</option>
                     {filteredStudents.map((student) => (
                       <option key={student.uid} value={student.uid}>
-                        {student.displayName}
+                        {student.display_name}
                       </option>
                     ))}
                   </select>
@@ -855,7 +854,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                   )}
                   {filters.selectedStudent && (
                     <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                      {students.find((s) => s.uid === filters.selectedStudent)?.displayName}
+                      {students.find((s) => s.uid === filters.selectedStudent)?.display_name}
                     </span>
                   )}
                   <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { db } from '@/lib/firebase.client';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -107,8 +106,8 @@ const getFilteredStudents = (
     filtered = filtered.filter(s => s.section === filters.sectionFilter);
   }
 
-  if (filters.studentId) {
-    filtered = filtered.filter(s => s.uid === filters.studentId);
+  if (filters.user_id) {
+    filtered = filtered.filter(s => s.uid === filters.user_id);
   }
 
   return filtered;
@@ -321,7 +320,7 @@ const SchoolView = ({ students, evaluations, filters }: SchoolViewProps) => {
                     {idx + 1}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{student.displayName}</p>
+                    <p className="font-medium text-gray-900">{student.display_name}</p>
                     <p className="text-xs text-gray-600">Class {student.class}{student.section}</p>
                   </div>
                 </div>
@@ -485,10 +484,10 @@ const ClassView = ({ students, evaluations, filters }: ClassViewProps) => {
                   <div key={student.uid} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-                        {student.displayName[0]}
+                        {student.display_name[0]}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{student.displayName}</p>
+                        <p className="font-medium text-gray-900">{student.display_name}</p>
                         <p className="text-xs text-gray-600">{student.email}</p>
                       </div>
                     </div>
@@ -567,10 +566,10 @@ const StudentView = ({ students, evaluations, filters }: StudentViewProps) => {
       >
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl">
-            {student.displayName[0]}
+            {student.display_name[0]}
           </div>
           <div>
-            <h2 className="text-3xl font-bold">{student.displayName}</h2>
+            <h2 className="text-3xl font-bold">{student.display_name}</h2>
             <p className="text-pink-100">Class {student.class}{student.section}</p>
           </div>
         </div>
@@ -642,8 +641,8 @@ const StudentView = ({ students, evaluations, filters }: StudentViewProps) => {
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {studentEvaluations
                 .sort((a, b) => {
-                  const aTime = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : (a.createdAt instanceof Date ? a.createdAt.getTime() : 0);
-                  const bTime = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : (b.createdAt instanceof Date ? b.createdAt.getTime() : 0);
+                  const aTime = a.created_at instanceof Timestamp ? a.created_at.toMillis() : (a.created_at instanceof Date ? a.created_at.getTime() : 0);
+                  const bTime = b.created_at instanceof Timestamp ? b.created_at.toMillis() : (b.created_at instanceof Date ? b.created_at.getTime() : 0);
                   return bTime - aTime;
                 })
                 .slice(0, 10)
@@ -705,7 +704,7 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
 
         // Fetch all students
         const studentsQuery = query(
-          collection(db, 'users'),
+          supabase.from('users'),
           where('institutionId', '==', institutionId),
           where('role', '==', 'student')
         );
@@ -719,7 +718,7 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
 
         // Fetch all evaluations
         const evaluationsQuery = query(
-          collection(db, 'evaluations'),
+          supabase.from('evaluations'),
           where('institutionId', '==', institutionId)
         );
         const evaluationsSnapshot = await getDocs(evaluationsQuery);
@@ -745,7 +744,7 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
     getFilteredStudents(students, { ...filters, viewLevel: 'student' })
       .map(s => ({
         id: s.uid,
-        name: s.displayName,
+        name: s.display_name,
         rollNo: s.email.split('@')[0],
         class: s.class || '',
         section: s.section || '',
