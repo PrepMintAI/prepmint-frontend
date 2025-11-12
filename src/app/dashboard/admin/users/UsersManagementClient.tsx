@@ -24,7 +24,7 @@ interface UserDocument extends FirestoreDocument {
 }
 
 export default function UsersManagementClient() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDocument | null>(null);
   const [resettingPassword, setResettingPassword] = useState<string | null>(null);
@@ -49,8 +49,20 @@ export default function UsersManagementClient() {
     realtime: true,
   });
 
-  // Check if current user is admin
-  if (user?.role !== 'admin') {
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if current user is admin or dev
+  if (user?.role !== 'admin' && user?.role !== 'dev') {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start gap-3">
@@ -58,7 +70,7 @@ export default function UsersManagementClient() {
           <div>
             <h3 className="font-semibold text-red-900">Access Denied</h3>
             <p className="text-sm text-red-700 mt-1">
-              You don&apos;t have permission to access this page.
+              You don&apos;t have permission to access this page. Current role: {user?.role || 'none'}
             </p>
           </div>
         </div>
