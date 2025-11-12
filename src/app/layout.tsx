@@ -1,8 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/context/AuthContext";
-import { FirestoreProvider } from "@/context/FirestoreProvider";
-import FirestoreErrorBoundary from "@/components/errors/FirestoreErrorBoundary";
 import "./globals.css";
 
 // Temporarily disabled Google Fonts due to network issues
@@ -53,13 +51,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased font-sans">
-        <FirestoreErrorBoundary>
-          <FirestoreProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </FirestoreProvider>
-        </FirestoreErrorBoundary>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,7 +1,8 @@
 // src/lib/firebase.client.ts
 'use client';
+
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
 import {
   getFirestore,
   initializeFirestore,
@@ -9,6 +10,7 @@ import {
   persistentMultipleTabManager,
   Firestore,
   CACHE_SIZE_UNLIMITED,
+  connectFirestoreEmulator,
 } from 'firebase/firestore';
 import { logger } from '@/lib/logger';
 
@@ -21,209 +23,220 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
 
-// Debug: Check if config is loaded
-logger.log('[Firebase Client] Config loaded:', {
-  apiKey: firebaseConfig.apiKey ? '✓ Set' : '✗ Missing',
-  authDomain: firebaseConfig.authDomain ? '✓ Set' : '✗ Missing',
-  projectId: firebaseConfig.projectId ? '✓ Set' : '✗ Missing',
-  storageBucket: firebaseConfig.storageBucket ? '✓ Set' : '✗ Missing',
-  messagingSenderId: firebaseConfig.messagingSenderId ? '✓ Set' : '✗ Missing',
-  appId: firebaseConfig.appId ? '✓ Set' : '✗ Missing',
-});
-
-// Check if any required config is missing
+// Validate configuration
 const missingConfig = Object.entries(firebaseConfig).filter(([_, value]) => !value);
 if (missingConfig.length > 0) {
-  logger.error('[Firebase Client] Missing configuration:', missingConfig.map(([key]) => key));
-  throw new Error(`Firebase configuration is incomplete. Missing: ${missingConfig.map(([key]) => key).join(', ')}`);
+  const missing = missingConfig.map(([key]) => key).join(', ');
+  logger.error('[Firebase Client] Missing configuration:', missing);
+  throw new Error(`Firebase configuration is incomplete. Missing: ${missing}`);
 }
 
-// Initialize Firebase App (singleton)
+logger.log('[Firebase Client] Config validated successfully');
+
+// =============================================================================
+// SINGLE APP INITIALIZATION
+// =============================================================================
+
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
-let dbInitializationPromise: Promise<Firestore> | null = null;
 
-// Initialize app immediately (only on client side)
+/**
+ * Initialize Firebase (client-side only)
+ * This ensures:
+ * - Single app instance (verified with getApps().length)
+ * - Auth and Firestore share the same app
+ * - Firestore uses IndexedDB persistence with multi-tab sync
+ * - Proper error recovery for corrupted cache
+ */
+function initializeFirebase(): void {
+  // Server-side: do nothing
+  if (typeof window === 'undefined') {
+    logger.log('[Firebase Client] Server-side detected, skipping initialization');
+    return;
+  }
+
+  // Already initialized: return early
+  if (app && auth && db) {
+    logger.log('[Firebase Client] Already initialized');
+    return;
+  }
+
+  try {
+    // Step 1: Initialize App (or get existing)
+    const apps = getApps();
+    logger.log(`[Firebase Client] Existing apps: ${apps.length}`);
+
+    if (apps.length === 0) {
+      app = initializeApp(firebaseConfig);
+      logger.log('[Firebase Client] ✓ App initialized');
+    } else {
+      app = getApp();
+      logger.log('[Firebase Client] ✓ Using existing app');
+    }
+
+    // Verify single app instance
+    const finalApps = getApps();
+    if (finalApps.length !== 1) {
+      logger.error(`[Firebase Client] ERROR: Expected 1 app, found ${finalApps.length}`);
+      throw new Error(`Multiple Firebase apps detected: ${finalApps.length}`);
+    }
+
+    // Step 2: Initialize Auth (from the same app)
+    if (!auth) {
+      auth = getAuth(app);
+      logger.log('[Firebase Client] ✓ Auth initialized');
+
+      // Connect to emulator if in development
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+        connectAuthEmulator(auth, 'http://localhost:9099');
+        logger.log('[Firebase Client] ✓ Auth emulator connected');
+      }
+    }
+
+    // Step 3: Initialize Firestore (from the same app)
+    if (!db) {
+      try {
+        // Try to initialize with persistence settings
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+            cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+          }),
+        });
+        logger.log('[Firebase Client] ✓ Firestore initialized with persistence');
+        logger.log('[Firebase Client] ✓ Multi-tab synchronization enabled');
+
+        // Connect to emulator if in development
+        if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+          connectFirestoreEmulator(db, 'localhost', 8080);
+          logger.log('[Firebase Client] ✓ Firestore emulator connected');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // If already initialized, get existing instance
+        if (errorMessage.includes('already been started') || errorMessage.includes('Cannot call')) {
+          logger.log('[Firebase Client] Firestore already started, using getFirestore()');
+          db = getFirestore(app);
+          logger.log('[Firebase Client] ✓ Firestore instance retrieved');
+        } else {
+          // For other errors, log and rethrow
+          logger.error('[Firebase Client] Failed to initialize Firestore:', error);
+          throw error;
+        }
+      }
+    }
+
+    logger.log('[Firebase Client] ========================================');
+    logger.log('[Firebase Client] Firebase initialization complete');
+    logger.log('[Firebase Client] App instances:', getApps().length);
+    logger.log('[Firebase Client] Auth ready:', !!auth);
+    logger.log('[Firebase Client] Firestore ready:', !!db);
+    logger.log('[Firebase Client] ========================================');
+
+  } catch (error) {
+    logger.error('[Firebase Client] Initialization failed:', error);
+
+    // Check if it's a persistence error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isPersistenceError =
+      errorMessage.includes('persistence') ||
+      errorMessage.includes('IndexedDB') ||
+      errorMessage.includes('quota') ||
+      errorMessage.includes('storage');
+
+    if (isPersistenceError) {
+      logger.error('[Firebase Client] Persistence error detected - attempting recovery');
+      clearFirestoreCache()
+        .then(() => {
+          logger.log('[Firebase Client] Cache cleared, reloading page...');
+          window.location.reload();
+        })
+        .catch((clearError) => {
+          logger.error('[Firebase Client] Failed to clear cache:', clearError);
+          throw error;
+        });
+    } else {
+      throw error;
+    }
+  }
+}
+
+/**
+ * Clear Firestore IndexedDB cache
+ * Use this when persistence errors occur
+ */
+export async function clearFirestoreCache(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    logger.log('[Firebase Client] Clearing Firestore cache...');
+
+    // Clear IndexedDB databases
+    if ('indexedDB' in window) {
+      const databases = await window.indexedDB.databases();
+
+      for (const dbInfo of databases) {
+        if (dbInfo.name?.includes('firestore') || dbInfo.name?.includes('firebase')) {
+          await new Promise<void>((resolve, reject) => {
+            const request = window.indexedDB.deleteDatabase(dbInfo.name!);
+            request.onsuccess = () => {
+              logger.log(`[Firebase Client] Deleted database: ${dbInfo.name}`);
+              resolve();
+            };
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => {
+              logger.warn(`[Firebase Client] Delete blocked for: ${dbInfo.name}`);
+              resolve(); // Continue anyway
+            };
+          });
+        }
+      }
+    }
+
+    // Clear localStorage
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('firebase') || key.includes('firestore'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    logger.log(`[Firebase Client] Cache cleared (${keysToRemove.length} localStorage keys removed)`);
+  } catch (error) {
+    logger.error('[Firebase Client] Failed to clear cache:', error);
+    throw error;
+  }
+}
+
+// =============================================================================
+// INITIALIZE IMMEDIATELY (client-side only)
+// =============================================================================
+
 if (typeof window !== 'undefined') {
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  logger.log('[Firebase Client] App and Auth initialized');
-} else {
-  logger.log('[Firebase Client] Server-side, skipping initialization');
+  initializeFirebase();
 }
 
-/**
- * Initialize Firestore with proper persistence settings
- * This function ensures:
- * - Single initialization
- * - Proper IndexedDB persistence
- * - Multi-tab synchronization
- * - Error recovery
- */
-async function initializeFirestoreInstance(): Promise<Firestore> {
-  // Return existing instance if already initialized
-  if (db) {
-    return db;
-  }
+// =============================================================================
+// EXPORTS
+// =============================================================================
 
-  // Return existing promise if initialization is in progress
-  if (dbInitializationPromise) {
-    return dbInitializationPromise;
-  }
+// Export typed non-null versions for components
+// These are safe because initialization happens synchronously on module load (client-side)
+// On server-side, components should never import these (they're client-only)
+export const authInstance = auth!;
+export const appInstance = app!;
+export const dbInstance = db!;
 
-  // Server-side: throw error
-  if (typeof window === 'undefined' || !app) {
-    throw new Error('[Firebase Client] Cannot initialize Firestore on server side');
-  }
+// Export with simple names for convenience (same as typed versions)
+export { authInstance as auth, appInstance as app, dbInstance as db };
 
-  // Create new initialization promise
-  dbInitializationPromise = (async () => {
-    try {
-      logger.log('[Firebase Client] Initializing Firestore with persistence...');
+// Export helper function for re-initialization
+export { initializeFirebase };
 
-      // Check if Firestore is already initialized
-      try {
-        const existingDb = getFirestore(app);
-        if (existingDb) {
-          logger.log('[Firebase Client] Using existing Firestore instance');
-          db = existingDb;
-          return existingDb;
-        }
-      } catch (e) {
-        // Firestore not initialized yet, proceed with initializeFirestore
-      }
-
-      // Initialize Firestore with persistence settings
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager(),
-          cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-        }),
-      });
-
-      logger.log('[Firebase Client] Firestore initialized with persistent cache');
-      logger.log('[Firebase Client] Multi-tab synchronization: enabled');
-
-      return db;
-    } catch (error) {
-      logger.error('[Firebase Client] Failed to initialize Firestore:', error);
-
-      // Check if it's a "Firestore has already been started" error
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('already been started') || errorMessage.includes('Cannot call')) {
-        logger.log('[Firebase Client] Firestore already initialized, using getFirestore');
-        try {
-          db = getFirestore(app);
-          return db;
-        } catch (getFsError) {
-          logger.error('[Firebase Client] Failed to get existing Firestore:', getFsError);
-          throw getFsError;
-        }
-      }
-
-      // For other errors, try fallback without persistence
-      logger.log('[Firebase Client] Attempting fallback without persistence...');
-      try {
-        db = getFirestore(app);
-        logger.log('[Firebase Client] Firestore initialized (fallback mode)');
-        return db;
-      } catch (fallbackError) {
-        logger.error('[Firebase Client] Fallback initialization failed:', fallbackError);
-        throw fallbackError;
-      }
-    } finally {
-      dbInitializationPromise = null;
-    }
-  })();
-
-  return dbInitializationPromise;
-}
-
-/**
- * Get Firestore instance (for provider)
- * This is the main function to be used by the FirestoreProvider
- */
-export async function getFirestoreInstance(): Promise<Firestore> {
-  return initializeFirestoreInstance();
-}
-
-/**
- * Get Firestore instance (synchronous - for backward compatibility)
- * WARNING: This may return null if Firestore hasn't been initialized yet
- * Prefer using useFirestore hook from FirestoreProvider
- */
-export function getFirestoreSync(): Firestore | null {
-  if (!db) {
-    logger.warn('[Firebase Client] Firestore not initialized yet. Initializing synchronously...');
-    // Server-side check
-    if (typeof window === 'undefined' || !app) {
-      logger.error('[Firebase Client] Cannot get Firestore on server-side or when app is null');
-      return null;
-    }
-    // Try to get existing instance
-    try {
-      db = getFirestore(app);
-    } catch (e) {
-      logger.error('[Firebase Client] Failed to get Firestore synchronously:', e);
-      return null;
-    }
-  }
-  return db;
-}
-
-// Export app and auth with type assertions
-// These are safe for client components since they check typeof window !== 'undefined'
-// The null types are only for server-side safety, but client components always have these initialized
-export { app, auth };
-
-// Also export typed versions for components that need non-null guarantees
-export const authInstance = auth as Auth;
-export const appInstance = app as FirebaseApp;
-
-// For backward compatibility, trigger initialization immediately on client
-if (typeof window !== 'undefined' && app) {
-  initializeFirestoreInstance().catch((err) => {
-    logger.error('[Firebase Client] Auto-initialization failed:', err);
-  });
-}
-
-// Create a Proxy for db that directly accesses the module-level db variable
-// This maintains backward compatibility while supporting the new architecture
-// On server-side, returns a dummy object to prevent build errors
-const dbProxy = new Proxy({} as Firestore, {
-  get(target, prop) {
-    // Server-side: return dummy to allow builds
-    if (typeof window === 'undefined') {
-      return () => {};
-    }
-
-    // Directly access the module-level db variable
-    if (!db) {
-      // Try one more time to get it - use getFirestore which will return existing instance
-      try {
-        if (app) {
-          db = getFirestore(app);
-          logger.log('[Firebase Client Proxy] Got Firestore instance on-demand');
-        }
-      } catch (e) {
-        // If getFirestore fails, it means Firestore truly isn't available
-        logger.error('[Firebase Client Proxy] Failed to get Firestore:', e);
-        // Return a dummy to prevent crash - the actual Firestore operation will fail gracefully
-        return undefined;
-      }
-    }
-
-    if (!db) {
-      logger.warn('[Firebase Client Proxy] Firestore still null after retry, returning undefined for:', prop);
-      return undefined;
-    }
-
-    return (db as any)[prop];
-  },
-});
-
-export { dbProxy as db };
-
-logger.log('[Firebase Client] Module initialized successfully');
-
+logger.log('[Firebase Client] Module loaded');

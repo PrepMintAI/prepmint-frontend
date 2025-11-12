@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { authInstance as auth, db } from '@/lib/firebase.client';
+import { authInstance as auth, db, clearFirestoreCache } from '@/lib/firebase.client';
 import Cookies from 'js-cookie';
 import { logger } from '@/lib/logger';
 
@@ -117,6 +117,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             sameSite: 'lax'
           });
 
+          // Check if Firestore is ready
+          if (!db) {
+            logger.error('[AuthContext] Firestore not initialized yet');
+            throw new Error('Firestore not initialized');
+          }
+
           // Fetch Firestore profile
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userDocRef);
@@ -154,7 +160,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           logger.error('[AuthContext] ERROR: Failed to load user profile from Firestore:', error);
           logger.error('[AuthContext] Error details:', error instanceof Error ? error.message : 'Unknown error');
 
-          // Keep user signed in with basic Firebase Auth data
+          // Check if it's a persistence/cache error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const isCacheError =
+            errorMessage.includes('persistence') ||
+            errorMessage.includes('IndexedDB') ||
+            errorMessage.includes('quota') ||
+            errorMessage.includes('not initialized') ||
+            errorMessage.includes('INTERNAL ASSERTION');
+
+          if (isCacheError) {
+            logger.error('[AuthContext] Cache error detected - clearing Firestore cache');
+
+            // Clear cache and reload
+            clearFirestoreCache()
+              .then(() => {
+                logger.log('[AuthContext] Cache cleared, reloading...');
+                alert(
+                  'A database synchronization issue was detected.\n\n' +
+                  'The page will reload to fix this. Please log in again.'
+                );
+                setTimeout(() => window.location.reload(), 1000);
+              })
+              .catch((clearError) => {
+                logger.error('[AuthContext] Failed to clear cache:', clearError);
+                // Still keep user signed in with basic data
+                setUser({
+                  uid: currentUser.uid,
+                  email: currentUser.email,
+                  emailVerified: currentUser.emailVerified,
+                  displayName: currentUser.displayName,
+                  photoURL: currentUser.photoURL,
+                });
+                setFirebaseUser(currentUser);
+                setLoading(false);
+              });
+            return; // Don't set loading to false yet - page will reload
+          }
+
+          // For non-cache errors, keep user signed in with basic Firebase Auth data
           // This prevents infinite login loops
           setUser({
             uid: currentUser.uid,
