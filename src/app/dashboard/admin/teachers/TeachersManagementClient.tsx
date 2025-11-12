@@ -4,22 +4,21 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, AlertCircle } from 'lucide-react';
-import { where } from 'firebase/firestore';
 import TableManager, { ColumnDef } from '@/components/admin/TableManager';
 import UserFormModal, { UserFormData } from '@/components/admin/UserFormModal';
-import { useFirestoreCRUD, FirestoreDocument } from '@/hooks/useFirestoreCRUD';
+import { useSupabaseCRUD, SupabaseDocument } from '@/hooks/useSupabaseCRUD';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/context/AuthContext';
 
-interface TeacherDocument extends FirestoreDocument {
+interface TeacherDocument extends SupabaseDocument {
   email: string;
-  displayName: string;
+  display_name: string;
   role: 'teacher';
-  institutionId?: string;
+  institution_id?: string;
   subjects?: string[];
-  yearsOfExperience?: number;
+  years_of_experience?: number;
   classes?: string[];
-  createdAt: any;
+  created_at: string;
 }
 
 export default function TeachersManagementClient() {
@@ -38,13 +37,13 @@ export default function TeachersManagementClient() {
     loadMore,
     refresh,
     search,
-  } = useFirestoreCRUD<TeacherDocument>({
-    collectionName: 'users',
+  } = useSupabaseCRUD<TeacherDocument>({
+    tableName: 'users',
     pageSize: 20,
-    orderByField: 'createdAt',
+    orderByField: 'created_at',
     orderDirection: 'desc',
     realtime: true,
-    filters: [where('role', '==', 'teacher')],
+    filters: [{ column: 'role', operator: 'eq', value: 'teacher' }],
   });
 
   // Show loading while auth is loading
@@ -78,7 +77,7 @@ export default function TeachersManagementClient() {
 
   const columns: ColumnDef<TeacherDocument>[] = [
     {
-      key: 'displayName',
+      key: 'display_name',
       label: 'Name',
       sortable: true,
       render: (value, row) => (
@@ -135,7 +134,7 @@ export default function TeachersManagementClient() {
       ),
     },
     {
-      key: 'yearsOfExperience',
+      key: 'years_of_experience',
       label: 'Experience',
       sortable: true,
       render: (value) => (
@@ -145,7 +144,7 @@ export default function TeachersManagementClient() {
       ),
     },
     {
-      key: 'institutionId',
+      key: 'institution_id',
       label: 'Institution',
       render: (value) => (
         <span className="text-sm text-gray-600">{value || 'Individual'}</span>
@@ -159,12 +158,12 @@ export default function TeachersManagementClient() {
   };
 
   const handleDelete = async (row: TeacherDocument) => {
-    if (!confirm(`Are you sure you want to delete ${row.displayName}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${row.display_name}?`)) return;
 
     try {
       await deleteDocument(row.id);
 
-      // Also delete from Firebase Auth
+      // Also delete from Supabase Auth
       await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,12 +184,12 @@ export default function TeachersManagementClient() {
     try {
       if (editingTeacher) {
         const updateData: any = {
-          displayName: data.displayName,
+          display_name: data.displayName,
         };
 
-        // Only include institutionId if it has a value
+        // Only include institution_id if it has a value
         if (data.institutionId) {
-          updateData.institutionId = data.institutionId;
+          updateData.institution_id = data.institutionId;
         }
 
         await updateDocument(editingTeacher.id, updateData);
@@ -221,13 +220,13 @@ export default function TeachersManagementClient() {
     const csv = [
       ['Name', 'Email', 'Subjects', 'Classes', 'Experience', 'Institution', 'Created'],
       ...teachers.map((t) => [
-        t.displayName,
+        t.display_name,
         t.email,
         Array.isArray(t.subjects) ? t.subjects.join('; ') : '',
         Array.isArray(t.classes) ? t.classes.join('; ') : '',
-        t.yearsOfExperience || '',
-        t.institutionId || '',
-        t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString() : '',
+        t.years_of_experience || '',
+        t.institution_id || '',
+        t.created_at ? new Date(t.created_at).toLocaleDateString() : '',
       ]),
     ]
       .map((row) => row.join(','))
@@ -268,8 +267,8 @@ export default function TeachersManagementClient() {
           { label: 'Total Teachers', value: teachers.length },
           {
             label: 'Avg Experience',
-            value: teachers.filter(t => t.yearsOfExperience).length > 0
-              ? `${Math.round(teachers.reduce((sum, t) => sum + (t.yearsOfExperience || 0), 0) / teachers.filter(t => t.yearsOfExperience).length)} yrs`
+            value: teachers.filter(t => t.years_of_experience).length > 0
+              ? `${Math.round(teachers.reduce((sum, t) => sum + (t.years_of_experience || 0), 0) / teachers.filter(t => t.years_of_experience).length)} yrs`
               : 'N/A'
           },
           {
@@ -313,7 +312,7 @@ export default function TeachersManagementClient() {
           onBulkDelete={bulkDelete}
           onExport={handleExport}
           onRefresh={refresh}
-          onSearch={(term) => search(term, ['displayName', 'email'])}
+          onSearch={(term) => search(term, ['display_name', 'email'])}
           onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}
