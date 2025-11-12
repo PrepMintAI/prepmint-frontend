@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { authInstance as auth } from '@/lib/firebase.client';
-import { sendEmailVerification } from 'firebase/auth';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Mail, RefreshCw } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -18,9 +17,13 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     // Get user email on client-side only
-    if (typeof window !== 'undefined' && auth.currentUser) {
-      setUserEmail(auth.currentUser.email);
-    }
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || null);
+      }
+    };
+    getUser();
   }, []);
 
   useEffect(() => {
@@ -32,21 +35,22 @@ export default function VerifyEmailPage() {
   }, [countdown]);
 
   const handleResendEmail = async () => {
-    if (loading || countdown > 0) return;
-
-    const user = auth.currentUser;
-    if (!user) {
-      setResendStatus('error');
-      return;
-    }
+    if (loading || countdown > 0 || !userEmail) return;
 
     setLoading(true);
     setResendStatus('idle');
 
     try {
-      await sendEmailVerification(user);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: userEmail,
+      });
+
+      if (error) throw error;
+
       setResendStatus('success');
       setCountdown(60); // 60 second cooldown
+      logger.log('[VerifyEmail] Verification email resent to:', userEmail);
     } catch (error) {
       logger.error('[VerifyEmail] Error resending email:', error);
       setResendStatus('error');
@@ -56,36 +60,31 @@ export default function VerifyEmailPage() {
   };
 
   const handleCheckVerification = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
     setChecking(true);
 
     try {
-      // Reload user to get latest emailVerified status
-      await user.reload();
+      // Get fresh user data from Supabase
+      const { data: { user }, error } = await supabase.auth.getUser();
 
-      if (user.emailVerified) {
-        // Email is verified, create session and redirect to dashboard
-        const idToken = await user.getIdToken(true);
+      if (error || !user) {
+        router.push('/login');
+        return;
+      }
 
-        const response = await fetch('/api/auth/session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ idToken }),
-        });
+      // Check if email is verified
+      if (user.email_confirmed_at) {
+        // Email is verified, get user role and redirect
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single<{ role: string }>();
 
-        if (response.ok) {
-          const data = await response.json();
-          router.push(`/dashboard/${data.role}`);
-        } else {
-          throw new Error('Failed to create session');
-        }
+        const role = profile?.role || 'student';
+        const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
+
+        logger.log('[VerifyEmail] Email verified, redirecting to:', dashboardPath);
+        router.push(dashboardPath);
       } else {
         // Not verified yet
         setResendStatus('error');

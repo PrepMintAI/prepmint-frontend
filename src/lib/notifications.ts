@@ -1,40 +1,30 @@
 'use client';
 
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  writeBatch,
-  onSnapshot,
-  Query,
-  QueryConstraint,
-  Unsubscribe,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from './firebase.client';
+import { supabase } from './supabase/client';
 import { logger } from './logger';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
- * Notification interface representing a user notification in Firestore
+ * Notification interface representing a user notification in Supabase
  */
 export interface Notification {
   id: string;
-  userId: string;
-  senderId?: string;
-  senderName?: string;
-  senderRole?: string;
+  user_id: string;
+  userId: string; // Backward compatibility
+  sender_id?: string;
+  senderId?: string; // Backward compatibility
+  sender_name?: string;
+  senderName?: string; // Backward compatibility
+  sender_role?: string;
+  senderRole?: string; // Backward compatibility
   type: 'evaluation' | 'badge' | 'announcement' | 'reminder' | 'message' | 'info' | 'warning' | 'error';
   title: string;
   message: string;
   read: boolean;
-  createdAt: Timestamp | Date;
-  actionUrl?: string;
+  created_at: string; // ISO string timestamp
+  createdAt: string | Date; // Backward compatibility
+  action_url?: string;
+  actionUrl?: string; // Backward compatibility
   metadata?: Record<string, unknown>;
 }
 
@@ -57,6 +47,32 @@ export type NotificationCallback = (notifications: Notification[]) => void;
 export type NotificationErrorCallback = (error: Error) => void;
 
 /**
+ * Convert database row to Notification with backward compatibility
+ */
+function mapNotification(row: any): Notification {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    userId: row.user_id, // Backward compatibility
+    sender_id: row.sender_id,
+    senderId: row.sender_id, // Backward compatibility
+    sender_name: row.sender_name,
+    senderName: row.sender_name, // Backward compatibility
+    sender_role: row.sender_role,
+    senderRole: row.sender_role, // Backward compatibility
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    read: row.read,
+    created_at: row.created_at,
+    createdAt: row.created_at, // Backward compatibility
+    action_url: row.action_url,
+    actionUrl: row.action_url, // Backward compatibility
+    metadata: row.metadata,
+  };
+}
+
+/**
  * Fetch notifications for a specific user
  *
  * @param userId - The user ID to fetch notifications for
@@ -73,33 +89,22 @@ export async function fetchNotifications(
   try {
     const { limit: notificationLimit = 50, unreadOnly = false } = options;
 
-    const constraints: QueryConstraint[] = [
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
-    ];
+    let query = supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(notificationLimit);
 
     if (unreadOnly) {
-      constraints.push(where('read', '==', false));
+      query = query.eq('read', false);
     }
 
-    constraints.push(limit(notificationLimit));
+    const { data, error } = await query;
 
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      ...constraints
-    );
+    if (error) throw error;
 
-    const querySnapshot = await getDocs(notificationsQuery);
-    const notifications: Notification[] = [];
-
-    querySnapshot.forEach((doc) => {
-      notifications.push({
-        id: doc.id,
-        ...(doc.data() as Omit<Notification, 'id'>),
-      });
-    });
-
-    return notifications;
+    return (data || []).map(mapNotification);
   } catch (error) {
     logger.error('fetchNotifications - Error fetching notifications:', error);
     throw new Error(
@@ -119,11 +124,15 @@ export async function fetchNotifications(
  */
 export async function markAsRead(notificationId: string): Promise<void> {
   try {
-    const notificationRef = doc(db, 'notifications', notificationId);
-    await updateDoc(notificationRef, {
-      read: true,
-      updatedAt: Timestamp.now(),
-    });
+    const { error } = await supabase
+      .from('notifications')
+      .update({
+        read: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', notificationId);
+
+    if (error) throw error;
   } catch (error) {
     logger.error('markAsRead - Error marking notification as read:', error);
     throw new Error(
@@ -144,31 +153,19 @@ export async function markAsRead(notificationId: string): Promise<void> {
  */
 export async function markAllAsRead(userId: string): Promise<number> {
   try {
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('read', '==', false)
-    );
-
-    const querySnapshot = await getDocs(notificationsQuery);
-
-    if (querySnapshot.empty) {
-      return 0;
-    }
-
-    const batch = writeBatch(db);
-    let updateCount = 0;
-
-    querySnapshot.forEach((doc) => {
-      batch.update(doc.ref, {
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({
         read: true,
-        updatedAt: Timestamp.now(),
-      });
-      updateCount++;
-    });
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('read', false)
+      .select();
 
-    await batch.commit();
-    return updateCount;
+    if (error) throw error;
+
+    return data?.length || 0;
   } catch (error) {
     logger.error('markAllAsRead - Error marking all notifications as read:', error);
     throw new Error(
@@ -188,8 +185,12 @@ export async function markAllAsRead(userId: string): Promise<number> {
  */
 export async function deleteNotification(notificationId: string): Promise<void> {
   try {
-    const notificationRef = doc(db, 'notifications', notificationId);
-    await deleteDoc(notificationRef);
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId);
+
+    if (error) throw error;
   } catch (error) {
     logger.error('deleteNotification - Error deleting notification:', error);
     throw new Error(
@@ -215,17 +216,15 @@ export async function deleteMultipleNotifications(
       return 0;
     }
 
-    const batch = writeBatch(db);
-    let deleteCount = 0;
+    const { data, error } = await supabase
+      .from('notifications')
+      .delete()
+      .in('id', notificationIds)
+      .select();
 
-    notificationIds.forEach((id) => {
-      const notificationRef = doc(db, 'notifications', id);
-      batch.delete(notificationRef);
-      deleteCount++;
-    });
+    if (error) throw error;
 
-    await batch.commit();
-    return deleteCount;
+    return data?.length || 0;
   } catch (error) {
     logger.error('deleteMultipleNotifications - Error deleting notifications:', error);
     throw new Error(
@@ -237,7 +236,7 @@ export async function deleteMultipleNotifications(
 /**
  * Subscribe to real-time notifications for a specific user
  *
- * Uses Firebase's onSnapshot to provide real-time updates whenever notifications change.
+ * Uses Supabase Realtime to provide real-time updates whenever notifications change.
  * This is useful for displaying live notification feeds with automatic updates.
  *
  * @param userId - The user ID to subscribe to
@@ -262,35 +261,39 @@ export function subscribeToNotifications(
   userId: string,
   callback: NotificationCallback,
   errorCallback?: NotificationErrorCallback
-): Unsubscribe {
+): () => void {
   try {
-    const notificationsQuery: Query = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
-    );
+    // Initial fetch
+    fetchNotifications(userId).then(callback).catch(errorCallback || (() => {}));
 
-    const unsubscribe = onSnapshot(
-      notificationsQuery,
-      (querySnapshot) => {
-        const notifications: Notification[] = [];
+    // Set up real-time subscription
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          // Re-fetch all notifications when any change occurs
+          try {
+            const notifications = await fetchNotifications(userId);
+            callback(notifications);
+          } catch (error) {
+            logger.error('subscribeToNotifications - Error in real-time callback:', error);
+            errorCallback?.(error as Error);
+          }
+        }
+      )
+      .subscribe();
 
-        querySnapshot.forEach((doc) => {
-          notifications.push({
-            id: doc.id,
-            ...(doc.data() as Omit<Notification, 'id'>),
-          });
-        });
-
-        callback(notifications);
-      },
-      (error) => {
-        logger.error('subscribeToNotifications - Subscription error:', error);
-        errorCallback?.(error as Error);
-      }
-    );
-
-    return unsubscribe;
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(channel);
+    };
   } catch (error) {
     logger.error('subscribeToNotifications - Error setting up subscription:', error);
     throw new Error(
@@ -316,36 +319,41 @@ export function subscribeToUnreadNotifications(
   userId: string,
   callback: NotificationCallback,
   errorCallback?: NotificationErrorCallback
-): Unsubscribe {
+): () => void {
   try {
-    const notificationsQuery: Query = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('read', '==', false),
-      orderBy('createdAt', 'desc')
-    );
+    // Initial fetch
+    fetchNotifications(userId, { unreadOnly: true })
+      .then(callback)
+      .catch(errorCallback || (() => {}));
 
-    const unsubscribe = onSnapshot(
-      notificationsQuery,
-      (querySnapshot) => {
-        const notifications: Notification[] = [];
+    // Set up real-time subscription
+    const channel = supabase
+      .channel(`notifications_unread:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          // Re-fetch unread notifications when any change occurs
+          try {
+            const notifications = await fetchNotifications(userId, { unreadOnly: true });
+            callback(notifications);
+          } catch (error) {
+            logger.error('subscribeToUnreadNotifications - Error in real-time callback:', error);
+            errorCallback?.(error as Error);
+          }
+        }
+      )
+      .subscribe();
 
-        querySnapshot.forEach((doc) => {
-          notifications.push({
-            id: doc.id,
-            ...(doc.data() as Omit<Notification, 'id'>),
-          });
-        });
-
-        callback(notifications);
-      },
-      (error) => {
-        logger.error('subscribeToUnreadNotifications - Subscription error:', error);
-        errorCallback?.(error as Error);
-      }
-    );
-
-    return unsubscribe;
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(channel);
+    };
   } catch (error) {
     logger.error('subscribeToUnreadNotifications - Error setting up subscription:', error);
     throw new Error(
@@ -366,14 +374,15 @@ export function subscribeToUnreadNotifications(
  */
 export async function getUnreadCount(userId: string): Promise<number> {
   try {
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('read', '==', false)
-    );
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('read', false);
 
-    const querySnapshot = await getDocs(notificationsQuery);
-    return querySnapshot.size;
+    if (error) throw error;
+
+    return count || 0;
   } catch (error) {
     logger.error('getUnreadCount - Error getting unread count:', error);
     throw new Error(
@@ -399,25 +408,17 @@ export async function getNotificationsByType(
   notificationLimit: number = 50
 ): Promise<Notification[]> {
   try {
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('type', '==', type),
-      orderBy('createdAt', 'desc'),
-      limit(notificationLimit)
-    );
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .order('created_at', { ascending: false })
+      .limit(notificationLimit);
 
-    const querySnapshot = await getDocs(notificationsQuery);
-    const notifications: Notification[] = [];
+    if (error) throw error;
 
-    querySnapshot.forEach((doc) => {
-      notifications.push({
-        id: doc.id,
-        ...(doc.data() as Omit<Notification, 'id'>),
-      });
-    });
-
-    return notifications;
+    return (data || []).map(mapNotification);
   } catch (error) {
     logger.error('getNotificationsByType - Error fetching notifications by type:', error);
     throw new Error(
@@ -438,27 +439,15 @@ export async function getNotificationsByType(
  */
 export async function clearAllNotifications(userId: string): Promise<number> {
   try {
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId)
-    );
+    const { data, error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId)
+      .select();
 
-    const querySnapshot = await getDocs(notificationsQuery);
+    if (error) throw error;
 
-    if (querySnapshot.empty) {
-      return 0;
-    }
-
-    const batch = writeBatch(db);
-    let deleteCount = 0;
-
-    querySnapshot.forEach((doc) => {
-      batch.delete(doc.ref);
-      deleteCount++;
-    });
-
-    await batch.commit();
-    return deleteCount;
+    return data?.length || 0;
   } catch (error) {
     logger.error('clearAllNotifications - Error clearing notifications:', error);
     throw new Error(
@@ -477,25 +466,30 @@ export async function clearAllNotifications(userId: string): Promise<number> {
  *
  * @example
  * const notificationId = await createNotification({
- *   userId: 'user123',
- *   senderId: 'sender456',
- *   senderName: 'John Doe',
- *   senderRole: 'teacher',
+ *   user_id: 'user123',
+ *   sender_id: 'sender456',
+ *   sender_name: 'John Doe',
+ *   sender_role: 'teacher',
  *   type: 'announcement',
  *   title: 'New Assignment',
  *   message: 'You have a new assignment',
  *   read: false,
- *   createdAt: Timestamp.now()
  * });
  */
 export async function createNotification(
-  notification: Omit<Notification, 'id'>
+  notification: Omit<Notification, 'id' | 'userId' | 'senderId' | 'senderName' | 'senderRole' | 'createdAt' | 'actionUrl'>
 ): Promise<string> {
   try {
-    const { addDoc } = await import('firebase/firestore');
-    const docRef = await addDoc(collection(db, 'notifications'), notification);
-    logger.log('Notification created:', docRef.id);
-    return docRef.id;
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([notification])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    logger.log('Notification created:', data.id);
+    return data.id;
   } catch (error) {
     logger.error('createNotification - Error creating notification:', error);
     throw new Error(
@@ -541,16 +535,16 @@ export async function sendNotificationToUser(
   metadata?: Record<string, unknown>
 ): Promise<string> {
   return createNotification({
-    userId,
-    senderId,
-    senderName,
-    senderRole,
+    user_id: userId,
+    sender_id: senderId,
+    sender_name: senderName,
+    sender_role: senderRole,
     type,
     title,
     message,
     read: false,
-    createdAt: Timestamp.now(),
-    actionUrl,
+    created_at: new Date().toISOString(),
+    action_url: actionUrl,
     metadata,
   });
 }
@@ -596,33 +590,29 @@ export async function sendBulkNotifications(
       return 0;
     }
 
-    const batch = writeBatch(db);
-    const notificationsRef = collection(db, 'notifications');
-    let count = 0;
+    const notifications = userIds.map(userId => ({
+      user_id: userId,
+      sender_id: senderId,
+      sender_name: senderName,
+      sender_role: senderRole,
+      type,
+      title,
+      message,
+      read: false,
+      created_at: new Date().toISOString(),
+      action_url: actionUrl,
+      metadata,
+    }));
 
-    for (const userId of userIds) {
-      const notificationData = {
-        userId,
-        senderId,
-        senderName,
-        senderRole,
-        type,
-        title,
-        message,
-        read: false,
-        createdAt: Timestamp.now(),
-        actionUrl,
-        metadata,
-      };
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert(notifications)
+      .select();
 
-      const docRef = doc(notificationsRef);
-      batch.set(docRef, notificationData);
-      count++;
-    }
+    if (error) throw error;
 
-    await batch.commit();
-    logger.log(`Bulk notifications sent: ${count} recipients`);
-    return count;
+    logger.log(`Bulk notifications sent: ${data?.length || 0} recipients`);
+    return data?.length || 0;
   } catch (error) {
     logger.error('sendBulkNotifications - Error sending bulk notifications:', error);
     throw new Error(
@@ -670,19 +660,20 @@ export async function sendInstitutionNotification(
   metadata?: Record<string, unknown>
 ): Promise<number> {
   try {
-    const usersRef = collection(db, 'users');
-    const constraints: QueryConstraint[] = [
-      where('institutionId', '==', institutionId)
-    ];
+    let query = supabase
+      .from('users')
+      .select('id')
+      .eq('institution_id', institutionId);
 
     if (targetRole) {
-      constraints.push(where('role', '==', targetRole));
+      query = query.eq('role', targetRole);
     }
 
-    const usersQuery = query(usersRef, ...constraints);
-    const usersSnapshot = await getDocs(usersQuery);
+    const { data: users, error } = await query;
 
-    const userIds = usersSnapshot.docs.map(doc => doc.id);
+    if (error) throw error;
+
+    const userIds = (users || []).map(user => user.id);
 
     return sendBulkNotifications(
       userIds,
@@ -740,11 +731,14 @@ export async function sendRoleNotification(
   metadata?: Record<string, unknown>
 ): Promise<number> {
   try {
-    const usersRef = collection(db, 'users');
-    const usersQuery = query(usersRef, where('role', '==', targetRole));
-    const usersSnapshot = await getDocs(usersQuery);
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', targetRole);
 
-    const userIds = usersSnapshot.docs.map(doc => doc.id);
+    if (error) throw error;
+
+    const userIds = (users || []).map(user => user.id);
 
     return sendBulkNotifications(
       userIds,
