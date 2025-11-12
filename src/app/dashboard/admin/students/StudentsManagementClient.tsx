@@ -292,6 +292,7 @@ export default function StudentsManagementClient() {
           onExport={handleExport}
           onRefresh={refresh}
           onSearch={(term) => search(term, ['displayName', 'email'])}
+          onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}
           enableImport={false}

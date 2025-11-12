@@ -401,6 +401,7 @@ export default function UsersManagementClient() {
           onImport={handleImport}
           onRefresh={refresh}
           onSearch={(term) => search(term, ['displayName', 'email'])}
+          onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}
         />
