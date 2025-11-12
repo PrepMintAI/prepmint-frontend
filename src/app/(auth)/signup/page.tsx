@@ -3,30 +3,30 @@
 
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendEmailVerification,
-} from 'firebase/auth';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { AuthError } from '@supabase/supabase-js';
 
-// Firebase error code mapping
-const getFirebaseErrorMessage = (errorCode: string): string => {
-  const errorMessages: Record<string, string> = {
-    'auth/email-already-in-use': 'This email is already registered. Try logging in instead.',
-    'auth/invalid-email': 'Please enter a valid email address.',
-    'auth/weak-password': 'Password is too weak. Use at least 8 characters with mixed case and numbers.',
-    'auth/operation-not-allowed': 'Sign up is currently disabled. Contact support.',
-    'auth/network-request-failed': 'Network error. Please check your connection and try again.',
-  };
-
-  return errorMessages[errorCode] || 'Sign up failed. Please try again.';
+// Supabase error code mapping
+const getSupabaseErrorMessage = (error: AuthError | Error): string => {
+  if ('status' in error) {
+    const authError = error as AuthError;
+    switch (authError.message) {
+      case 'User already registered':
+        return 'This email is already registered. Try logging in instead.';
+      case 'Password should be at least 6 characters':
+        return 'Password is too weak. Use at least 8 characters with mixed case and numbers.';
+      case 'Unable to validate email address: invalid format':
+        return 'Please enter a valid email address.';
+      case 'Signups not allowed for this instance':
+        return 'Sign up is currently disabled. Contact support.';
+      default:
+        return authError.message || 'Sign up failed. Please try again.';
+    }
+  }
+  return 'Sign up failed. Please try again.';
 };
 
 // Debounce hook
@@ -85,8 +85,6 @@ export default function SignupPage() {
 
   // Debounced institution code for validation
   const debouncedInstitutionCode = useDebounce(institutionCode, 500);
-
-  // REMOVED: onAuthStateChanged check - let server-side handle redirects
 
   // Validate name in real-time
   useEffect(() => {
@@ -161,17 +159,21 @@ export default function SignupPage() {
 
       try {
         logger.log('[Signup] Validating institution code:', debouncedInstitutionCode);
-        const instSnap = await getDoc(doc(db, 'institutions', debouncedInstitutionCode.trim()));
-        
-        if (instSnap.exists()) {
-          const instData = instSnap.data();
-          setInstitutionCodeStatus('valid');
-          setInstitutionName(instData.name || 'Institution');
-          logger.log('[Signup] Valid institution:', instData.name);
-        } else {
+
+        const { data, error } = await supabase
+          .from('institutions')
+          .select('id, name')
+          .eq('id', debouncedInstitutionCode.trim())
+          .single();
+
+        if (error || !data) {
           setInstitutionCodeStatus('invalid');
           setInstitutionCodeError('Invalid institution code');
           logger.log('[Signup] Invalid institution code');
+        } else {
+          setInstitutionCodeStatus('valid');
+          setInstitutionName(data.name || 'Institution');
+          logger.log('[Signup] Valid institution:', data.name);
         }
       } catch (err) {
         logger.error('[Signup] Institution validation error:', err);
@@ -272,55 +274,36 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      logger.log('[Signup] Creating user account...');
-      
-      // Step 1: Create Firebase Auth user
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      logger.log('[Signup] Auth user created:', cred.user.uid);
+      logger.log('[Signup] Creating user account with Supabase...');
 
-      // Step 2: Update display name
-      await updateProfile(cred.user, { displayName: name.trim() });
+      // Sign up with Supabase (auto-creates profile via database trigger)
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: name.trim(),
+            role: 'student',
+            account_type: mode,
+            institution_id: mode === 'institution' ? institutionCode.trim() : null,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-      // Step 3: Send email verification
-      logger.log('[Signup] Sending verification email...');
-      await sendEmailVerification(cred.user);
-      logger.log('[Signup] Verification email sent');
+      if (error) throw error;
 
-      // Step 4: Get ID token
-      const idToken = await cred.user.getIdToken(true);
+      logger.log('[Signup] Account created successfully! User:', data.user?.id);
+      logger.log('[Signup] Email verification sent, redirecting...');
 
-      // Step 5: Create Firestore user profile
-      const userProfile = {
-        uid: cred.user.uid,
-        email: cred.user.email,
-        displayName: name.trim(),
-        role: 'student', // Default role
-        xp: 0,
-        level: 1,
-        badges: [],
-        institutionId: mode === 'institution' ? institutionCode.trim() : null,
-        institutionName: mode === 'institution' ? institutionName : null,
-        accountType: mode,
-        photoURL: cred.user.photoURL || null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-      };
-
-      logger.log('[Signup] Creating Firestore profile...');
-      await setDoc(doc(db, 'users', cred.user.uid), userProfile);
-
-      logger.log('[Signup] Account created successfully! Redirecting to email verification...');
-
-      // Redirect to email verification page instead of dashboard
+      // Redirect to email verification page
       router.push('/verify-email');
-      
+
     } catch (e) {
       logger.error('[Signup] Signup error:', e);
-      const errorCode = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : '';
-      const errorMessage = getFirebaseErrorMessage(errorCode);
+      const errorMessage = getSupabaseErrorMessage(e as AuthError);
       setSubmitError(errorMessage);
-      
+
       // Clear passwords on error
       setPassword('');
       setConfirmPassword('');
@@ -330,74 +313,32 @@ export default function SignupPage() {
 
   const handleGoogleSignup = async () => {
     setSubmitError(null);
-    
+
     if (loading) return;
-    
+
     setLoading(true);
 
     try {
       logger.log('[Signup] Attempting Google signup...');
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      
-      // Get ID token
-      const idToken = await result.user.getIdToken();
-      
-      // Check if user profile exists
-      const userDocRef = doc(db, 'users', result.user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists()) {
-        // New user, create profile
-        const userProfile = {
-          uid: result.user.uid,
-          email: result.user.email,
-          displayName: result.user.displayName || '',
-          role: 'student',
-          xp: 0,
-          level: 1,
-          badges: [],
-          institutionId: null,
-          institutionName: null,
-          accountType: 'individual',
-          photoURL: result.user.photoURL || null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-        };
 
-        await setDoc(userDocRef, userProfile);
-      }
-      
-      // Create session cookie
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-        body: JSON.stringify({ idToken }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create session');
-      }
+      if (error) throw error;
 
-      const sessionData = await response.json();
-      router.push(`/dashboard/${sessionData.role}`);
-      
+      // OAuth will redirect automatically
+
     } catch (err) {
       logger.error('[Signup] Google signup error:', err);
-
-      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
-
-      if (errorCode === 'auth/popup-closed-by-user') {
-        setSubmitError('Sign-up cancelled. Please try again.');
-      } else if (errorCode === 'auth/popup-blocked') {
-        setSubmitError('Pop-up blocked. Please enable pop-ups for this site.');
-      } else {
-        setSubmitError(getFirebaseErrorMessage(errorCode));
-      }
-      
+      setSubmitError(getSupabaseErrorMessage(err as AuthError));
       setLoading(false);
     }
   };
@@ -416,20 +357,6 @@ export default function SignupPage() {
     exit: { opacity: 0, y: -10 },
     transition: { duration: 0.3 },
   };
-
-  // // Show loading state while checking auth or redirecting
-  // if (isCheckingAuth || isRedirecting) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617]">
-  //       <div className="flex flex-col items-center gap-4">
-  //         <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-  //         <p className="text-gray-300 text-sm">
-  //           {isRedirecting ? 'Creating your account...' : 'Loading...'}
-  //         </p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617] px-4 py-8">
@@ -536,7 +463,7 @@ export default function SignupPage() {
                 aria-required="true"
                 aria-invalid={!!(errors.name && touched.name)}
                 aria-describedby={errors.name && touched.name ? 'name-error' : undefined}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400
                   focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                   ${
                     errors.name && touched.name
@@ -574,7 +501,7 @@ export default function SignupPage() {
                 aria-required="true"
                 aria-invalid={!!(errors.email && touched.email)}
                 aria-describedby={errors.email && touched.email ? 'email-error' : undefined}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400
                   focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                   ${
                     errors.email && touched.email
@@ -613,7 +540,7 @@ export default function SignupPage() {
                   aria-required="true"
                   aria-invalid={!!(errors.password && touched.password)}
                   aria-describedby={errors.password && touched.password ? 'password-error' : 'password-hint'}
-                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400
                     focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                     ${
                       errors.password && touched.password
@@ -625,7 +552,7 @@ export default function SignupPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white
                     transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-1"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -676,7 +603,7 @@ export default function SignupPage() {
                   aria-required="true"
                   aria-invalid={!!(errors.confirmPassword && touched.confirmPassword)}
                   aria-describedby={errors.confirmPassword && touched.confirmPassword ? 'confirm-password-error' : undefined}
-                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400
                     focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                     ${
                       errors.confirmPassword && touched.confirmPassword
@@ -688,7 +615,7 @@ export default function SignupPage() {
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white
                     transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-1"
                   aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
@@ -751,7 +678,7 @@ export default function SignupPage() {
                             ? 'institution-code-valid'
                             : undefined
                         }
-                        className={`w-full px-4 py-3 pr-10 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                        className={`w-full px-4 py-3 pr-10 bg-white/5 border rounded-xl text-white placeholder-gray-400
                           focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                           ${
                             institutionCodeStatus === 'invalid'
@@ -857,7 +784,7 @@ export default function SignupPage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Creating Account...
+                Creating account...
               </span>
             ) : (
               'Sign Up'
@@ -879,12 +806,19 @@ export default function SignupPage() {
           onClick={handleGoogleSignup}
           disabled={loading}
           type="button"
-          className="w-full flex items-center justify-center gap-3 py-3 border border-white/20 bg-white/5 
-            text-white rounded-xl hover:bg-white/10 transition font-medium disabled:opacity-50 
+          className="w-full flex items-center justify-center gap-3 py-3 border border-white/20 bg-white/5
+            text-white rounded-xl hover:bg-white/10 transition font-medium disabled:opacity-50
             disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-400"
         >
-          <Image src="/google-icon.png" alt="" width={20} height={20} className="opacity-90" aria-hidden="true" />
-          Sign up with Google
+          <Image
+            src="/google-icon.png"
+            alt=""
+            width={20}
+            height={20}
+            className="opacity-90"
+            aria-hidden="true"
+          />
+          Continue with Google
         </motion.button>
 
         {/* Footer */}
@@ -893,6 +827,7 @@ export default function SignupPage() {
           <a
             href="/login"
             className="text-cyan-400 font-medium hover:text-cyan-300 hover:underline transition focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"
+            aria-label="Log in to your account"
           >
             Log in
           </a>

@@ -2,63 +2,57 @@
  * API Endpoint: Award Badge to User
  *
  * This endpoint awards a badge to a user with proper authentication and authorization.
- * Uses Firestore transactions to prevent duplicate badge awards from concurrent requests.
+ * Uses Supabase RPC functions to prevent duplicate badge awards from concurrent requests.
  *
  * SECURITY:
- * - Verifies session cookie from authenticated user
+ * - Verifies Supabase session from authenticated user
  * - Only allows awarding badges to self or with teacher/admin role
- * - Uses transactions to prevent duplicate badges
+ * - Uses PostgreSQL transactions to prevent duplicate badges
  * - Prevents privilege escalation
  * - Validates badge ID format
  *
  * POST /api/gamify/badges
  * Body: { userId: string, badgeId: string }
- * Requires: Valid session cookie (__session) from authenticated user
+ * Requires: Valid Supabase session from authenticated user
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb, awardBadgeServer } from '@/lib/firebase.admin';
+import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: Verify session cookie exists
-    const sessionCookie = (await cookies()).get('__session')?.value;
-    if (!sessionCookie) {
-      logger.warn('[gamify/badges] Unauthorized: No session cookie');
+    // SECURITY: Get Supabase client and verify session
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      logger.warn('[gamify/badges] Unauthorized: No valid session');
       return NextResponse.json(
         { error: 'Unauthorized: Session required' },
         { status: 401 }
       );
     }
 
-    // SECURITY: Verify and decode session token
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth().verifySessionCookie(sessionCookie, true);
-    } catch (tokenError) {
-      logger.warn('[gamify/badges] Invalid session token:', tokenError);
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid or expired session' },
-        { status: 401 }
-      );
-    }
+    const requesterId = user.id;
 
-    const requesterId = decodedToken.uid;
+    // SECURITY: Fetch role from Supabase (not token - tokens can be stale)
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', requesterId)
+      .single();
 
-    // SECURITY: Fetch role from Firestore (not token - tokens can be stale)
-    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
-    if (!requesterDoc.exists) {
-      logger.warn('[gamify/badges] Requester user document not found');
+    if (profileError || !requesterProfile) {
+      logger.warn('[gamify/badges] Requester user profile not found');
       return NextResponse.json(
         { error: 'Unauthorized: User profile not found' },
         { status: 401 }
       );
     }
-    const requesterRole = requesterDoc.data()?.role || 'student';
+    const requesterRole = requesterProfile.role || 'student';
 
     // Parse request body
     let body;
@@ -111,8 +105,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Award badge using atomic transaction
-    const wasAwarded = await awardBadgeServer(userId, badgeId);
+    // Award badge using Supabase RPC function (atomic PostgreSQL transaction)
+    const { data: wasAwarded, error: badgeError } = await supabase.rpc('award_badge', {
+      target_user_id: userId,
+      target_badge_id: badgeId,
+    });
+
+    if (badgeError) {
+      logger.error('[gamify/badges] Failed to award badge:', badgeError);
+      throw badgeError;
+    }
 
     // Log result
     if (wasAwarded) {

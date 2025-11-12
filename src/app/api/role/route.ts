@@ -1,7 +1,7 @@
 // src/app/api/role/route.ts
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 // Mark this route as dynamic (not statically generated during build)
 export const dynamic = 'force-dynamic';
@@ -9,18 +9,22 @@ export const dynamic = 'force-dynamic';
 // Read role
 export async function GET() {
   try {
-    const cookie = (await cookies()).get('__session')?.value;
-    if (!cookie) return NextResponse.json({ role: 'guest' });
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-    const decoded = await adminAuth().verifySessionCookie(cookie, true);
-    const uid = decoded.uid;
+    if (error || !user) {
+      return NextResponse.json({ role: 'guest' });
+    }
 
-    const doc = await adminDb().collection('users').doc(uid).get();
-    const data = doc.exists ? doc.data()! : {};
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    return NextResponse.json({ 
-      role: data.role ?? 'student', 
-      user: { uid, email: decoded.email } 
+    return NextResponse.json({
+      role: profile?.role ?? 'student',
+      user: { uid: user.id, id: user.id, email: user.email }
     });
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'Unknown error';
@@ -31,12 +35,21 @@ export async function GET() {
 // Set role (admin only)
 export async function POST(request: Request) {
   try {
-    const cookie = (await cookies()).get('__session')?.value;
-    if (!cookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-    const decoded = await adminAuth().verifySessionCookie(cookie, true);
-    const caller = await adminDb().collection('users').doc(decoded.uid).get();
-    const callerRole = caller.exists ? caller.data()!.role : 'student';
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Fetch caller's role
+    const { data: callerProfile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const callerRole = callerProfile?.role ?? 'student';
 
     // Both 'admin' and 'dev' roles have permission to set user roles
     if (callerRole !== 'admin' && callerRole !== 'dev') {
@@ -46,11 +59,22 @@ export async function POST(request: Request) {
     const { uid, role } = await request.json();
     if (!uid || !role) return NextResponse.json({ error: 'uid and role required' }, { status: 400 });
 
-    // Update Firestore
-    await adminDb().collection('users').doc(uid).set({ role }, { merge: true });
+    // Update Supabase users table
+    const adminSupabase = createAdminClient();
+    const { error: updateError } = await adminSupabase
+      .from('users')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', uid);
 
-    // Optional: also sync role into custom claims
-    await adminAuth().setCustomUserClaims(uid, { role });
+    if (updateError) throw updateError;
+
+    // Also sync role into user metadata
+    const { error: metadataError } = await adminSupabase.auth.admin.updateUserById(
+      uid,
+      { user_metadata: { role } }
+    );
+
+    if (metadataError) throw metadataError;
 
     return NextResponse.json({ ok: true });
   } catch (e) {
