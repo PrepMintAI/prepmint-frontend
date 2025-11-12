@@ -11,12 +11,11 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Add auth token to requests automatically
+// NOTE: No need to add Authorization header manually!
+// The __session cookie is httpOnly and automatically sent by the browser with every request.
+// The server can read it from the cookies, but client-side JavaScript cannot access it.
 api.interceptors.request.use((config) => {
-  const token = Cookies.get('__session');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  // The session cookie is included automatically due to withCredentials: true
   return config;
 });
 

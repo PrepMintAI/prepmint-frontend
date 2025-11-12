@@ -70,7 +70,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!currentUser) {
           // User signed out
           logger.log('[AuthContext] No user authenticated');
-          Cookies.remove('__session');
+          // NOTE: Don't try to remove __session cookie here - it's httpOnly and can only be removed by server
+          // The /api/auth/session DELETE endpoint should be called before signOut()
           setFirebaseUser(null);
           setUser(null);
           setLoading(false);
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const isVerifyEmailPage = typeof window !== 'undefined' && window.location.pathname === '/verify-email';
 
           if (!isVerifyEmailPage) {
-            Cookies.remove('__session');
+            // NOTE: Don't try to remove __session cookie - it's httpOnly
             setFirebaseUser(null);
             setUser(null);
             setLoading(false);
@@ -109,13 +110,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           logger.log('[AuthContext] Fetching user profile for:', currentUser.uid);
 
-          // Set auth token cookie (using __session for Firebase Admin SDK compatibility)
-          const token = await getIdToken(currentUser, true);
-          Cookies.set('__session', token, {
-            expires: 7, // 7 days
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
-          });
+          // NOTE: Don't set cookie here! The session cookie is created by /api/auth/session
+          // during login. We just need to fetch the user profile from Firestore.
 
           // Check if Firestore is ready
           if (!db) {
