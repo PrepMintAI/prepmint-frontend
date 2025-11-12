@@ -107,33 +107,30 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
         setError(null);
 
         // Fetch all users
-        const usersSnapshot = await getDocs(supabase.from('users'));
-        const usersData = usersSnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          ...doc.data(),
-        })) as UserData[];
-        setUsers(usersData);
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('*');
+
+        if (usersError) throw usersError;
+        setUsers((usersData || []) as any);
 
         // Fetch all institutions
-        const institutionsSnapshot = await getDocs(collection(db, 'institutions'));
-        const institutionsData = institutionsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as InstitutionData[];
-        setInstitutions(institutionsData);
+        const { data: institutionsData, error: institutionsError } = await supabase
+          .from('institutions')
+          .select('*');
+
+        if (institutionsError) throw institutionsError;
+        setInstitutions((institutionsData || []) as any);
 
         // Fetch evaluations (last 1000)
-        const evaluationsQuery = query(
-          supabase.from('evaluations'),
-          orderBy('createdAt', 'desc'),
-          limit(1000)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as EvaluationData[];
-        setEvaluations(evaluationsData);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+
+        if (evaluationsError) throw evaluationsError;
+        setEvaluations((evaluationsData || []) as any);
 
         setLoading(false);
       } catch (err) {
@@ -174,10 +171,7 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsersLast7Days = users.filter((u) => {
       if (!u.lastLoginAt) return false;
-      const lastLogin =
-        u.lastLoginAt instanceof Timestamp
-          ? u.lastLoginAt.toDate()
-          : new Date(u.lastLoginAt);
+      const lastLogin = new Date(u.lastLoginAt);
       return lastLogin >= sevenDaysAgo;
     }).length;
 
