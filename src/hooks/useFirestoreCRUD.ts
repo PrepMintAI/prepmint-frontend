@@ -80,6 +80,13 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
   // Fetch documents
   const fetchDocuments = useCallback(
     async (isLoadMore = false) => {
+      // Guard: Only run on client-side when db is available
+      if (typeof window === 'undefined' || !db) {
+        logger.warn('[useFirestoreCRUD] Skipping fetch - not on client or db not initialized');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -125,6 +132,13 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
 
   // Real-time listener
   useEffect(() => {
+    // Guard: Only run on client-side when db is available
+    if (typeof window === 'undefined' || !db) {
+      logger.warn('[useFirestoreCRUD] Skipping listener - not on client or db not initialized');
+      setLoading(false);
+      return;
+    }
+
     if (!realtime) {
       fetchDocuments();
       return;
@@ -159,10 +173,14 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
     );
 
     return () => unsubscribe();
-  }, [collectionName, filters, orderByField, orderDirection, pageSize, realtime]);
+  }, [collectionName, filters, orderByField, orderDirection, pageSize, realtime, fetchDocuments]);
 
   // Add document
   const addDocument = async (data: Omit<T, 'id'>): Promise<string> => {
+    if (!db) {
+      throw new Error('Firestore not initialized');
+    }
+
     try {
       const docData = {
         ...data,
@@ -182,6 +200,10 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
 
   // Update document
   const updateDocument = async (id: string, data: Partial<T>): Promise<void> => {
+    if (!db) {
+      throw new Error('Firestore not initialized');
+    }
+
     try {
       const docRef = doc(db, collectionName, id);
       await updateDoc(docRef, {
@@ -198,6 +220,10 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
 
   // Delete document
   const deleteDocument = async (id: string): Promise<void> => {
+    if (!db) {
+      throw new Error('Firestore not initialized');
+    }
+
     try {
       const docRef = doc(db, collectionName, id);
       await deleteDoc(docRef);
@@ -211,6 +237,10 @@ export function useFirestoreCRUD<T extends FirestoreDocument>(
 
   // Bulk delete
   const bulkDelete = async (ids: string[]): Promise<void> => {
+    if (!db) {
+      throw new Error('Firestore not initialized');
+    }
+
     try {
       const batch = writeBatch(db);
 
