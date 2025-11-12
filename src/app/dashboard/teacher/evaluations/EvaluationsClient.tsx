@@ -58,7 +58,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
           .eq('id', userId)
           .single();
 
-        const institutionId = userData?.institution_id || '';
+        const institutionId = (userData as any)?.institution_id || '';
         setTeacherInstitutionId(institutionId);
 
         // Fetch evaluations
@@ -76,7 +76,7 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
 
         if (error) throw error;
 
-        const fetchedEvaluations: EvaluationData[] = (evaluationsData || []).map(data => {
+        const fetchedEvaluations: EvaluationData[] = ((evaluationsData || []) as any[]).map(data => {
           // Mock some fields that might not exist yet
           const totalSubs = 30;
           const mockEvaluated = data.status === 'completed' ? totalSubs :

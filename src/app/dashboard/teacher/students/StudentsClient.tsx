@@ -53,7 +53,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
           .eq('id', userId)
           .single();
 
-        const institutionId = teacherData?.institution_id;
+        const institutionId = (teacherData as any)?.institution_id;
 
         // Fetch students from the same institution
         let studentsQuery = supabase

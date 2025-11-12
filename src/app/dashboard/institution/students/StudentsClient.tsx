@@ -51,7 +51,7 @@ export function StudentsClient({ institutionId }: { institutionId?: string }) {
 
         if (error) throw error;
 
-        const studentsData = (data || []).map(doc => ({
+        const studentsData = ((data || []) as any[]).map(doc => ({
           uid: doc.id,
           email: doc.email,
           displayName: doc.display_name,

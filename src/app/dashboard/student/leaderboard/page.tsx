@@ -37,17 +37,16 @@ export default function LeaderboardPage() {
 
     if (user) {
       try {
-        const institutionName = user.institutionName || user.institution_name;
         const institutionId = user.institutionId || user.institution_id;
 
-        setUserSchool(institutionName || null);
+        setUserSchool(institutionId || null);
         setUserInstitutionId(institutionId || null);
         setCurrentUser({
           rank: 0, // Will be calculated from leaderboard
           name: user.displayName || user.display_name || 'You',
           xp: user.xp || 0,
           level: user.level || (Math.floor(Math.sqrt((user.xp || 0) / 100)) + 1),
-          school: institutionName || 'No School',
+          school: institutionId || 'No School',
           avatar: '🎮',
           streak: user.streak || 0,
           badge: '',

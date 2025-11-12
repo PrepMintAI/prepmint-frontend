@@ -703,30 +703,44 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
         setIsLoading(true);
 
         // Fetch all students
-        const studentsQuery = query(
-          supabase.from('users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student');
+
+        if (studentsError) throw studentsError;
+
+        const students = ((studentsData || []) as any[]).map(doc => ({
           uid: doc.id,
           id: doc.id,
-          ...doc.data(),
+          displayName: doc.display_name || doc.email || '',
+          email: doc.email,
+          class: doc.class,
+          section: doc.section,
+          xp: doc.xp,
+          level: doc.level,
         })) as StudentData[];
-        setStudents(studentsData);
+        setStudents(students);
 
         // Fetch all evaluations
-        const evaluationsQuery = query(
-          supabase.from('evaluations'),
-          where('institutionId', '==', institutionId)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map(doc => ({
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId);
+
+        if (evaluationsError) throw evaluationsError;
+
+        const evaluations = ((evaluationsData || []) as any[]).map(doc => ({
           id: doc.id,
-          ...doc.data(),
+          userId: doc.user_id,
+          subject: doc.subject,
+          score: doc.score,
+          totalMarks: doc.total_marks,
+          status: doc.status,
+          createdAt: doc.created_at,
         })) as EvaluationData[];
-        setEvaluations(evaluationsData);
+        setEvaluations(evaluations);
       } catch (error) {
         logger.error('InstitutionAnalyticsView - Error fetching data:', error);
       } finally {

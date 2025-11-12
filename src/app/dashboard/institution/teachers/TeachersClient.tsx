@@ -46,7 +46,7 @@ export function TeachersClient({ institutionId }: { institutionId: string }) {
 
         if (error) throw error;
 
-        const teachersData = (data || []).map(doc => ({
+        const teachersData = ((data || []) as any[]).map(doc => ({
           uid: doc.id,
           email: doc.email,
           displayName: doc.display_name,

@@ -107,10 +107,10 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
           displayName: authUser.displayName || authUser.display_name || '',
           email: authUser.email || '',
           institutionId: institutionId || '',
-          subjects: authUser.subjects || [],
-          subjectNames: authUser.subjectNames || [],
-          classTeacher: authUser.classTeacher,
-          className: authUser.className,
+          subjects: [], // Will be loaded from database if needed
+          subjectNames: [], // Will be loaded from database if needed
+          classTeacher: undefined,
+          className: undefined,
           xp: authUser.xp,
           level: authUser.level,
         };
@@ -125,10 +125,11 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
             .single();
 
           if (!institutionError && institutionData) {
+            const inst = institutionData as any;
             setInstitution({
-              name: institutionData.name,
-              location: institutionData.location,
-              establishedYear: institutionData.established_year,
+              name: inst.name,
+              location: inst.location,
+              establishedYear: inst.established_year,
             });
           }
         }
@@ -138,10 +139,10 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
           .from('users')
           .select('id, display_name, email, class, section, xp, level')
           .eq('role', 'student')
-          .eq('institution_id', institutionId);
+          .eq('institution_id', institutionId || '');
 
         if (!studentsError && studentsData) {
-          const students: StudentData[] = studentsData.map(student => ({
+          const students: StudentData[] = (studentsData as any[]).map(student => ({
             uid: student.id,
             displayName: student.display_name || '',
             email: student.email || '',
@@ -157,12 +158,12 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
         const { data: evaluationsData, error: evaluationsError } = await supabase
           .from('evaluations')
           .select('*')
-          .eq('institution_id', institutionId)
+          .eq('institution_id', institutionId || '')
           .order('created_at', { ascending: false })
           .limit(50);
 
         if (!evaluationsError && evaluationsData) {
-          const evaluations: EvaluationData[] = evaluationsData.map(evaluation => ({
+          const evaluations: EvaluationData[] = (evaluationsData as any[]).map(evaluation => ({
             id: evaluation.id,
             title: evaluation.title,
             subject: evaluation.subject,

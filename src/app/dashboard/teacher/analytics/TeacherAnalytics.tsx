@@ -114,7 +114,7 @@ export default function TeacherAnalytics({
           throw studentsError;
         }
 
-        const studentsList = (studentsData || []).map(doc => ({
+        const studentsList = ((studentsData || []) as any[]).map(doc => ({
           uid: doc.id,
           displayName: doc.display_name || 'Unknown',
           email: doc.email || '',
@@ -159,7 +159,7 @@ export default function TeacherAnalytics({
         const subjectMap = new Map<string, number>();
         let totalSubjects = 0;
 
-        evaluations.forEach((evaluation: any) => {
+        evaluationsData.forEach((evaluation: any) => {
           const studentId = evaluation.user_id;
           const subject = evaluation.subject || 'Unknown';
           const percentage = ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0;
@@ -219,7 +219,7 @@ export default function TeacherAnalytics({
           subjectDistribution,
           completionRate,
           totalStudents: students.length,
-          totalEvaluations: evaluations.length,
+          totalEvaluations: evaluationsData.length,
         });
 
         setLoading(false);
@@ -257,12 +257,13 @@ export default function TeacherAnalytics({
           return;
         }
 
+        const sData = studentData as any;
         const student: Student = {
           uid: selectedStudentId,
-          displayName: studentData.display_name || 'Unknown',
-          email: studentData.email || '',
-          xp: studentData.xp || 0,
-          level: studentData.level || 1,
+          displayName: sData.display_name || 'Unknown',
+          email: sData.email || '',
+          xp: sData.xp || 0,
+          level: sData.level || 1,
         };
 
         // Fetch student's evaluations
@@ -283,7 +284,7 @@ export default function TeacherAnalytics({
         // Calculate subject-wise performance
         const subjectMap = new Map<string, { scores: number[]; count: number }>();
 
-        evaluations.forEach((evaluation: any) => {
+        evaluationsData.forEach((evaluation: any) => {
           const subject = evaluation.subject || 'Unknown';
           const percentage = ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0;
           const current = subjectMap.get(subject) || { scores: [], count: 0 };
@@ -307,7 +308,7 @@ export default function TeacherAnalytics({
         });
 
         // Get recent tests
-        const recentTestsData: RecentTest[] = evaluations.slice(0, 10).map((evaluation: any) => ({
+        const recentTestsData: RecentTest[] = evaluationsData.slice(0, 10).map((evaluation: any) => ({
           id: evaluation.id,
           subject: evaluation.subject || 'Unknown',
           score: ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0,
@@ -319,17 +320,17 @@ export default function TeacherAnalytics({
         }));
 
         // Calculate overall average
-        const avgScore = evaluations.length > 0
-          ? Math.round(evaluations.reduce((sum: number, evaluation: any) => sum + (((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0), 0) / evaluations.length)
+        const avgScore = evaluationsData.length > 0
+          ? Math.round(evaluationsData.reduce((sum: number, evaluation: any) => sum + (((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0), 0) / evaluationsData.length)
           : 0;
 
         // Fetch class average for comparison
-        const classEvalQuery = query(
-          evaluationsRef,
-          where('institutionId', '==', institutionId)
-        );
-        const classEvalSnapshot = await getDocs(classEvalQuery);
-        const classEvaluations = classEvalSnapshot.docs.map(doc => doc.data());
+        const { data: classEvaluationsData } = await supabase
+          .from('evaluations')
+          .select('score, total_marks')
+          .eq('institution_id', institutionId || '');
+
+        const classEvaluations = (classEvaluationsData || []) as any[];
         const classAvgScore = classEvaluations.length > 0
           ? Math.round(classEvaluations.reduce((sum: number, ev: any) => sum + (((ev.total_marks > 0) ? Math.round((ev.score / ev.total_marks) * 100) : 0) || 0), 0) / classEvaluations.length)
           : 0;
@@ -337,7 +338,7 @@ export default function TeacherAnalytics({
         setStudentAnalytics({
           student,
           avgScore,
-          testsCompleted: evaluations.length,
+          testsCompleted: evaluationsData.length,
           subjectPerformance: subjectPerformance.sort((a, b) => b.avgScore - a.avgScore),
           recentTests: recentTestsData,
           totalXp: student.xp,
