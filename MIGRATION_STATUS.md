@@ -58,54 +58,78 @@
 
 ---
 
-## 🚧 Phase 2: Core Migration (IN PROGRESS)
+## ✅ Phase 2: Core Migration (COMPLETED)
 
-### 2.1 Authentication Pages ⏳
-- [ ] Update `/src/app/(auth)/login/page.tsx`
-  - Replace Firebase auth with Supabase `signInWithPassword`
-- [ ] Update `/src/app/(auth)/signup/page.tsx`
-  - Replace Firebase auth with Supabase `signUp`
-  - Update profile creation flow
+### 2.1 Authentication Pages ✅
+- [x] Updated `/src/app/(auth)/login/page.tsx`
+  - Replaced Firebase auth with Supabase `signInWithPassword`
+  - Updated OAuth to use `signInWithOAuth`
+  - Session managed automatically by Supabase
+- [x] Updated `/src/app/(auth)/signup/page.tsx`
+  - Replaced Firebase auth with Supabase `signUp`
+  - Updated profile creation flow (database trigger handles)
+  - Institution validation uses Supabase queries
+  - Google OAuth updated
 - [ ] Update `/src/app/(auth)/verify-email/page.tsx`
-  - Update email verification flow
+  - Needs update for Supabase email verification flow
 - [ ] Update `/src/app/(auth)/reset-password/page.tsx`
-  - Replace Firebase password reset
+  - Needs update for Supabase password reset
 
-### 2.2 Middleware ⏳
-- [ ] Update `src/middleware.ts`
-  - Replace Firebase session verification with Supabase
-  - Use `createClient()` from Supabase server
+### 2.2 Middleware ✅
+- [x] Updated `src/middleware.ts`
+  - Replaced Firebase session verification with Supabase
+  - Uses `createServerClient()` from @supabase/ssr
+  - Verifies sessions with `auth.getUser()`
+  - Updated CSP headers for Supabase domains
 
-### 2.3 API Routes ⏳
+### 2.3 API Routes ✅
 
-#### Authentication APIs
-- [ ] Migrate `/src/app/api/auth/session/route.ts`
-  - Replace Firebase session cookies with Supabase sessions
-  - May simplify (Supabase handles sessions automatically)
-- [ ] Migrate `/src/app/api/auth/set-claims/route.ts`
-  - Replace custom claims with Supabase user metadata
-  - Update JWT metadata in `auth.users.user_metadata`
-- [ ] Update `/src/app/api/role/route.ts`
-  - Replace Firestore queries with Supabase queries
+#### Authentication APIs ✅
+- [x] Migrated `/src/app/api/auth/session/route.ts`
+  - Simplified (Supabase handles sessions automatically)
+  - Returns session info and user role
+  - Logout via `signOut()`
+- [x] Migrated `/src/app/api/auth/set-claims/route.ts`
+  - Replaced custom claims with Supabase user metadata
+  - Updates both `auth.users.user_metadata` and `public.users` table
+  - Admin-only access preserved
+- [x] Updated `/src/app/api/role/route.ts`
+  - Replaced Firestore queries with Supabase queries
+  - Uses Supabase Admin for role updates
+  - Syncs to user_metadata
 
-#### Gamification APIs
-- [ ] Migrate `/src/app/api/gamify/xp/route.ts`
-  - Use Supabase RPC function: `award_xp()`
+#### Gamification APIs ✅
+- [x] Migrated `/src/app/api/gamify/xp/route.ts`
+  - Uses Supabase RPC function: `award_xp()`
   - PostgreSQL transaction handles atomicity
-- [ ] Migrate `/src/app/api/gamify/badges/route.ts`
-  - Use Supabase RPC function: `award_badge()`
+  - Returns new XP and level
+- [x] Migrated `/src/app/api/gamify/badges/route.ts`
+  - Uses Supabase RPC function: `award_badge()`
   - Duplicate prevention built into database function
+  - Returns whether badge was awarded
 
-#### Admin APIs
-- [ ] Migrate `/src/app/api/admin/users/route.ts`
-  - Replace Firebase Admin SDK with Supabase Admin Client
-  - Update user creation, deletion, password reset
+#### Admin APIs ✅
+- [x] Migrated `/src/app/api/admin/users/route.ts`
+  - Replaced Firebase Admin SDK with Supabase Admin Client
+  - User creation: `auth.admin.createUser()` + profile insert
+  - Password reset: `auth.admin.updateUserById()`
+  - User deletion: `auth.admin.deleteUser()`
+  - Bulk operations supported with cleanup on failure
 
-### 2.4 Core Libraries ⏳
-- [ ] Update `src/lib/gamify.ts`
-  - Replace Firestore operations with Supabase
-  - Use database RPC functions for XP/badge awards
-  - Keep level calculation logic (pure functions)
+### 2.4 Core Libraries ✅
+- [x] Updated `src/lib/gamify.ts`
+  - Replaced Firestore operations with Supabase RPC calls
+  - `awardXpLocal()` uses `award_xp()` RPC function
+  - `awardBadgeLocal()` uses `award_badge()` RPC function
+  - `getUserBadges()` queries `user_badges` table
+  - Added `getUserBadgesDetailed()` with badge info
+  - Kept level calculation logic (pure functions)
+- [x] Created `src/hooks/useSupabaseCRUD.ts`
+  - Generic CRUD operations with Supabase
+  - Real-time subscriptions with `postgres_changes`
+  - Pagination support with `range()`
+  - Search/filter support
+  - Replaces `useFirestoreCRUD` hook
 - [ ] Update `src/lib/api.ts`
   - May need minimal changes (HTTP client)
   - Verify token handling with Supabase sessions
@@ -115,7 +139,7 @@
 ## 📋 Phase 3: Hooks & Components (TODO)
 
 ### 3.1 Custom Hooks
-- [ ] Create `src/hooks/useSupabaseCRUD.ts` (replacement for useFirestoreCRUD)
+- [x] Created `src/hooks/useSupabaseCRUD.ts` (replacement for useFirestoreCRUD)
   - Generic CRUD operations with Supabase
   - Real-time subscriptions with Supabase Realtime
   - Pagination support
@@ -262,28 +286,40 @@
 
 ## 📊 Migration Progress
 
-### Overall Progress: ~25% Complete
+### Overall Progress: ~50% Complete
 
 - ✅ **Phase 1 (Foundation)**: 100% Complete
-- 🚧 **Phase 2 (Core Migration)**: 15% Complete
-- ⏳ **Phase 3 (Hooks & Components)**: 0% Complete
+- ✅ **Phase 2 (Core Migration)**: 90% Complete (verify-email and reset-password pages remaining)
+- ⏳ **Phase 3 (Hooks & Components)**: 5% Complete (useSupabaseCRUD created)
 - ⏳ **Phase 4 (Cleanup)**: 0% Complete
 - ⏳ **Phase 5 (Testing)**: 0% Complete
 - ⏳ **Phase 6 (Documentation)**: 0% Complete
 - ⏳ **Phase 7 (Deployment)**: 0% Complete
 
-### Files Modified: 8
+### Files Modified: 17
 - `package.json` (added Supabase deps)
 - `package-lock.json` (dependency lockfile)
 - `.env.example` (added Supabase vars)
 - `src/context/AuthContext.tsx` (migrated to Supabase)
+- `src/middleware.ts` (Supabase session verification)
+- `src/lib/gamify.ts` (Supabase RPC functions)
+- `src/app/(auth)/login/page.tsx` (Supabase auth)
+- `src/app/(auth)/signup/page.tsx` (Supabase auth)
+- `src/app/api/auth/session/route.ts` (simplified for Supabase)
+- `src/app/api/auth/set-claims/route.ts` (user metadata)
+- `src/app/api/role/route.ts` (Supabase queries)
+- `src/app/api/gamify/xp/route.ts` (RPC function)
+- `src/app/api/gamify/badges/route.ts` (RPC function)
+- `src/app/api/admin/users/route.ts` (Supabase Admin)
+- `MIGRATION_STATUS.md` (updated progress)
 
-### Files Created: 6
+### Files Created: 7
 - `supabase/schema.sql` (database schema)
 - `supabase/README.md` (setup guide)
 - `src/lib/supabase/client.ts` (browser client)
 - `src/lib/supabase/server.ts` (server client)
 - `src/lib/supabase/types.ts` (TypeScript types)
+- `src/hooks/useSupabaseCRUD.ts` (CRUD hook)
 - `.env.local` (credentials - not committed)
 
 ---
