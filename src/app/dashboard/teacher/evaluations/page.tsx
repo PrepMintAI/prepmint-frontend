@@ -1,43 +1,40 @@
 // src/app/dashboard/teacher/evaluations/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
-import { logger } from '@/lib/logger';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { EvaluationsClient } from './EvaluationsClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function EvaluationsPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function EvaluationsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      redirect('/login');
+    if (!user) {
+      router.replace('/login');
+      return;
     }
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
-  } catch (error) {
-    logger.error('[Evaluations Page] Session verification failed:', error);
-    redirect('/login');
+    const userRole = user.role || 'student';
+    // Only teachers, admins, institutions, and devs can access
+    if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading evaluations..." />;
   }
 
-  // Only teachers, admins, institutions, and devs can access
-  if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
-    redirect(`/dashboard/${userRole}`);
-  }
+  if (!user) return null;
+
+  const userId = user.uid || user.id;
+  const userRole = user.role || 'student';
 
   return (
     <AppLayout>

@@ -1,67 +1,48 @@
 // src/app/dashboard/analytics/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/lib/logger';
 import AppLayout from '@/components/layout/AppLayout';
 import AnalyticsClient from './AnalyticsClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function AnalyticsDashboardPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function AnalyticsDashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-  let institutionId: string | undefined;
-  let userName: string | undefined;
-
-  try {
-    // Verify session cookie
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    // Fetch user data from Firestore
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      logger.error('Analytics Dashboard - User document not found');
-      redirect('/login');
+    if (!user) {
+      logger.log('[Analytics] No user, redirecting to login');
+      router.replace('/login');
     }
+  }, [user, loading, router]);
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
-    institutionId = userData?.institutionId;
-    userName = userData?.displayName;
-
-    logger.log('Analytics Dashboard - User role:', userRole, 'Institution:', institutionId);
-  } catch (error) {
-    logger.error('Analytics Dashboard - Session verification failed:', error);
-    redirect('/login');
+  if (loading) {
+    return <Spinner fullScreen label="Loading analytics..." />;
   }
+
+  if (!user) return null;
+
+  const userId = user.uid || user.id;
+  const userRole = user.role || 'student';
+  const institutionId = user.institutionId || user.institution_id;
+  const userName = user.displayName || user.display_name || 'User';
+
+  logger.log('[Analytics] User role:', userRole);
 
   return (
     <AppLayout>
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-            <p className="text-gray-600 mt-1">
-              Track your performance and insights
-            </p>
-          </div>
-        </div>
-
-        <AnalyticsClient
-          userId={userId}
-          role={userRole as 'student' | 'teacher' | 'admin' | 'institution' | 'dev'}
-          institutionId={institutionId}
-          userName={userName || 'User'}
-        />
-      </div>
+      <AnalyticsClient
+        userId={userId}
+        userRole={userRole}
+        institutionId={institutionId}
+        userName={userName}
+      />
     </AppLayout>
   );
 }

@@ -1,51 +1,54 @@
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+// src/app/dashboard/institution/analytics/page.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { InstitutionAnalyticsView } from './AnalyticsClient';
+import Spinner from '@/components/common/Spinner';
 import { logger } from '@/lib/logger';
 
-export default async function InstitutionAnalyticsPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function InstitutionAnalyticsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-  let institutionId: string | undefined;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      logger.error('[Analytics Page] User document not found');
-      redirect('/login');
+    if (!user) {
+      logger.log('[Analytics Page] No user, redirecting to login');
+      router.replace('/login');
+      return;
     }
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
-    institutionId = userData?.institutionId;
+    const userRole = user.role || 'student';
+    const institutionId = user.institutionId || user.institution_id;
 
     logger.log('[Analytics Page] User role:', userRole, 'Institution ID:', institutionId);
-  } catch (error) {
-    logger.error('[Analytics Page] Session verification failed:', error);
-    redirect('/login');
+
+    // Check role
+    if (userRole !== 'institution' && userRole !== 'dev') {
+      logger.log('[Analytics Page] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+      router.replace(`/dashboard/${userRole}`);
+      return;
+    }
+
+    if (!institutionId) {
+      router.replace('/dashboard/institution');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading analytics..." />;
   }
 
-  // Check role
-  if (userRole !== 'institution' && userRole !== 'dev') {
-    logger.log('[Analytics Page] Wrong role, redirecting to:', `/dashboard/${userRole}`);
-    redirect(`/dashboard/${userRole}`);
-  }
+  if (!user) return null;
+
+  const institutionId = user.institutionId || user.institution_id;
 
   if (!institutionId) {
-    redirect('/dashboard/institution');
+    return null;
   }
 
   return (

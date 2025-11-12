@@ -1,26 +1,34 @@
 // src/app/dashboard/teacher/notifications/page.tsx
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { adminAuth } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import NotificationsClient from './NotificationsClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function TeacherNotificationsPage() {
-  const sessionCookie = (await cookies()).get('__session')?.value;
+export default function TeacherNotificationsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    const userRole = decoded.role || 'student';
-
-    if (userRole !== 'teacher') {
-      redirect('/dashboard');
+    if (!user) {
+      router.replace('/login');
+      return;
     }
 
-    return <NotificationsClient />;
-  } catch (error) {
-    redirect('/login');
+    if (user.role !== 'teacher' && user.role !== 'dev') {
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading notifications..." />;
   }
+
+  if (!user) return null;
+
+  return <NotificationsClient />;
 }
