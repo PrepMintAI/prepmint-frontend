@@ -75,7 +75,7 @@ export default function SendNotificationForm({
 
         if (fetchError) throw fetchError;
 
-        const users = (data || []).map((doc) => ({
+        const users = ((data || []) as any[]).map((doc) => ({
           uid: doc.id,
           name: doc.display_name || doc.email || 'Unknown',
           role: doc.role || 'unknown',

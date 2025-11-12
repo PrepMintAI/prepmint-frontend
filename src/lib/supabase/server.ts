@@ -188,7 +188,8 @@ export async function getUserRole(userId?: string) {
     return null
   }
 
-  return data?.role || null
+  const userData = data as any
+  return userData?.role || null
 }
 
 /**
@@ -235,7 +236,7 @@ export async function hasRole(
 export async function awardXp(userId: string, amount: number, reason: string) {
   const supabase = createAdminClient()
 
-  const { data, error } = await supabase.rpc('award_xp', {
+  const { data, error } = await (supabase as any).rpc('award_xp', {
     target_user_id: userId,
     xp_amount: amount,
     xp_reason: reason,
@@ -259,7 +260,7 @@ export async function awardXp(userId: string, amount: number, reason: string) {
 export async function awardBadge(userId: string, badgeId: string) {
   const supabase = createAdminClient()
 
-  const { data, error } = await supabase.rpc('award_badge', {
+  const { data, error } = await (supabase as any).rpc('award_badge', {
     target_user_id: userId,
     target_badge_id: badgeId,
   })

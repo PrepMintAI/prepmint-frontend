@@ -69,7 +69,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
 
         if (error) throw error;
 
-        const fetchedStudents: StudentData[] = (studentsData || []).map(data => ({
+        const fetchedStudents: StudentData[] = ((studentsData || []) as any[]).map(data => ({
           id: data.id,
           uid: data.id,
           displayName: data.display_name || 'Unknown Student',

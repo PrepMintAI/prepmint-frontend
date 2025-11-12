@@ -95,7 +95,7 @@ export function useSupabaseCRUD<T extends SupabaseDocument>(
           } else if (filter.operator === 'is') {
             query = query.is(filter.column, filter.value);
           } else {
-            query = query[filter.operator](filter.column, filter.value);
+            query = (query as any)[filter.operator](filter.column, filter.value);
           }
         });
 
@@ -187,8 +187,8 @@ export function useSupabaseCRUD<T extends SupabaseDocument>(
   // Add document
   const addDocument = async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
     try {
-      const { data: insertedData, error: insertError } = await supabase
-        .from(tableName)
+      const { data: insertedData, error: insertError } = await (supabase
+        .from(tableName) as any)
         .insert([data])
         .select('id')
         .single();
@@ -217,8 +217,8 @@ export function useSupabaseCRUD<T extends SupabaseDocument>(
         updated_at: new Date().toISOString(),
       };
 
-      const { error: updateError } = await supabase
-        .from(tableName)
+      const { error: updateError } = await (supabase
+        .from(tableName) as any)
         .update(updateData)
         .eq('id', id);
 

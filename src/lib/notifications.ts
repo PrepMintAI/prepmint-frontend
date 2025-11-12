@@ -124,8 +124,8 @@ export async function fetchNotifications(
  */
 export async function markAsRead(notificationId: string): Promise<void> {
   try {
-    const { error } = await supabase
-      .from('notifications')
+    const { error } = await (supabase
+      .from('notifications') as any)
       .update({
         read: true,
         updated_at: new Date().toISOString(),
@@ -153,8 +153,8 @@ export async function markAsRead(notificationId: string): Promise<void> {
  */
 export async function markAllAsRead(userId: string): Promise<number> {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
+    const { data, error } = await (supabase
+      .from('notifications') as any)
       .update({
         read: true,
         updated_at: new Date().toISOString(),
@@ -480,8 +480,8 @@ export async function createNotification(
   notification: Omit<Notification, 'id' | 'userId' | 'senderId' | 'senderName' | 'senderRole' | 'createdAt' | 'actionUrl'>
 ): Promise<string> {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
+    const { data, error } = await (supabase
+      .from('notifications') as any)
       .insert([notification])
       .select()
       .single();
@@ -604,8 +604,8 @@ export async function sendBulkNotifications(
       metadata,
     }));
 
-    const { data, error } = await supabase
-      .from('notifications')
+    const { data, error } = await (supabase
+      .from('notifications') as any)
       .insert(notifications)
       .select();
 
@@ -673,7 +673,7 @@ export async function sendInstitutionNotification(
 
     if (error) throw error;
 
-    const userIds = (users || []).map(user => user.id);
+    const userIds = ((users || []) as any[]).map(user => user.id);
 
     return sendBulkNotifications(
       userIds,
@@ -738,7 +738,7 @@ export async function sendRoleNotification(
 
     if (error) throw error;
 
-    const userIds = (users || []).map(user => user.id);
+    const userIds = ((users || []) as any[]).map(user => user.id);
 
     return sendBulkNotifications(
       userIds,

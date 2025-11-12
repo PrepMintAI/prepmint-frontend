@@ -58,7 +58,7 @@ export async function fetchStudentEvaluations(userId: string, limitCount: number
 
     if (error) throw error;
 
-    return (data || []).map(row => {
+    return ((data || []) as any[]).map(row => {
       const marksAwarded = row.marks_awarded || 0;
       const totalMarks = row.total_marks || 100;
       const percentage = totalMarks > 0 ? (marksAwarded / totalMarks) * 100 : 0;
@@ -113,7 +113,7 @@ export async function fetchActivityData(userId: string, days: number = 90): Prom
     }
 
     // Aggregate XP from activity documents
-    (data || []).forEach(row => {
+    ((data || []) as any[]).forEach(row => {
       const timestamp = new Date(row.timestamp);
       const dateStr = timestamp.toISOString().split('T')[0];
       const currentXp = activityMap.get(dateStr) || 0;
@@ -200,7 +200,7 @@ export async function fetchLeaderboard(scope: 'global' | 'institution', institut
 
     if (error) throw error;
 
-    return (data || []).map((row, index) => {
+    return ((data || []) as any[]).map((row, index) => {
       const xp = row.xp || 0;
       const level = row.level || (Math.floor(Math.sqrt(xp / 100)) + 1);
 
@@ -238,7 +238,7 @@ export async function fetchUpcomingTests(institutionId: string, limitCount: numb
 
     if (error) throw error;
 
-    return (data || []).map(row => ({
+    return ((data || []) as any[]).map(row => ({
       id: row.id,
       title: row.title || 'Test',
       subject: row.subject || 'Unknown',
@@ -268,8 +268,9 @@ export async function fetchStudentStats(userId: string) {
     if (userError) throw userError;
     if (!userData) return null;
 
-    const xp = userData.xp || 0;
-    const level = userData.level || (Math.floor(Math.sqrt(xp / 100)) + 1);
+    const user = userData as any;
+    const xp = user.xp || 0;
+    const level = user.level || (Math.floor(Math.sqrt(xp / 100)) + 1);
 
     // Fetch recent evaluations to calculate average
     const evaluations = await fetchStudentEvaluations(userId, 50);
@@ -280,11 +281,11 @@ export async function fetchStudentStats(userId: string) {
     return {
       xp,
       level,
-      streak: userData.streak || 0,
+      streak: user.streak || 0,
       testsCompleted: evaluations.length,
       avgScore: Math.round(avgScore),
-      attendance: userData.attendance || 0,
-      rank: userData.rank || 0,
+      attendance: user.attendance || 0,
+      rank: user.rank || 0,
     };
   } catch (error) {
     logger.error('Error fetching student stats:', error);

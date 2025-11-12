@@ -98,15 +98,16 @@ export default function StudentAnalytics({
           return;
         }
 
-        const totalXp = userData.xp || 0;
+        const user = userData as any;
+        const totalXp = user.xp || 0;
         const currentLevel = calculateLevel(totalXp);
 
-        setUserData(userData);
+        setUserData(user);
         setStats((prev) => ({
           ...prev,
           totalXp,
           currentLevel,
-          rank: userData.rank || 0,
+          rank: user.rank || 0,
         }));
 
         // 2. Fetch evaluations (last 50)

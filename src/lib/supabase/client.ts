@@ -265,8 +265,8 @@ export async function updateUserProfile(userId: string, updates: Partial<{
   photo_url: string
   last_active: string
 }>) {
-  return await supabase
-    .from('users')
+  return await (supabase
+    .from('users') as any)
     .update(updates)
     .eq('id', userId)
     .select()

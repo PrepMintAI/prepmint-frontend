@@ -16,7 +16,7 @@ export async function awardXpLocal(
   reason: string = ''
 ): Promise<void> {
   try {
-    const { data, error } = await supabase.rpc('award_xp', {
+    const { data, error } = await (supabase as any).rpc('award_xp', {
       target_user_id: userId,
       xp_amount: amount,
       xp_reason: reason,
@@ -115,7 +115,7 @@ export async function awardBadgeLocal(
   badgeId: string
 ): Promise<void> {
   try {
-    const { data, error } = await supabase.rpc('award_badge', {
+    const { data, error } = await (supabase as any).rpc('award_badge', {
       target_user_id: userId,
       target_badge_id: badgeId,
     });
@@ -146,7 +146,7 @@ export async function getUserBadges(userId: string): Promise<string[]> {
 
     if (error) throw error;
 
-    return data?.map(row => row.badge_id) || [];
+    return ((data || []) as any[]).map(row => row.badge_id);
   } catch (error) {
     logger.error('Failed to get user badges:', error);
     return [];
@@ -174,13 +174,13 @@ export async function getUserBadgesDetailed(userId: string): Promise<Badge[]> {
 
     if (error) throw error;
 
-    return data?.map(row => ({
+    return ((data || []) as any[]).map(row => ({
       id: row.badges.id,
       name: row.badges.name,
       description: row.badges.description,
       icon: row.badges.icon,
       awardedAt: row.awarded_at,
-    })) || [];
+    }));
   } catch (error) {
     logger.error('Failed to get detailed user badges:', error);
     return [];

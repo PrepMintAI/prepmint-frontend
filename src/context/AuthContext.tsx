@@ -146,11 +146,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logger.log('[AuthContext] Fetching user profile for:', currentUser.id);
 
         // Fetch user profile from database
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('users')
           .select('*')
           .eq('id', currentUser.id)
           .single();
+
+        const profile = profileData as any;
 
         if (profileError) {
           if (profileError.code === 'PGRST116') {

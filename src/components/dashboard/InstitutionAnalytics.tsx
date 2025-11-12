@@ -29,14 +29,14 @@ interface UserProfile {
 
 interface Evaluation {
   id: string;
-  studentId: string;
-  institutionId: string;
-  testId: string;
+  user_id: string;
+  institution_id: string;
+  test_id?: string;
   score: number;
-  totalScore: number;
+  total_marks: number;
   status: 'pending' | 'completed' | 'failed';
-  createdAt: any;
-  updatedAt?: any;
+  created_at: any;
+  updated_at?: any;
   class?: string;
   section?: string;
 }
@@ -103,35 +103,36 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
         setIsLoading(true);
 
         // Fetch institution data
-        const institutionDoc = await getDoc(doc(db, 'institutions', institutionId));
-        if (institutionDoc.exists()) {
-          setInstitution(institutionDoc.data());
+        const { data: institutionData, error: instError } = await supabase
+          .from('institutions')
+          .select('*')
+          .eq('id', institutionId)
+          .single();
+
+        if (!instError && institutionData) {
+          setInstitution(institutionData as any);
         }
 
         // Fetch all students in institution
-        const studentsQuery = query(
-          supabase.from('users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          ...doc.data(),
-        } as UserProfile));
-        setStudents(studentsData);
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student');
+
+        if (!studentsError && studentsData) {
+          setStudents(studentsData as any[]);
+        }
 
         // Fetch all evaluations for institution
-        const evaluationsQuery = query(
-          supabase.from('evaluations'),
-          where('institutionId', '==', institutionId)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Evaluation));
-        setEvaluations(evaluationsData);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId);
+
+        if (!evaluationsError && evaluationsData) {
+          setEvaluations(evaluationsData as any[]);
+        }
       } catch (error) {
         logger.error('Failed to fetch institution analytics data:', error);
       } finally {
@@ -218,7 +219,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
         const student = students.find((s) => s.uid === bestEval.user_id);
         if (student) {
           topPerformer = {
-            name: student.display_name,
+            name: student.displayName,
             score: bestEval.score,
           };
         }
@@ -312,7 +313,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
         return {
           uid: student.uid,
-          name: student.display_name,
+          name: student.displayName,
           class: student.class || '-',
           section: student.section || '-',
           rollNo: student.rollNo || '-',
@@ -364,7 +365,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     ];
 
     filteredEvaluations.forEach((evaluation) => {
-      const percentage = evaluation.totalScore > 0 ? (evaluation.score / evaluation.totalScore) * 100 : 0;
+      const percentage = evaluation.total_marks > 0 ? (evaluation.score / evaluation.total_marks) * 100 : 0;
 
       if (percentage < 20) ranges[0].count += 1;
       else if (percentage < 40) ranges[1].count += 1;
@@ -666,7 +667,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
             {/* Student Info */}
             <Card variant="elevated" padding="lg">
-              <CardHeader title={`${selectedStudent.display_name}'s Profile`} subtitle={`${selectedStudent.class}-${selectedStudent.section} (Roll No: ${selectedStudent.rollNo})`} />
+              <CardHeader title={`${selectedStudent.displayName}'s Profile`} subtitle={`${selectedStudent.class}-${selectedStudent.section} (Roll No: ${selectedStudent.rollNo})`} />
               <CardBody>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -690,13 +691,13 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                     {studentEvals.slice(0, 10).map((evaluation) => (
                       <div key={evaluation.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                         <div>
-                          <p className="font-medium text-gray-900">Test ID: {evaluation.testId.substring(0, 8)}...</p>
+                          <p className="font-medium text-gray-900">Test ID: {evaluation.test_id?.substring(0, 8) || 'N/A'}</p>
                           <p className="text-sm text-gray-600">
                             {evaluation.created_at?.toDate?.()?.toLocaleDateString() || new Date(evaluation.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-gray-900">{evaluation.score}/{evaluation.totalScore}</p>
+                          <p className="font-bold text-gray-900">{evaluation.score}/{evaluation.total_marks}</p>
                           <p className={`text-sm font-medium ${evaluation.status === 'completed' ? 'text-green-600' : evaluation.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}`}>
                             {evaluation.status.charAt(0).toUpperCase() + evaluation.status.slice(1)}
                           </p>
@@ -813,7 +814,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                     <option value="">Select Student</option>
                     {filteredStudents.map((student) => (
                       <option key={student.uid} value={student.uid}>
-                        {student.display_name}
+                        {student.displayName}
                       </option>
                     ))}
                   </select>
@@ -854,7 +855,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                   )}
                   {filters.selectedStudent && (
                     <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                      {students.find((s) => s.uid === filters.selectedStudent)?.display_name}
+                      {students.find((s) => s.uid === filters.selectedStudent)?.displayName}
                     </span>
                   )}
                   <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
