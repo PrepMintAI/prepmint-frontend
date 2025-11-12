@@ -4,9 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 import { xpForNextLevel } from '@/lib/gamify';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -43,7 +41,9 @@ interface StudentDashboardClientProps {
 }
 
 export function StudentDashboardClient({ userId }: StudentDashboardClientProps) {
-  const [userData, setUserData] = useState<any>(null);
+  // Use AuthContext instead of Firebase auth directly
+  const { user: authUser, loading: authLoading } = useAuth();
+
   const [evaluations, setEvaluations] = useState<StudentEvaluation[]>([]);
   const [activityData, setActivityData] = useState<any[]>([]);
   const [upcomingTests, setUpcomingTests] = useState<any[]>([]);
@@ -52,43 +52,41 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Fetch user document
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setUserData(data);
+    async function loadDashboardData() {
+      if (authLoading) return; // Wait for auth to complete
 
-            // Fetch all student data in parallel
-            const [evals, activity, studentStats, tests] = await Promise.all([
-              fetchStudentEvaluations(user.uid, 20),
-              fetchActivityData(user.uid, 90),
-              fetchStudentStats(user.uid),
-              fetchUpcomingTests(data.institutionId || '', 3),
-            ]);
+      if (!authUser) {
+        router.replace('/login');
+        return;
+      }
 
-            setEvaluations(evals);
-            setActivityData(activity);
-            setStats(studentStats);
-            setUpcomingTests(tests);
-          }
-        } catch (error) {
-          logger.error('Error loading user data:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
+      try {
+        const uid = authUser.uid || authUser.id;
+
+        // Fetch all student data in parallel
+        const [evals, activity, studentStats, tests] = await Promise.all([
+          fetchStudentEvaluations(uid, 20),
+          fetchActivityData(uid, 90),
+          fetchStudentStats(uid),
+          fetchUpcomingTests(authUser.institutionId || authUser.institution_id || '', 3),
+        ]);
+
+        setEvaluations(evals);
+        setActivityData(activity);
+        setStats(studentStats);
+        setUpcomingTests(tests);
+      } catch (error) {
+        logger.error('Error loading dashboard data:', error);
+      } finally {
         setIsLoading(false);
       }
-    });
+    }
 
-    return () => unsubscribe();
-  }, []);
+    loadDashboardData();
+  }, [authLoading, authUser, router]);
 
   // Show loading spinner while data is being fetched
-  if (isLoading || !userData || !stats) {
+  if (authLoading || isLoading || !authUser || !stats) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -144,10 +142,10 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
           <div className="flex flex-col md:flex-row items-start justify-between gap-6">
             <div className="flex-1">
               <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white drop-shadow-md">
-                Hey {(userData.displayName || userData.name || 'Student').split(' ')[0]}! 👋
+                Hey {(authUser.displayName || authUser.display_name || 'Student').split(' ')[0]}! 👋
               </h1>
               <p className="text-white text-lg mb-2 drop-shadow-sm">
-                {userData.institutionName || 'PrepMint Student'}
+                PrepMint Student
               </p>
               <p className="text-white/90 mb-6">
                 You&apos;re on fire! Keep up the amazing work 🚀
