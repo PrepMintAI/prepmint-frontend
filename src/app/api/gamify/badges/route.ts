@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Award badge using Supabase RPC function (atomic PostgreSQL transaction)
-    const { data: wasAwarded, error: badgeError } = await supabase.rpc('award_badge', {
+    const { data: wasAwarded, error: badgeError } = await (supabase as any).rpc('award_badge', {
       target_user_id: userId,
       target_badge_id: badgeId,
     });

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';

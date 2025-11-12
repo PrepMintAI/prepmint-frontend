@@ -74,16 +74,13 @@ export default function SettingsPage() {
     const uid = authUser.uid || authUser.id;
     const userData: UserSettings = {
       uid,
-      displayName: authUser.displayName || authUser.display_name,
-      email: authUser.email,
-      theme: authUser.theme,
+      displayName: authUser.displayName || authUser.display_name || '',
+      email: authUser.email || '',
+      theme: 'light', // Default theme
     };
     setUser(userData);
 
-    // Load saved settings from AuthContext if available
-    if (authUser.settings) {
-      setSettings((prevSettings) => ({ ...prevSettings, ...authUser.settings }));
-    }
+    // Settings will be loaded from database if available
     setLoading(false);
   }, [authUser, authLoading, router]);
 
@@ -92,8 +89,8 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('users')
+      const { error } = await (supabase
+        .from('users') as any)
         .update({ settings })
         .eq('id', user.uid);
 

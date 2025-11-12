@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     // For now, admins and devs can award to anyone, teachers are trusted
 
     // Award XP using Supabase RPC function (atomic PostgreSQL transaction)
-    const { data: result, error: xpError } = await supabase.rpc('award_xp', {
+    const { data: result, error: xpError } = await (supabase as any).rpc('award_xp', {
       target_user_id: userId,
       xp_amount: amount,
       xp_reason: reason,

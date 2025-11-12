@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';

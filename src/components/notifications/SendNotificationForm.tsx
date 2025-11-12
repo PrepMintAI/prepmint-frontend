@@ -12,7 +12,7 @@ import {
   sendRoleNotification,
   Notification,
 } from '@/lib/notifications';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { logger } from '@/lib/logger';

@@ -12,7 +12,7 @@ import {
   TrendingUp, TrendingDown, Eye, MessageSquare,
   CheckCircle, Clock, Award, BarChart3
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 
 interface StudentsClientProps {

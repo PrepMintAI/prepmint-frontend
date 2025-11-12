@@ -61,8 +61,8 @@ export async function POST(request: Request) {
 
     // Update Supabase users table
     const adminSupabase = createAdminClient();
-    const { error: updateError } = await adminSupabase
-      .from('users')
+    const { error: updateError } = await (adminSupabase
+      .from('users') as any)
       .update({ role, updated_at: new Date().toISOString() })
       .eq('id', uid);
 

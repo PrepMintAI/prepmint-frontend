@@ -115,7 +115,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
 
       if (usersError) throw usersError;
 
-      const users: User[] = (usersData || []).map(data => ({
+      const users: User[] = ((usersData || []) as any[]).map(data => ({
         id: data.id,
         name: data.display_name || data.email || 'Unknown',
         email: data.email || '',
@@ -134,7 +134,7 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
 
       if (institutionsError) throw institutionsError;
 
-      const institutions: Institution[] = (institutionsData || []).map(data => ({
+      const institutions: Institution[] = ((institutionsData || []) as any[]).map(data => ({
         id: data.id,
         name: data.name || 'Unnamed Institution',
         type: data.type || 'school',

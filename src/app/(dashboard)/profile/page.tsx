@@ -20,9 +20,7 @@ interface UserProfile {
   role: string;
   xp: number;
   badges?: string[];
-  institutionName?: string;
-  bio?: string;
-  phoneNumber?: string;
+  institutionId?: string;
   createdAt?: string;
 }
 
@@ -34,8 +32,6 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
-    bio: '',
-    phoneNumber: '',
   });
   const router = useRouter();
 
@@ -55,17 +51,13 @@ export default function ProfilePage() {
       role: authUser.role || 'student',
       xp: authUser.xp || 0,
       badges: authUser.badges || [],
-      institutionName: authUser.institutionName || authUser.institution_name,
-      bio: authUser.bio || '',
-      phoneNumber: authUser.phoneNumber || authUser.phone_number,
-      createdAt: authUser.createdAt || authUser.created_at,
+      institutionId: authUser.institution_id || authUser.institutionId,
+      createdAt: authUser.created_at,
     };
 
     setUser(userData);
     setFormData({
       displayName: userData.displayName,
-      bio: userData.bio || '',
-      phoneNumber: userData.phoneNumber || '',
     });
     setLoading(false);
   }, [authUser, authLoading, router]);
@@ -75,12 +67,10 @@ export default function ProfilePage() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('users')
+      const { error } = await (supabase
+        .from('users') as any)
         .update({
           display_name: formData.displayName,
-          bio: formData.bio,
-          phone_number: formData.phoneNumber,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -155,10 +145,10 @@ export default function ProfilePage() {
                         <h2 className="text-2xl font-bold text-gray-900">{user.displayName}</h2>
                       )}
                       <p className="text-gray-600 text-sm mt-1 capitalize">{user.role}</p>
-                      {user.institutionName && (
+                      {user.institutionId && (
                         <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
                           <Building2 size={16} />
-                          <span>{user.institutionName}</span>
+                          <span>Institution ID: {user.institutionId}</span>
                         </div>
                       )}
                     </div>
@@ -176,39 +166,6 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Bio
-                      </label>
-                      {isEditing ? (
-                        <textarea
-                          value={formData.bio}
-                          onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                          rows={3}
-                          placeholder="Tell us about yourself..."
-                        />
-                      ) : (
-                        <p className="text-gray-600">{user.bio || 'No bio added yet'}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      {isEditing ? (
-                        <input
-                          type="tel"
-                          value={formData.phoneNumber}
-                          onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                          placeholder="+91 98765 43210"
-                        />
-                      ) : (
-                        <p className="text-gray-600">{user.phoneNumber || 'Not provided'}</p>
-                      )}
-                    </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -217,7 +174,7 @@ export default function ProfilePage() {
                       <div className="flex items-center gap-2 text-gray-600">
                         <Calendar size={18} />
                         <span>
-                          {user.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                     </div>
@@ -238,8 +195,6 @@ export default function ProfilePage() {
                           setIsEditing(false);
                           setFormData({
                             displayName: user.displayName || '',
-                            bio: user.bio || '',
-                            phoneNumber: user.phoneNumber || '',
                           });
                         }}
                         variant="outline"
