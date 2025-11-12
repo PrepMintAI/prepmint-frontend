@@ -3,9 +3,8 @@
 
 import { ReactNode, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '@/lib/logger';
 import {
@@ -27,23 +26,6 @@ import {
 interface AppLayoutProps {
   children: ReactNode;
 }
-
-// Extended user type with Firestore profile data
-type UserProfile = {
-  uid: string;
-  email: string | null;
-  emailVerified: boolean;
-  displayName?: string | null;
-  role?: 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
-  xp?: number;
-  level?: number;
-  badges?: string[];
-  institutionId?: string;
-  accountType?: 'individual' | 'institution';
-  streak?: number;
-  lastActive?: string;
-  photoURL?: string | null;
-};
 
 const roleBasedNavigation = {
   student: [
@@ -113,13 +95,23 @@ const roleBasedNavigation = {
 const HEADER_HEIGHT = 'h-16';
 
 /**
- * Format Firestore Timestamp to relative time string
+ * Format timestamp to relative time string
  */
 function getRelativeTime(timestamp: Notification['createdAt']): string {
   const now = new Date();
-  const notificationDate = timestamp instanceof Date ? timestamp : (timestamp as any).toDate?.();
+  let notificationDate: Date | null = null;
 
-  if (!notificationDate) return 'just now';
+  if (timestamp instanceof Date) {
+    notificationDate = timestamp;
+  } else if (typeof timestamp === 'string') {
+    notificationDate = new Date(timestamp);
+  } else if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+    notificationDate = (timestamp as any).toDate();
+  }
+
+  if (!notificationDate || isNaN(notificationDate.getTime())) {
+    return 'just now';
+  }
 
   const diffMs = now.getTime() - notificationDate.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -139,8 +131,9 @@ function getRelativeTime(timestamp: Notification['createdAt']): string {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userData, setUserData] = useState<UserProfile | null>(null);
+  // Use AuthContext instead of Firebase auth directly
+  const { user: userData, loading: isLoading } = useAuth();
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -151,12 +144,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !userData) {
+      logger.log('[AppLayout] No user found, redirecting to login');
+      router.replace('/login');
+    }
+  }, [isLoading, userData, router]);
+
   // Handle window resize for responsive behavior
   useEffect(() => {
     const checkScreenSize = () => {
       const desktop = window.innerWidth >= 1024;
       setIsDesktop(desktop);
-      
+
       // Close mobile sidebar when switching to desktop
       if (desktop && isSidebarOpen) {
         setIsSidebarOpen(false);
@@ -168,7 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     // Add resize listener
     window.addEventListener('resize', checkScreenSize);
-    
+
     // Cleanup
     return () => window.removeEventListener('resize', checkScreenSize);
   }, [isSidebarOpen]);
@@ -196,76 +197,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace('/login');
-        return;
-      }
-
-      try {
-        // Fetch complete user profile from Firestore
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const firestoreData = userDoc.data();
-
-          // Merge Firebase Auth data with Firestore profile data
-          const completeUserData: UserProfile = {
-            uid: user.uid,
-            email: user.email,
-            emailVerified: user.emailVerified,
-            displayName: user.displayName || firestoreData.displayName,
-            photoURL: user.photoURL || firestoreData.photoURL,
-            // Spread all Firestore fields (role, xp, badges, institutionId, etc.)
-            ...firestoreData,
-          };
-
-          logger.log('[AppLayout] User data loaded:', {
-            uid: completeUserData.uid,
-            role: completeUserData.role,
-            email: completeUserData.email,
-          });
-
-          setUserData(completeUserData);
-        } else {
-          logger.error('[AppLayout] WARNING: No Firestore profile found for user:', user.uid);
-          // Keep user signed in with basic data - server will handle redirects
-          setUserData({
-            uid: user.uid,
-            email: user.email,
-            emailVerified: user.emailVerified,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-          });
-        }
-      } catch (error) {
-        logger.error('[AppLayout] ERROR: Error loading user data from Firebase:', error);
-        // Keep user signed in with basic data - prevent infinite loops
-        setUserData({
-          uid: user.uid,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
   // Subscribe to notifications when user data is loaded
   useEffect(() => {
-    if (!userData?.uid) return;
+    const userId = userData?.uid || userData?.id;
+    if (!userId) return;
 
     setNotificationsLoading(true);
 
     const unsubscribe = subscribeToNotifications(
-      userData.uid,
+      userId,
       (notifs) => {
         setNotifications(notifs);
         setNotificationsLoading(false);
@@ -281,12 +221,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
     );
 
     return () => unsubscribe();
-  }, [userData?.uid]);
+  }, [userData?.uid, userData?.id]);
 
   const handleLogout = async () => {
     if (confirm('Are you sure you want to log out?')) {
       try {
-        await signOut(auth);
+        await supabase.auth.signOut();
         router.push('/login');
       } catch (error) {
         logger.error('Logout error:', error);
@@ -304,8 +244,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const handleMarkAllAsReadClick = async () => {
     try {
-      if (!userData?.uid) return;
-      await markAllAsRead(userData.uid);
+      const userId = userData?.uid || userData?.id;
+      if (!userId) return;
+      await markAllAsRead(userId);
     } catch (error) {
       logger.error('[AppLayout] Error marking all notifications as read:', error);
     }
@@ -374,13 +315,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Menu size={24} className="text-gray-700" />
             )}
           </button>
-          
+
           <Link href={dashboardPath}>
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               PrepMint
             </h1>
           </Link>
-          
+
           <div className="flex items-center gap-2 notifications-container">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -411,7 +352,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               />
             </div>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="notifications-container">
               <button
@@ -427,7 +368,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 )}
               </button>
             </div>
-            
+
             <div className="relative user-menu-container">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -455,7 +396,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       <p className="font-medium text-gray-900">{userData.displayName}</p>
                       <p className="text-sm text-gray-600">{userData.email}</p>
                     </div>
-                    
+
                     <div className="py-2">
                       <Link
                         href="/profile"
@@ -474,7 +415,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                         <span className="text-sm font-medium">Settings</span>
                       </Link>
                     </div>
-                    
+
                     <div className="border-t border-gray-200 pt-2">
                       <button
                         onClick={handleLogout}
@@ -532,8 +473,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* User Info (Mobile Only) */}
         {!isDesktop && (
           <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
-            <Link 
-              href="/profile" 
+            <Link
+              href="/profile"
               onClick={() => setIsSidebarOpen(false)}
               className="block"
             >
@@ -584,7 +525,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
-            
+
             return (
               <Link
                 key={item.name}
