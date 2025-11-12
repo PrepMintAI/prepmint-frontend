@@ -1,47 +1,41 @@
 // src/app/dashboard/teacher/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/lib/logger';
 import AppLayout from '@/components/layout/AppLayout';
 import { TeacherDashboardClient } from './DashboardClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function TeacherDashboardPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function TeacherDashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-    
-    if (!userDoc.exists) {
-      logger.error('[Teacher Dashboard] User document not found');
-      redirect('/login');
+    if (!user) {
+      logger.log('[Teacher Dashboard] No user, redirecting to login');
+      router.replace('/login');
+      return;
     }
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
+    const userRole = user.role || 'student';
 
-    logger.log('[Teacher Dashboard] User role:', userRole);
-  } catch (error) {
-    logger.error('[Teacher Dashboard] Session verification failed:', error);
-    redirect('/login');
+    // Check role (allow teacher and dev)
+    if (userRole !== 'teacher' && userRole !== 'dev') {
+      logger.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return <Spinner fullScreen label="Loading dashboard..." />;
   }
 
-  // Check role OUTSIDE try-catch (allow teacher and dev)
-  if (userRole !== 'teacher' && userRole !== 'dev') {
-    logger.log('[Teacher Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
-    redirect(`/dashboard/${userRole}`);
-  }
+  const userId = user.uid || user.id;
 
   return (
     <AppLayout>

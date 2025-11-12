@@ -1,53 +1,57 @@
 // src/app/dashboard/institution/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { DashboardClient } from './DashboardClient';
 import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
-export default async function InstitutionDashboardPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function InstitutionDashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-  let institutionId: string | undefined;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      logger.error('[Institution Dashboard] User document not found');
-      redirect('/login');
+    if (!user) {
+      logger.log('[Institution Dashboard] No user, redirecting to login');
+      router.replace('/login');
+      return;
     }
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
-    institutionId = userData?.institutionId;
+    const userRole = user.role || 'student';
 
-    logger.log('[Institution Dashboard] User role:', userRole, 'Institution ID:', institutionId);
-  } catch (error) {
-    logger.error('[Institution Dashboard] Session verification failed:', error);
-    redirect('/login');
+    // Check role (allow institution and dev)
+    if (userRole !== 'institution' && userRole !== 'dev') {
+      logger.log('[Institution Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return <Spinner fullScreen label="Loading dashboard..." />;
   }
 
-  // Check role OUTSIDE try-catch (allow institution and dev)
-  if (userRole !== 'institution' && userRole !== 'dev') {
-    logger.log('[Institution Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
-    redirect(`/dashboard/${userRole}`);
-  }
+  const userId = user.uid || user.id;
+  const institutionId = user.institutionId || user.institution_id;
+
+  logger.log('[Institution Dashboard] User role:', user.role, 'Institution ID:', institutionId);
 
   return (
     <AppLayout>
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Institution Dashboard</h1>
+            <p className="text-gray-600 mt-1">
+              Manage your institution&apos;s students, teachers, and performance
+            </p>
+          </div>
+        </div>
+
         <DashboardClient userId={userId} institutionId={institutionId} />
       </div>
     </AppLayout>
