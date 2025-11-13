@@ -4,8 +4,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
@@ -75,6 +75,9 @@ interface EvaluationData {
 }
 
 export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) {
+  // Use AuthContext instead of Firebase auth
+  const { user: authUser, loading: authLoading } = useAuth();
+
   const [teacher, setTeacher] = useState<TeacherData | null>(null);
   const [institution, setInstitution] = useState<InstitutionData | null>(null);
   const [allStudents, setAllStudents] = useState<StudentData[]>([]);
@@ -85,52 +88,94 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
 
   useEffect(() => {
     async function fetchData() {
+      if (authLoading) return; // Wait for auth to complete
+
+      if (!authUser) {
+        router.replace('/login');
+        return;
+      }
+
       try {
         setIsLoading(true);
 
-        // Fetch teacher data
-        const teacherDoc = await getDoc(doc(db, 'users', userId));
-        if (!teacherDoc.exists()) {
-          logger.error('Teacher not found');
-          return;
-        }
-        const teacherData = teacherDoc.data() as TeacherData;
+        const uid = authUser.uid || authUser.id;
+        const institutionId = authUser.institutionId || authUser.institution_id;
+
+        // Set teacher data from AuthContext
+        const teacherData: TeacherData = {
+          uid,
+          displayName: authUser.displayName || authUser.display_name || '',
+          email: authUser.email || '',
+          institutionId: institutionId || '',
+          subjects: [], // Will be loaded from database if needed
+          subjectNames: [], // Will be loaded from database if needed
+          classTeacher: undefined,
+          className: undefined,
+          xp: authUser.xp,
+          level: authUser.level,
+        };
         setTeacher(teacherData);
 
         // Fetch institution data
-        if (teacherData.institutionId) {
-          const institutionDoc = await getDoc(doc(db, 'institutions', teacherData.institutionId));
-          if (institutionDoc.exists()) {
-            setInstitution(institutionDoc.data() as InstitutionData);
+        if (institutionId) {
+          const { data: institutionData, error: institutionError } = await supabase
+            .from('institutions')
+            .select('name, location, established_year')
+            .eq('id', institutionId)
+            .single();
+
+          if (!institutionError && institutionData) {
+            const inst = institutionData as any;
+            setInstitution({
+              name: inst.name,
+              location: inst.location,
+              establishedYear: inst.established_year,
+            });
           }
         }
 
         // Fetch students from the same institution
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student'),
-          where('institutionId', '==', teacherData.institutionId)
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const students: StudentData[] = studentsSnapshot.docs.map(doc => ({
-          uid: doc.id,
-          ...doc.data()
-        } as StudentData));
-        setAllStudents(students);
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('id, display_name, email, class, section, xp, level')
+          .eq('role', 'student')
+          .eq('institution_id', institutionId || '');
+
+        if (!studentsError && studentsData) {
+          const students: StudentData[] = (studentsData as any[]).map(student => ({
+            uid: student.id,
+            displayName: student.display_name || '',
+            email: student.email || '',
+            class: student.class,
+            section: student.section,
+            xp: student.xp || 0,
+            level: student.level || 1,
+          }));
+          setAllStudents(students);
+        }
 
         // Fetch evaluations for this institution
-        const evaluationsQuery = query(
-          collection(db, 'evaluations'),
-          where('institutionId', '==', teacherData.institutionId),
-          orderBy('createdAt', 'desc'),
-          firestoreLimit(50)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluations: EvaluationData[] = evaluationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as EvaluationData));
-        setAllEvaluations(evaluations);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId || '')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!evaluationsError && evaluationsData) {
+          const evaluations: EvaluationData[] = (evaluationsData as any[]).map(evaluation => ({
+            id: evaluation.id,
+            title: evaluation.title,
+            subject: evaluation.subject,
+            class: evaluation.class,
+            section: evaluation.section,
+            status: evaluation.status,
+            createdAt: evaluation.created_at,
+            userId: evaluation.user_id,
+            totalMarks: evaluation.total_marks,
+          }));
+          setAllEvaluations(evaluations);
+        }
       } catch (error) {
         logger.error('Error fetching dashboard data:', error);
       } finally {
@@ -139,7 +184,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
     }
 
     fetchData();
-  }, [userId]);
+  }, [authLoading, authUser, router]);
 
   // Pending evaluations
   const pendingEvaluations = useMemo(() => {
@@ -151,7 +196,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     return allEvaluations.filter(e => {
-      const createdAt = e.createdAt?.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
+      const createdAt = new Date(e.createdAt);
       return e.status === 'completed' && createdAt >= oneWeekAgo;
     }).length;
   }, [allEvaluations]);
@@ -183,7 +228,7 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
       .filter(e => e.status === 'completed')
       .slice(0, 4)
       .map(evaluation => {
-        const createdAt = evaluation.createdAt?.toDate ? evaluation.createdAt.toDate() : new Date(evaluation.createdAt);
+        const createdAt = new Date(evaluation.createdAt);
         const daysAgo = Math.floor((new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         return {
           action: `Graded ${evaluation.title || 'Evaluation'}`,
@@ -233,11 +278,11 @@ export function TeacherDashboardClient({ userId }: TeacherDashboardClientProps) 
     ];
   }, [allStudents]);
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return <Spinner fullScreen label="Loading dashboard..." />;
   }
 
-  if (!teacher) {
+  if (!authUser || !teacher) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-600">Teacher data not found</p>

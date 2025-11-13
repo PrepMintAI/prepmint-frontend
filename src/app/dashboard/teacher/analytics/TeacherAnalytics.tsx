@@ -2,18 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  doc,
-  getDoc,
-  Timestamp,
-  limit
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -114,21 +103,23 @@ export default function TeacherAnalytics({
       }
 
       try {
-        const usersRef = collection(db, 'users');
-        const studentsQuery = query(
-          usersRef,
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student'),
-          orderBy('displayName', 'asc')
-        );
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student')
+          .order('display_name', { ascending: true });
 
-        const snapshot = await getDocs(studentsQuery);
-        const studentsList = snapshot.docs.map(doc => ({
+        if (studentsError) {
+          throw studentsError;
+        }
+
+        const studentsList = ((studentsData || []) as any[]).map(doc => ({
           uid: doc.id,
-          displayName: doc.data().displayName || 'Unknown',
-          email: doc.data().email || '',
-          xp: doc.data().xp || 0,
-          level: doc.data().level || 1,
+          displayName: doc.display_name || 'Unknown',
+          email: doc.email || '',
+          xp: doc.xp || 0,
+          level: doc.level || 1,
         }));
 
         setStudents(studentsList);
@@ -152,27 +143,26 @@ export default function TeacherAnalytics({
         setLoading(true);
 
         // Fetch all evaluations for institution
-        const evaluationsRef = collection(db, 'evaluations');
-        const evaluationsQuery = query(
-          evaluationsRef,
-          where('institutionId', '==', institutionId)
-        );
+        const { data: evaluations, error: evalsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId);
 
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluations = evaluationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        if (evalsError) {
+          logger.error('Error fetching evaluations:', evalsError);
+        }
+
+        const evaluationsData = evaluations || [];
 
         // Calculate class-wide metrics
         const studentPerformance = new Map<string, { scores: number[]; subjects: Set<string> }>();
         const subjectMap = new Map<string, number>();
         let totalSubjects = 0;
 
-        evaluations.forEach((evaluation: any) => {
-          const studentId = evaluation.studentId;
+        evaluationsData.forEach((evaluation: any) => {
+          const studentId = evaluation.user_id;
           const subject = evaluation.subject || 'Unknown';
-          const percentage = evaluation.percentage || 0;
+          const percentage = ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0;
 
           // Track student performance
           const current = studentPerformance.get(studentId) || { scores: [], subjects: new Set() };
@@ -229,7 +219,7 @@ export default function TeacherAnalytics({
           subjectDistribution,
           completionRate,
           totalStudents: students.length,
-          totalEvaluations: evaluations.length,
+          totalEvaluations: evaluationsData.length,
         });
 
         setLoading(false);
@@ -255,46 +245,48 @@ export default function TeacherAnalytics({
         setLoading(true);
 
         // Get student data
-        const studentRef = doc(db, 'users', selectedStudentId);
-        const studentSnap = await getDoc(studentRef);
+        const { data: studentData, error: studentError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', selectedStudentId)
+          .single();
 
-        if (!studentSnap.exists()) {
+        if (studentError || !studentData) {
           setFilterError('Student not found');
           setLoading(false);
           return;
         }
 
-        const studentData = studentSnap.data();
+        const sData = studentData as any;
         const student: Student = {
           uid: selectedStudentId,
-          displayName: studentData.displayName || 'Unknown',
-          email: studentData.email || '',
-          xp: studentData.xp || 0,
-          level: studentData.level || 1,
+          displayName: sData.display_name || 'Unknown',
+          email: sData.email || '',
+          xp: sData.xp || 0,
+          level: sData.level || 1,
         };
 
         // Fetch student's evaluations
-        const evaluationsRef = collection(db, 'evaluations');
-        const studentEvalQuery = query(
-          evaluationsRef,
-          where('studentId', '==', selectedStudentId),
-          where('institutionId', '==', institutionId),
-          orderBy('evaluatedAt', 'desc'),
-          limit(50)
-        );
+        const { data: evaluations, error: evalError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('user_id', selectedStudentId)
+          .eq('institution_id', institutionId)
+          .order('created_at', { ascending: false })
+          .limit(50);
 
-        const evaluationsSnapshot = await getDocs(studentEvalQuery);
-        const evaluations = evaluationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        if (evalError) {
+          logger.error('Error fetching student evaluations:', evalError);
+        }
+
+        const evaluationsData = evaluations || [];
 
         // Calculate subject-wise performance
         const subjectMap = new Map<string, { scores: number[]; count: number }>();
 
-        evaluations.forEach((evaluation: any) => {
+        evaluationsData.forEach((evaluation: any) => {
           const subject = evaluation.subject || 'Unknown';
-          const percentage = evaluation.percentage || 0;
+          const percentage = ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0;
           const current = subjectMap.get(subject) || { scores: [], count: 0 };
           current.scores.push(percentage);
           current.count++;
@@ -316,37 +308,37 @@ export default function TeacherAnalytics({
         });
 
         // Get recent tests
-        const recentTestsData: RecentTest[] = evaluations.slice(0, 10).map((evaluation: any) => ({
+        const recentTestsData: RecentTest[] = evaluationsData.slice(0, 10).map((evaluation: any) => ({
           id: evaluation.id,
           subject: evaluation.subject || 'Unknown',
-          score: evaluation.percentage || 0,
+          score: ((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0,
           marksAwarded: evaluation.marksAwarded || 0,
           totalMarks: evaluation.totalMarks || 100,
-          date: evaluation.evaluatedAt?.toDate() || new Date(),
+          date: (evaluation.created_at ? new Date(evaluation.created_at) : new Date()) || new Date(),
           studentName: student.displayName,
           topic: evaluation.topic || evaluation.title,
         }));
 
         // Calculate overall average
-        const avgScore = evaluations.length > 0
-          ? Math.round(evaluations.reduce((sum: number, evaluation: any) => sum + (evaluation.percentage || 0), 0) / evaluations.length)
+        const avgScore = evaluationsData.length > 0
+          ? Math.round(evaluationsData.reduce((sum: number, evaluation: any) => sum + (((evaluation.total_marks > 0) ? Math.round((evaluation.score / evaluation.total_marks) * 100) : 0) || 0), 0) / evaluationsData.length)
           : 0;
 
         // Fetch class average for comparison
-        const classEvalQuery = query(
-          evaluationsRef,
-          where('institutionId', '==', institutionId)
-        );
-        const classEvalSnapshot = await getDocs(classEvalQuery);
-        const classEvaluations = classEvalSnapshot.docs.map(doc => doc.data());
+        const { data: classEvaluationsData } = await supabase
+          .from('evaluations')
+          .select('score, total_marks')
+          .eq('institution_id', institutionId || '');
+
+        const classEvaluations = (classEvaluationsData || []) as any[];
         const classAvgScore = classEvaluations.length > 0
-          ? Math.round(classEvaluations.reduce((sum: number, ev: any) => sum + (ev.percentage || 0), 0) / classEvaluations.length)
+          ? Math.round(classEvaluations.reduce((sum: number, ev: any) => sum + (((ev.total_marks > 0) ? Math.round((ev.score / ev.total_marks) * 100) : 0) || 0), 0) / classEvaluations.length)
           : 0;
 
         setStudentAnalytics({
           student,
           avgScore,
-          testsCompleted: evaluations.length,
+          testsCompleted: evaluationsData.length,
           subjectPerformance: subjectPerformance.sort((a, b) => b.avgScore - a.avgScore),
           recentTests: recentTestsData,
           totalXp: student.xp,

@@ -2,16 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  collection,
-  query,
-  orderBy,
-  limit,
-  getDocs,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -95,45 +86,53 @@ export default function StudentAnalytics({
         setError(null);
 
         // 1. Fetch user data
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (!userDoc.exists()) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (userError || !userData) {
           setError('User document not found');
           setLoading(false);
           return;
         }
 
-        const userData = userDoc.data();
-        const totalXp = userData.xp || 0;
+        const user = userData as any;
+        const totalXp = user.xp || 0;
         const currentLevel = calculateLevel(totalXp);
 
-        setUserData(userData);
+        setUserData(user);
         setStats((prev) => ({
           ...prev,
           totalXp,
           currentLevel,
-          rank: userData.rank || 0,
+          rank: user.rank || 0,
         }));
 
         // 2. Fetch evaluations (last 50)
-        const evaluationsRef = collection(db, 'users', userId, 'evaluations');
-        const evaluationsQuery = query(
-          evaluationsRef,
-          orderBy('evaluatedAt', 'desc'),
-          limit(50)
-        );
+        const { data: evaluations, error: evalsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(50);
 
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluations = evaluationsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        if (evalsError) {
+          logger.error('Error fetching evaluations:', evalsError);
+        }
+
+        const evaluationsData = evaluations || [];
 
         // 3. Calculate subject-wise performance
         const subjectMap = new Map<string, { scores: number[]; count: number }>();
 
-        evaluations.forEach((evaluation: any) => {
+        evaluationsData.forEach((evaluation: any) => {
           const subject = evaluation.subject || 'Unknown';
-          const percentage = evaluation.percentage || 0;
+          // Calculate percentage from score and total_marks
+          const percentage = evaluation.total_marks > 0
+            ? Math.round((evaluation.score / evaluation.total_marks) * 100)
+            : 0;
           const current = subjectMap.get(subject) || { scores: [], count: 0 };
           current.scores.push(percentage);
           current.count++;
@@ -162,15 +161,20 @@ export default function StudentAnalytics({
         setSubjectData(subjectPerformance.sort((a, b) => b.avgScore - a.avgScore));
 
         // 4. Get last 5 tests for recent evaluations
-        const recentTestsData: RecentTest[] = evaluations.slice(0, 5).map((evaluation: any) => ({
-          id: evaluation.id,
-          subject: evaluation.subject || 'Unknown',
-          score: evaluation.percentage || 0,
-          marksAwarded: evaluation.marksAwarded || 0,
-          totalMarks: evaluation.totalMarks || 100,
-          date: evaluation.evaluatedAt?.toDate() || new Date(),
-          topic: evaluation.topic || evaluation.title,
-        }));
+        const recentTestsData: RecentTest[] = evaluationsData.slice(0, 5).map((evaluation: any) => {
+          const percentage = evaluation.total_marks > 0
+            ? Math.round((evaluation.score / evaluation.total_marks) * 100)
+            : 0;
+          return {
+            id: evaluation.id,
+            subject: evaluation.subject || 'Unknown',
+            score: percentage,
+            marksAwarded: evaluation.score || 0,
+            totalMarks: evaluation.total_marks || 100,
+            date: evaluation.created_at ? new Date(evaluation.created_at) : new Date(),
+            topic: evaluation.topic || evaluation.title,
+          };
+        });
 
         setRecentTests(recentTestsData);
 
@@ -178,8 +182,11 @@ export default function StudentAnalytics({
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const last30Days = evaluations
-          .filter((evaluation: any) => evaluation.evaluatedAt?.toDate() >= thirtyDaysAgo)
+        const last30Days = evaluationsData
+          .filter((evaluation: any) => {
+            const evalDate = evaluation.created_at ? new Date(evaluation.created_at) : null;
+            return evalDate && evalDate >= thirtyDaysAgo;
+          })
           .reverse()
           .slice(0, 30);
 
@@ -187,13 +194,15 @@ export default function StudentAnalytics({
         const dateMap = new Map<string, number[]>();
 
         last30Days.forEach((evaluation: any) => {
-          const dateStr = evaluation.evaluatedAt
-            ?.toDate()
-            .toISOString()
-            .split('T')[0];
+          const dateStr = evaluation.created_at
+            ? new Date(evaluation.created_at).toISOString().split('T')[0]
+            : null;
           if (dateStr) {
+            const percentage = evaluation.total_marks > 0
+              ? Math.round((evaluation.score / evaluation.total_marks) * 100)
+              : 0;
             const scores = dateMap.get(dateStr) || [];
-            scores.push(evaluation.percentage || 0);
+            scores.push(percentage);
             dateMap.set(dateStr, scores);
           }
         });
@@ -211,19 +220,23 @@ export default function StudentAnalytics({
 
         // 6. Update final stats
         const avgScore =
-          evaluations.length > 0
+          evaluationsData.length > 0
             ? Math.round(
-                evaluations.reduce(
-                  (sum: number, evaluation: any) =>
-                    sum + (evaluation.percentage || 0),
+                evaluationsData.reduce(
+                  (sum: number, evaluation: any) => {
+                    const percentage = evaluation.total_marks > 0
+                      ? Math.round((evaluation.score / evaluation.total_marks) * 100)
+                      : 0;
+                    return sum + percentage;
+                  },
                   0
-                ) / evaluations.length
+                ) / evaluationsData.length
               )
             : 0;
 
         setStats((prev) => ({
           ...prev,
-          testsCompleted: evaluations.length,
+          testsCompleted: evaluationsData.length,
           avgScore,
         }));
 

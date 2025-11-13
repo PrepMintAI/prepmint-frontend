@@ -6,21 +6,21 @@ import { motion } from 'framer-motion';
 import { Shield, Key, Trash2, AlertCircle } from 'lucide-react';
 import TableManager, { ColumnDef } from '@/components/admin/TableManager';
 import UserFormModal, { UserFormData } from '@/components/admin/UserFormModal';
-import { useFirestoreCRUD, FirestoreDocument } from '@/hooks/useFirestoreCRUD';
+import { useSupabaseCRUD, SupabaseDocument } from '@/hooks/useSupabaseCRUD';
 import Button from '@/components/common/Button';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/context/AuthContext';
 
-interface UserDocument extends FirestoreDocument {
+interface UserDocument extends SupabaseDocument {
   email: string;
-  displayName: string;
+  display_name: string;
   role: 'student' | 'teacher' | 'admin' | 'institution';
   xp?: number;
   level?: number;
-  institutionId?: string;
-  accountType?: 'individual' | 'institution';
-  createdAt: any;
-  updatedAt?: any;
+  institution_id?: string;
+  account_type?: 'individual' | 'institution';
+  created_at: string;
+  updated_at?: string;
 }
 
 export default function UsersManagementClient() {
@@ -41,10 +41,10 @@ export default function UsersManagementClient() {
     loadMore,
     refresh,
     search,
-  } = useFirestoreCRUD<UserDocument>({
-    collectionName: 'users',
+  } = useSupabaseCRUD<UserDocument>({
+    tableName: 'users',
     pageSize: 20,
-    orderByField: 'createdAt',
+    orderByField: 'created_at',
     orderDirection: 'desc',
     realtime: true,
   });
@@ -80,7 +80,7 @@ export default function UsersManagementClient() {
 
   const columns: ColumnDef<UserDocument>[] = [
     {
-      key: 'displayName',
+      key: 'display_name',
       label: 'Name',
       sortable: true,
       render: (value, row) => (
@@ -113,7 +113,7 @@ export default function UsersManagementClient() {
       },
     },
     {
-      key: 'accountType',
+      key: 'account_type',
       label: 'Account Type',
       render: (value) => (
         <span className="text-sm text-gray-600 capitalize">{value || 'individual'}</span>
@@ -136,12 +136,12 @@ export default function UsersManagementClient() {
       ),
     },
     {
-      key: 'createdAt',
+      key: 'created_at',
       label: 'Created',
       sortable: true,
       render: (value) => {
         if (!value) return '-';
-        const date = value.toDate ? value.toDate() : new Date(value);
+        const date = new Date(value);
         return (
           <span className="text-sm text-gray-600">
             {date.toLocaleDateString('en-US', {
@@ -166,13 +166,13 @@ export default function UsersManagementClient() {
   };
 
   const handleDelete = async (row: UserDocument) => {
-    if (!confirm(`Are you sure you want to delete ${row.displayName}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${row.display_name}?`)) return;
 
     try {
-      // Delete from Firestore
+      // Delete from Supabase
       await deleteDocument(row.id);
 
-      // Delete from Firebase Auth
+      // Delete from Supabase Auth via API
       await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -194,14 +194,14 @@ export default function UsersManagementClient() {
       if (editingUser) {
         // Update existing user
         const updateData: any = {
-          displayName: data.displayName,
+          display_name: data.displayName,
           role: data.role,
-          accountType: data.accountType,
+          account_type: data.accountType,
         };
 
-        // Only include institutionId if it has a value
+        // Only include institution_id if it has a value
         if (data.institutionId) {
-          updateData.institutionId = data.institutionId;
+          updateData.institution_id = data.institutionId;
         }
 
         await updateDocument(editingUser.id, updateData);
@@ -264,15 +264,15 @@ export default function UsersManagementClient() {
     const csv = [
       ['Name', 'Email', 'Role', 'Account Type', 'XP', 'Level', 'Institution ID', 'Created'],
       ...users.map((user) => [
-        user.displayName,
+        user.display_name,
         user.email,
         user.role,
-        user.accountType || 'individual',
+        user.account_type || 'individual',
         user.xp || 0,
         user.level || 1,
-        user.institutionId || '',
-        user.createdAt?.toDate
-          ? user.createdAt.toDate().toLocaleDateString()
+        user.institution_id || '',
+        user.created_at
+          ? new Date(user.created_at).toLocaleDateString()
           : '',
       ]),
     ]
@@ -400,7 +400,7 @@ export default function UsersManagementClient() {
           onExport={handleExport}
           onImport={handleImport}
           onRefresh={refresh}
-          onSearch={(term) => search(term, ['displayName', 'email'])}
+          onSearch={(term) => search(term, ['display_name', 'email'])}
           onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}

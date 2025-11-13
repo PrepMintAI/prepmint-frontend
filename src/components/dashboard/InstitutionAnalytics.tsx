@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody, StatCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -30,14 +29,14 @@ interface UserProfile {
 
 interface Evaluation {
   id: string;
-  studentId: string;
-  institutionId: string;
-  testId: string;
+  user_id: string;
+  institution_id: string;
+  test_id?: string;
   score: number;
-  totalScore: number;
+  total_marks: number;
   status: 'pending' | 'completed' | 'failed';
-  createdAt: any;
-  updatedAt?: any;
+  created_at: any;
+  updated_at?: any;
   class?: string;
   section?: string;
 }
@@ -104,35 +103,36 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
         setIsLoading(true);
 
         // Fetch institution data
-        const institutionDoc = await getDoc(doc(db, 'institutions', institutionId));
-        if (institutionDoc.exists()) {
-          setInstitution(institutionDoc.data());
+        const { data: institutionData, error: instError } = await supabase
+          .from('institutions')
+          .select('*')
+          .eq('id', institutionId)
+          .single();
+
+        if (!instError && institutionData) {
+          setInstitution(institutionData as any);
         }
 
         // Fetch all students in institution
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          ...doc.data(),
-        } as UserProfile));
-        setStudents(studentsData);
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student');
+
+        if (!studentsError && studentsData) {
+          setStudents(studentsData as any[]);
+        }
 
         // Fetch all evaluations for institution
-        const evaluationsQuery = query(
-          collection(db, 'evaluations'),
-          where('institutionId', '==', institutionId)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Evaluation));
-        setEvaluations(evaluationsData);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId);
+
+        if (!evaluationsError && evaluationsData) {
+          setEvaluations(evaluationsData as any[]);
+        }
       } catch (error) {
         logger.error('Failed to fetch institution analytics data:', error);
       } finally {
@@ -171,22 +171,22 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     cutoffDate.setDate(cutoffDate.getDate() - filters.dateRange);
 
     const filtered = evaluations.filter((evaluation) => {
-      const evalDate = evaluation.createdAt?.toDate?.() || new Date(evaluation.createdAt);
+      const evalDate = evaluation.created_at?.toDate?.() || new Date(evaluation.created_at);
       if (evalDate < cutoffDate) return false;
 
       // Filter by student if viewing single student
       if (filters.viewLevel === 'student' && filters.selectedStudent) {
-        if (evaluation.studentId !== filters.selectedStudent) return false;
+        if (evaluation.user_id !== filters.selectedStudent) return false;
       } else if (filters.viewLevel === 'class' || filters.viewLevel === 'school') {
         // Filter by class if selected
         if (filters.selectedClass !== 'all') {
-          const student = students.find((s) => s.uid === evaluation.studentId);
+          const student = students.find((s) => s.uid === evaluation.user_id);
           if (student?.class !== filters.selectedClass) return false;
         }
 
         // Filter by section if selected
         if (filters.selectedSection !== 'all') {
-          const student = students.find((s) => s.uid === evaluation.studentId);
+          const student = students.find((s) => s.uid === evaluation.user_id);
           if (student?.section !== filters.selectedSection) return false;
         }
       }
@@ -204,7 +204,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     uniqueClasses.forEach((cls) => {
       const classStudents = students.filter((s) => s.class === cls);
       const classEvals = filteredEvaluations.filter((e) => {
-        const student = students.find((s) => s.uid === e.studentId);
+        const student = students.find((s) => s.uid === e.user_id);
         return student?.class === cls;
       });
 
@@ -216,7 +216,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
       let topPerformer = null;
       if (classEvals.length > 0) {
         const bestEval = classEvals.reduce((best, curr) => (curr.score > best.score ? curr : best));
-        const student = students.find((s) => s.uid === bestEval.studentId);
+        const student = students.find((s) => s.uid === bestEval.user_id);
         if (student) {
           topPerformer = {
             name: student.displayName,
@@ -247,7 +247,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
       uniqueSections.forEach((section) => {
         const sectionStudents = students.filter((s) => s.class === filters.selectedClass && s.section === section);
         const sectionEvals = filteredEvaluations.filter((e) => {
-          const student = students.find((s) => s.uid === e.studentId);
+          const student = students.find((s) => s.uid === e.user_id);
           return student?.class === filters.selectedClass && student?.section === section;
         });
 
@@ -308,7 +308,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
   const studentListData = useMemo(() => {
     return filteredStudents
       .map((student) => {
-        const studentEvals = filteredEvaluations.filter((e) => e.studentId === student.uid);
+        const studentEvals = filteredEvaluations.filter((e) => e.user_id === student.uid);
         const avgScore = studentEvals.length > 0 ? studentEvals.reduce((sum, e) => sum + e.score, 0) / studentEvals.length : 0;
 
         return {
@@ -331,7 +331,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     const dayMap: Record<string, { completed: number; failed: number }> = {};
 
     filteredEvaluations.forEach((evaluation) => {
-      const date = evaluation.createdAt?.toDate?.() || new Date(evaluation.createdAt);
+      const date = evaluation.created_at?.toDate?.() || new Date(evaluation.created_at);
       const dayKey = date.toLocaleDateString('en-US');
 
       if (!dayMap[dayKey]) {
@@ -365,7 +365,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
     ];
 
     filteredEvaluations.forEach((evaluation) => {
-      const percentage = evaluation.totalScore > 0 ? (evaluation.score / evaluation.totalScore) * 100 : 0;
+      const percentage = evaluation.total_marks > 0 ? (evaluation.score / evaluation.total_marks) * 100 : 0;
 
       if (percentage < 20) ranges[0].count += 1;
       else if (percentage < 40) ranges[1].count += 1;
@@ -630,7 +630,7 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
 
   const renderStudentView = () => {
     const selectedStudent = students.find((s) => s.uid === filters.selectedStudent);
-    const studentEvals = filteredEvaluations.filter((e) => e.studentId === filters.selectedStudent);
+    const studentEvals = filteredEvaluations.filter((e) => e.user_id === filters.selectedStudent);
     const avgScore = studentEvals.length > 0 ? studentEvals.reduce((sum, e) => sum + e.score, 0) / studentEvals.length : 0;
 
     return (
@@ -691,13 +691,13 @@ export default function InstitutionAnalytics({ institutionId, userId }: Institut
                     {studentEvals.slice(0, 10).map((evaluation) => (
                       <div key={evaluation.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                         <div>
-                          <p className="font-medium text-gray-900">Test ID: {evaluation.testId.substring(0, 8)}...</p>
+                          <p className="font-medium text-gray-900">Test ID: {evaluation.test_id?.substring(0, 8) || 'N/A'}</p>
                           <p className="text-sm text-gray-600">
-                            {evaluation.createdAt?.toDate?.()?.toLocaleDateString() || new Date(evaluation.createdAt).toLocaleDateString()}
+                            {evaluation.created_at?.toDate?.()?.toLocaleDateString() || new Date(evaluation.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-gray-900">{evaluation.score}/{evaluation.totalScore}</p>
+                          <p className="font-bold text-gray-900">{evaluation.score}/{evaluation.total_marks}</p>
                           <p className={`text-sm font-medium ${evaluation.status === 'completed' ? 'text-green-600' : evaluation.status === 'failed' ? 'text-red-600' : 'text-yellow-600'}`}>
                             {evaluation.status.charAt(0).toUpperCase() + evaluation.status.slice(1)}
                           </p>

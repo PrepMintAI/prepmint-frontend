@@ -12,8 +12,7 @@ import {
   sendRoleNotification,
   Notification,
 } from '@/lib/notifications';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import Card, { CardHeader, CardBody } from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import { logger } from '@/lib/logger';
@@ -51,35 +50,35 @@ export default function SendNotificationForm({
     const fetchUsers = async () => {
       try {
         setLoadingUsers(true);
-        const usersRef = collection(db, 'users');
-        let q;
+        let usersQuery = supabase.from('users').select('id, display_name, email, role');
+
+        const institutionId = user.institutionId || user.institution_id;
 
         // Teachers can only send to students in their institution
-        if (user.role === 'teacher' && user.institutionId) {
-          q = query(
-            usersRef,
-            where('institutionId', '==', user.institutionId),
-            where('role', '==', 'student')
-          );
+        if (user.role === 'teacher' && institutionId) {
+          usersQuery = usersQuery
+            .eq('institution_id', institutionId)
+            .eq('role', 'student');
         }
         // Institution admins can send to anyone in their institution
-        else if (user.role === 'institution' && user.institutionId) {
-          q = query(usersRef, where('institutionId', '==', user.institutionId));
+        else if (user.role === 'institution' && institutionId) {
+          usersQuery = usersQuery.eq('institution_id', institutionId);
         }
-        // Admins can send to anyone
-        else if (user.role === 'admin') {
-          q = query(usersRef);
-        } else {
+        // Admins can send to anyone (no additional filters)
+        else if (user.role !== 'admin') {
           setAvailableUsers([]);
           setLoadingUsers(false);
           return;
         }
 
-        const snapshot = await getDocs(q);
-        const users = snapshot.docs.map((doc) => ({
+        const { data, error: fetchError } = await usersQuery;
+
+        if (fetchError) throw fetchError;
+
+        const users = ((data || []) as any[]).map((doc) => ({
           uid: doc.id,
-          name: doc.data().displayName || doc.data().email || 'Unknown',
-          role: doc.data().role || 'unknown',
+          name: doc.display_name || doc.email || 'Unknown',
+          role: doc.role || 'unknown',
         }));
 
         setAvailableUsers(users);

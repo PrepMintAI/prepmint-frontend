@@ -1,8 +1,7 @@
 // src/lib/studentData.ts
-// Firebase data fetching utilities for student dashboard
+// Supabase data fetching utilities for student dashboard
 
-import { collection, query, where, orderBy, limit, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
-import { db } from './firebase.client';
+import { supabase } from './supabase/client';
 import { logger } from './logger';
 
 // ==================== TYPE DEFINITIONS ====================
@@ -43,40 +42,39 @@ export interface LeaderboardEntry {
   rank?: number;
 }
 
-// ==================== FIREBASE FETCHING FUNCTIONS ====================
+// ==================== SUPABASE FETCHING FUNCTIONS ====================
 
 /**
- * Fetch student's recent evaluations from Firestore
+ * Fetch student's recent evaluations from Supabase
  */
 export async function fetchStudentEvaluations(userId: string, limitCount: number = 10): Promise<StudentEvaluation[]> {
   try {
-    const evaluationsRef = collection(db, 'users', userId, 'evaluations');
-    const q = query(
-      evaluationsRef,
-      orderBy('evaluatedAt', 'desc'),
-      limit(limitCount)
-    );
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('evaluated_at', { ascending: false })
+      .limit(limitCount);
 
-    const snapshot = await getDocs(q);
+    if (error) throw error;
 
-    return snapshot.docs.map(doc => {
-      const data = doc.data();
-      const marksAwarded = data.marksAwarded || 0;
-      const totalMarks = data.totalMarks || 100;
+    return ((data || []) as any[]).map(row => {
+      const marksAwarded = row.marks_awarded || 0;
+      const totalMarks = row.total_marks || 100;
       const percentage = totalMarks > 0 ? (marksAwarded / totalMarks) * 100 : 0;
 
       return {
-        id: doc.id,
-        testId: data.testId,
-        qpId: data.qpId,
-        subject: data.subject || 'Unknown Subject',
-        topic: data.topic || data.title || 'Unknown Topic',
+        id: row.id,
+        testId: row.test_id,
+        qpId: row.qp_id,
+        subject: row.subject || 'Unknown Subject',
+        topic: row.topic || row.title || 'Unknown Topic',
         marksAwarded,
         totalMarks,
         percentage,
-        evaluatedAt: data.evaluatedAt?.toDate() || new Date(),
-        remarks: data.remarks || data.comments,
-        xpEarned: data.xpEarned || Math.floor(percentage / 2), // Default XP calculation
+        evaluatedAt: new Date(row.evaluated_at || row.created_at),
+        remarks: row.remarks || row.comments,
+        xpEarned: row.xp_earned || Math.floor(percentage / 2), // Default XP calculation
       };
     });
   } catch (error) {
@@ -86,22 +84,22 @@ export async function fetchStudentEvaluations(userId: string, limitCount: number
 }
 
 /**
- * Generate activity heatmap data from user activity collection
- * Falls back to mock data if no activity exists
+ * Generate activity heatmap data from activity table
+ * Falls back to empty data if no activity exists
  */
 export async function fetchActivityData(userId: string, days: number = 90): Promise<ActivityData[]> {
   try {
-    const activityRef = collection(db, 'users', userId, 'activity');
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const q = query(
-      activityRef,
-      where('timestamp', '>=', Timestamp.fromDate(startDate)),
-      orderBy('timestamp', 'asc')
-    );
+    const { data, error } = await supabase
+      .from('activity')
+      .select('timestamp, xp')
+      .eq('user_id', userId)
+      .gte('timestamp', startDate.toISOString())
+      .order('timestamp', { ascending: true });
 
-    const snapshot = await getDocs(q);
+    if (error) throw error;
 
     // Create a map to aggregate XP by date
     const activityMap = new Map<string, number>();
@@ -115,14 +113,11 @@ export async function fetchActivityData(userId: string, days: number = 90): Prom
     }
 
     // Aggregate XP from activity documents
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      const timestamp = data.timestamp?.toDate();
-      if (timestamp) {
-        const dateStr = timestamp.toISOString().split('T')[0];
-        const currentXp = activityMap.get(dateStr) || 0;
-        activityMap.set(dateStr, currentXp + (data.xp || 0));
-      }
+    ((data || []) as any[]).forEach(row => {
+      const timestamp = new Date(row.timestamp);
+      const dateStr = timestamp.toISOString().split('T')[0];
+      const currentXp = activityMap.get(dateStr) || 0;
+      activityMap.set(dateStr, currentXp + (row.xp || 0));
     });
 
     // Convert map to array
@@ -190,41 +185,33 @@ export function calculateSubjectProgress(evaluations: StudentEvaluation[]): Subj
  */
 export async function fetchLeaderboard(scope: 'global' | 'institution', institutionId?: string, limitCount: number = 20): Promise<LeaderboardEntry[]> {
   try {
-    const usersRef = collection(db, 'users');
+    let query = supabase
+      .from('users')
+      .select('id, display_name, xp, level, avatar, streak, institution_id')
+      .eq('role', 'student')
+      .order('xp', { ascending: false })
+      .limit(limitCount);
 
-    let q;
     if (scope === 'institution' && institutionId) {
-      q = query(
-        usersRef,
-        where('institutionId', '==', institutionId),
-        where('role', '==', 'student'),
-        orderBy('xp', 'desc'),
-        limit(limitCount)
-      );
-    } else {
-      q = query(
-        usersRef,
-        where('role', '==', 'student'),
-        orderBy('xp', 'desc'),
-        limit(limitCount)
-      );
+      query = query.eq('institution_id', institutionId);
     }
 
-    const snapshot = await getDocs(q);
+    const { data, error } = await query;
 
-    return snapshot.docs.map((doc, index) => {
-      const data = doc.data();
-      const xp = data.xp || 0;
-      const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+    if (error) throw error;
+
+    return ((data || []) as any[]).map((row, index) => {
+      const xp = row.xp || 0;
+      const level = row.level || (Math.floor(Math.sqrt(xp / 100)) + 1);
 
       return {
-        uid: doc.id,
-        name: data.displayName || data.name || 'Anonymous',
+        uid: row.id,
+        name: row.display_name || 'Anonymous',
         xp,
         level,
-        avatar: data.avatar || '🎮',
-        streak: data.streak || 0,
-        institutionName: data.institutionName || 'Unknown',
+        avatar: row.avatar || '🎮',
+        streak: row.streak || 0,
+        institutionName: 'Unknown', // Would need to join with institutions table
         rank: index + 1,
       };
     });
@@ -235,34 +222,31 @@ export async function fetchLeaderboard(scope: 'global' | 'institution', institut
 }
 
 /**
- * Fetch upcoming tests for a student (from institution's tests subcollection)
+ * Fetch upcoming tests for a student (from tests table)
  */
 export async function fetchUpcomingTests(institutionId: string, limitCount: number = 5) {
   try {
     if (!institutionId) return [];
 
-    const testsRef = collection(db, 'institutions', institutionId, 'tests');
-    const q = query(
-      testsRef,
-      where('status', '==', 'scheduled'),
-      orderBy('scheduledDate', 'asc'),
-      limit(limitCount)
-    );
+    const { data, error } = await supabase
+      .from('tests')
+      .select('id, title, subject, scheduled_date, duration, total_marks, type')
+      .eq('institution_id', institutionId)
+      .eq('status', 'scheduled')
+      .order('scheduled_date', { ascending: true })
+      .limit(limitCount);
 
-    const snapshot = await getDocs(q);
+    if (error) throw error;
 
-    return snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.title || 'Test',
-        subject: data.subject || 'Unknown',
-        scheduledDate: data.scheduledDate?.toDate() || new Date(),
-        duration: data.duration || 60,
-        totalMarks: data.totalMarks || 100,
-        type: data.type || 'test',
-      };
-    });
+    return ((data || []) as any[]).map(row => ({
+      id: row.id,
+      title: row.title || 'Test',
+      subject: row.subject || 'Unknown',
+      scheduledDate: new Date(row.scheduled_date || new Date()),
+      duration: row.duration || 60,
+      totalMarks: row.total_marks || 100,
+      type: row.type || 'test',
+    }));
   } catch (error) {
     logger.error('Error fetching upcoming tests:', error);
     return [];
@@ -275,14 +259,18 @@ export async function fetchUpcomingTests(institutionId: string, limitCount: numb
 export async function fetchStudentStats(userId: string) {
   try {
     // Fetch user document
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      return null;
-    }
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('xp, level, streak, attendance, rank')
+      .eq('id', userId)
+      .single();
 
-    const userData = userDoc.data();
-    const xp = userData.xp || 0;
-    const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+    if (userError) throw userError;
+    if (!userData) return null;
+
+    const user = userData as any;
+    const xp = user.xp || 0;
+    const level = user.level || (Math.floor(Math.sqrt(xp / 100)) + 1);
 
     // Fetch recent evaluations to calculate average
     const evaluations = await fetchStudentEvaluations(userId, 50);
@@ -293,11 +281,11 @@ export async function fetchStudentStats(userId: string) {
     return {
       xp,
       level,
-      streak: userData.streak || 0,
+      streak: user.streak || 0,
       testsCompleted: evaluations.length,
       avgScore: Math.round(avgScore),
-      attendance: userData.attendance || 0,
-      rank: userData.rank || 0,
+      attendance: user.attendance || 0,
+      rank: user.rank || 0,
     };
   } catch (error) {
     logger.error('Error fetching student stats:', error);

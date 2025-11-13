@@ -3,9 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/layout/AppLayout';
 import Card, { BadgeCard } from '@/components/common/Card';
@@ -27,46 +25,29 @@ const allBadges = [
 ];
 
 export default function RewardsPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userData, setUserData] = useState<{ uid?: string; badges?: string[]; xp?: number; role?: string } | null>(null);
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace('/login');
-        return;
-      }
+    if (authLoading) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setUserData({ ...userDoc.data(), uid: user.uid });
-        }
-      } catch (error) {
-        logger.error('Error loading rewards:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    });
+    if (!user) {
+      router.replace('/login');
+    }
+  }, [user, authLoading, router]);
 
-    return () => unsubscribe();
-  }, [router]);
-
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <Spinner fullScreen label="Loading rewards..." />
-      </AppLayout>
-    );
+  if (authLoading) {
+    return <Spinner fullScreen label="Loading rewards..." />;
   }
 
-  const userBadges = userData?.badges || [];
-  const currentXp = userData?.xp || 0;
+  if (!user) return null;
+
+  const userBadges = user.badges || [];
+  const currentXp = user.xp || 0;
   const currentLevel = calculateLevel(currentXp);
 
   // Show different content based on role
-  const isStudent = userData?.role === 'student';
+  const isStudent = user.role === 'student';
 
   return (
     <AppLayout>

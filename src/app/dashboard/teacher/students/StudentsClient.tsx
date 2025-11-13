@@ -12,9 +12,8 @@ import {
   TrendingUp, TrendingDown, Eye, MessageSquare,
   CheckCircle, Clock, Award, BarChart3
 } from 'lucide-react';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
 interface StudentsClientProps {
   userId: string;
@@ -48,43 +47,39 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
         setIsLoading(true);
 
         // Fetch teacher's institution ID first
-        const teacherDoc = await getDoc(doc(db, 'users', userId));
-        if (!teacherDoc.exists()) {
-          logger.error('User not found');
-          return;
-        }
+        const { data: teacherData } = await supabase
+          .from('users')
+          .select('institution_id')
+          .eq('id', userId)
+          .single();
 
-        const teacherData = teacherDoc.data();
-        const institutionId = teacherData.institutionId;
+        const institutionId = (teacherData as any)?.institution_id;
 
         // Fetch students from the same institution
-        let studentsQuery;
+        let studentsQuery = supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'student');
+
         if (userRole === 'teacher' && institutionId) {
-          studentsQuery = query(
-            collection(db, 'users'),
-            where('role', '==', 'student'),
-            where('institutionId', '==', institutionId)
-          );
-        } else {
-          // Admin - show all students
-          studentsQuery = query(
-            collection(db, 'users'),
-            where('role', '==', 'student')
-          );
+          studentsQuery = studentsQuery.eq('institution_id', institutionId);
         }
 
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const fetchedStudents: StudentData[] = studentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          uid: doc.id,
-          displayName: doc.data().displayName || 'Unknown Student',
-          email: doc.data().email || '',
-          rollNo: doc.data().rollNo || `STU${Math.floor(Math.random() * 1000)}`,
-          class: doc.data().class || 'N/A',
-          section: doc.data().section || '',
-          xp: doc.data().xp || 0,
-          level: doc.data().level || 1,
-          institutionId: doc.data().institutionId
+        const { data: studentsData, error } = await studentsQuery;
+
+        if (error) throw error;
+
+        const fetchedStudents: StudentData[] = ((studentsData || []) as any[]).map(data => ({
+          id: data.id,
+          uid: data.id,
+          displayName: data.display_name || 'Unknown Student',
+          email: data.email || '',
+          rollNo: data.roll_no || `STU${Math.floor(Math.random() * 1000)}`,
+          class: data.class || 'N/A',
+          section: data.section || '',
+          xp: data.xp || 0,
+          level: data.level || 1,
+          institutionId: data.institution_id
         }));
 
         setStudents(fetchedStudents);

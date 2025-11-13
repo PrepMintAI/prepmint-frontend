@@ -3,9 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { authInstance as auth, db } from '@/lib/firebase.client';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -21,68 +20,62 @@ interface UserProfile {
   role: string;
   xp: number;
   badges?: string[];
-  institutionName?: string;
-  bio?: string;
-  phoneNumber?: string;
-  createdAt?: { toDate?: () => Date };
+  institutionId?: string;
+  createdAt?: string;
 }
 
 export default function ProfilePage() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
-    bio: '',
-    phoneNumber: '',
   });
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
+    if (authLoading) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as Omit<UserProfile, 'id'>;
-          const userData: UserProfile = { id: currentUser.uid, ...data };
-          setUser(userData);
-          setFormData({
-            displayName: (data.displayName as string) || '',
-            bio: (data.bio as string) || '',
-            phoneNumber: (data.phoneNumber as string) || '',
-          });
-        }
-      } catch (error) {
-        logger.error('Error fetching user:', error);
-      } finally {
-        setLoading(false);
-      }
+    if (!authUser) {
+      router.push('/login');
+      return;
+    }
+
+    const uid = authUser.uid || authUser.id;
+    const userData: UserProfile = {
+      id: uid,
+      displayName: authUser.displayName || authUser.display_name || '',
+      email: authUser.email || '',
+      role: authUser.role || 'student',
+      xp: authUser.xp || 0,
+      badges: authUser.badges || [],
+      institutionId: authUser.institution_id || authUser.institutionId,
+      createdAt: authUser.created_at,
+    };
+
+    setUser(userData);
+    setFormData({
+      displayName: userData.displayName,
     });
-
-    return () => unsubscribe();
-  }, [router]);
+    setLoading(false);
+  }, [authUser, authLoading, router]);
 
   const handleSave = async () => {
     if (!user) return;
 
     setSaving(true);
     try {
-      await updateProfile(auth.currentUser!, {
-        displayName: formData.displayName,
-      });
+      const { error } = await (supabase
+        .from('users') as any)
+        .update({
+          display_name: formData.displayName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-      await updateDoc(doc(db, 'users', user.id), {
-        displayName: formData.displayName,
-        bio: formData.bio,
-        phoneNumber: formData.phoneNumber,
-        updatedAt: new Date(),
-      });
+      if (error) throw error;
 
       setUser({ ...user, ...formData });
       setIsEditing(false);
@@ -94,7 +87,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return <Spinner fullScreen label="Loading profile..." />;
   }
 
@@ -152,10 +145,10 @@ export default function ProfilePage() {
                         <h2 className="text-2xl font-bold text-gray-900">{user.displayName}</h2>
                       )}
                       <p className="text-gray-600 text-sm mt-1 capitalize">{user.role}</p>
-                      {user.institutionName && (
+                      {user.institutionId && (
                         <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
                           <Building2 size={16} />
-                          <span>{user.institutionName}</span>
+                          <span>Institution ID: {user.institutionId}</span>
                         </div>
                       )}
                     </div>
@@ -173,39 +166,6 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Bio
-                      </label>
-                      {isEditing ? (
-                        <textarea
-                          value={formData.bio}
-                          onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                          rows={3}
-                          placeholder="Tell us about yourself..."
-                        />
-                      ) : (
-                        <p className="text-gray-600">{user.bio || 'No bio added yet'}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      {isEditing ? (
-                        <input
-                          type="tel"
-                          value={formData.phoneNumber}
-                          onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                          placeholder="+91 98765 43210"
-                        />
-                      ) : (
-                        <p className="text-gray-600">{user.phoneNumber || 'Not provided'}</p>
-                      )}
-                    </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -214,7 +174,7 @@ export default function ProfilePage() {
                       <div className="flex items-center gap-2 text-gray-600">
                         <Calendar size={18} />
                         <span>
-                          {user.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                     </div>
@@ -235,8 +195,6 @@ export default function ProfilePage() {
                           setIsEditing(false);
                           setFormData({
                             displayName: user.displayName || '',
-                            bio: user.bio || '',
-                            phoneNumber: user.phoneNumber || '',
                           });
                         }}
                         variant="outline"

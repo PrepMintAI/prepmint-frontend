@@ -1,72 +1,67 @@
 /**
- * API Route: Set Custom Claims for Users
+ * API Route: Set User Metadata (formerly Custom Claims)
  *
- * This endpoint sets custom claims for users with proper authentication and authorization.
- * Only authenticated admin users can set claims.
+ * This endpoint sets user metadata and updates user profile with proper authentication and authorization.
+ * Only authenticated admin users can set user metadata.
  *
  * SECURITY:
- * - Verifies session cookie from authenticated user
- * - Only allows admin users to set claims
+ * - Verifies Supabase session from authenticated user
+ * - Only allows admin users to set metadata
  * - Logs all admin actions for audit trail
  * - Prevents privilege escalation attacks
  *
  * POST /api/auth/set-claims
  * Body: { uid: string, role: UserRole, institutionId?: string }
- * Requires: Valid session cookie (__session) from authenticated admin user
+ * Requires: Valid Supabase session from authenticated admin user
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb, setUserClaims, UserRole } from '@/lib/firebase.admin';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+
+type UserRole = 'student' | 'teacher' | 'admin' | 'institution';
 
 // Mark this route as dynamic (not statically generated during build)
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY STEP 1: Verify session cookie exists
-    const sessionCookie = (await cookies()).get('__session')?.value;
-    if (!sessionCookie) {
-      logger.warn('[set-claims] Unauthorized access attempt: No session cookie');
+    // SECURITY STEP 1: Get Supabase client and verify session
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      logger.warn('[set-claims] Unauthorized access attempt: No valid session');
       return NextResponse.json(
         { error: 'Unauthorized: Session required' },
         { status: 401 }
       );
     }
 
-    // SECURITY STEP 2: Verify and decode session token
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth().verifySessionCookie(sessionCookie, true);
-    } catch (tokenError) {
-      logger.warn('[set-claims] Invalid session token for user:', tokenError);
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid or expired session' },
-        { status: 401 }
-      );
-    }
+    const requesterId = user.id;
 
-    const requesterId = decodedToken.uid;
+    // SECURITY STEP 2: Fetch requester role from Supabase
+    const { data: requesterProfile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', requesterId)
+      .single<{ role: string }>();
 
-    // SECURITY STEP 3: Fetch requester role from Firestore (not token - tokens can be stale)
-    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
-
-    if (!requesterDoc.exists) {
-      logger.warn('[set-claims] Requester user document not found');
+    if (!requesterProfile) {
+      logger.warn('[set-claims] Requester user profile not found');
       return NextResponse.json(
         { error: 'Unauthorized: User profile not found' },
         { status: 401 }
       );
     }
 
-    const requesterRole = requesterDoc.data()?.role || 'student';
+    const requesterRole = requesterProfile.role || 'student';
 
-    // SECURITY STEP 4: Verify requester has admin or dev role
+    // SECURITY STEP 3: Verify requester has admin or dev role
     if (requesterRole !== 'admin' && requesterRole !== 'dev') {
-      logger.warn(`[set-claims] Forbidden: User ${requesterId} (role: ${requesterRole}) attempted to set claims`);
+      logger.warn(`[set-claims] Forbidden: User ${requesterId} (role: ${requesterRole}) attempted to set metadata`);
       return NextResponse.json(
-        { error: 'Forbidden: Admin or dev role required to set custom claims' },
+        { error: 'Forbidden: Admin or dev role required to set user metadata' },
         { status: 403 }
       );
     }
@@ -118,10 +113,10 @@ export async function POST(request: NextRequest) {
     }
 
     // SECURITY STEP 8: Verify target user exists
-    let targetUser;
-    try {
-      targetUser = await adminAuth().getUser(uid);
-    } catch (userError) {
+    const adminSupabase = createAdminClient();
+    const { data: targetUser, error: getUserError } = await adminSupabase.auth.admin.getUserById(uid);
+
+    if (getUserError || !targetUser) {
       logger.warn(`[set-claims] Target user not found: ${uid}`);
       return NextResponse.json(
         { error: 'Not Found: User does not exist' },
@@ -129,31 +124,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!targetUser.email) {
+    if (!targetUser.user.email) {
       return NextResponse.json(
         { error: 'Bad Request: User email not found' },
         { status: 400 }
       );
     }
 
-    // SECURITY STEP 9: Set custom claims with validated data
-    await setUserClaims(uid, {
-      role,
-      email: targetUser.email,
-      institutionId: institutionId || undefined,
-    });
+    // SECURITY STEP 9: Update user profile in database
+    const updatePayload = institutionId
+      ? { role, institution_id: institutionId, updated_at: new Date().toISOString() }
+      : { role, updated_at: new Date().toISOString() };
 
-    // SECURITY STEP 10: Log audit trail
-    logger.log(`[set-claims] AUDIT: Admin ${requesterId} set claims for user ${uid} to role=${role}${institutionId ? `, institutionId=${institutionId}` : ''}`);
+    const { error: updateError } = await adminSupabase
+      .from('users')
+      // @ts-ignore - Type inference issue with Supabase admin client
+      .update(updatePayload)
+      .eq('id', uid);
+
+    if (updateError) throw updateError;
+
+    // SECURITY STEP 10: Also sync role into user metadata
+    const { error: metadataError } = await adminSupabase.auth.admin.updateUserById(
+      uid,
+      {
+        user_metadata: {
+          role,
+          institution_id: institutionId || null,
+        },
+      }
+    );
+
+    if (metadataError) throw metadataError;
+
+    // SECURITY STEP 11: Log audit trail
+    logger.log(`[set-claims] AUDIT: Admin ${requesterId} set metadata for user ${uid} to role=${role}${institutionId ? `, institutionId=${institutionId}` : ''}`);
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Custom claims set successfully',
+        message: 'User metadata set successfully',
         claims: {
           uid,
           role,
-          email: targetUser.email,
+          email: targetUser.user.email,
           institutionId: institutionId || null,
         },
       },
@@ -162,7 +176,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('[set-claims] Unexpected error:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error: Failed to set custom claims' },
+      { error: 'Internal Server Error: Failed to set user metadata' },
       { status: 500 }
     );
   }

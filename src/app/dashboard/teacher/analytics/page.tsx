@@ -1,47 +1,44 @@
 // src/app/dashboard/teacher/analytics/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import React, { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { AnalyticsClient } from './AnalyticsClient';
-import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
-export default async function AnalyticsPage({
-  searchParams
-}: {
-  searchParams: Promise<{ student?: string; test?: string }>
-}) {
-  const resolvedSearchParams = await searchParams;
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+function AnalyticsPageContent() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-  let institutionId: string | undefined;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-    userRole = decoded.role || 'student';
-
-    // Fetch user profile to get institutionId
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-    if (userDoc.exists) {
-      institutionId = userDoc.data()?.institutionId;
+    if (!user) {
+      router.replace('/login');
+      return;
     }
-  } catch (error) {
-    logger.error('[Analytics Page] Session verification failed:', error);
-    redirect('/login');
+
+    const userRole = user.role || 'student';
+    // Only teachers, admins, institutions, and devs can access
+    if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading analytics..." />;
   }
 
-  // Only teachers, admins, institutions, and devs can access
-  if (!['teacher', 'admin', 'institution', 'dev'].includes(userRole)) {
-    redirect(`/dashboard/${userRole}`);
-  }
+  if (!user) return null;
+
+  const userId = user.uid || user.id;
+  const userRole = user.role || 'student';
+  const institutionId = user.institutionId || user.institution_id;
+  const studentId = searchParams.get('student') || undefined;
+  const testId = searchParams.get('test') || undefined;
 
   return (
     <AppLayout>
@@ -50,10 +47,18 @@ export default async function AnalyticsPage({
           userId={userId}
           userRole={userRole}
           institutionId={institutionId}
-          studentId={resolvedSearchParams.student}
-          testId={resolvedSearchParams.test}
+          studentId={studentId}
+          testId={testId}
         />
       </div>
     </AppLayout>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen label="Loading analytics..." />}>
+      <AnalyticsPageContent />
+    </Suspense>
   );
 }

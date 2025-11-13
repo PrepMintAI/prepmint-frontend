@@ -2,63 +2,57 @@
  * API Endpoint: Award XP to User
  *
  * This endpoint awards XP to a user with proper authentication and authorization.
- * Uses Firestore transactions to ensure atomic read-modify-write operations.
+ * Uses Supabase RPC functions to ensure atomic database operations.
  *
  * SECURITY:
- * - Verifies session cookie from authenticated user
+ * - Verifies Supabase session from authenticated user
  * - Only allows awarding XP to self or with teacher/admin role
- * - Uses transactions to prevent race conditions
+ * - Uses PostgreSQL transactions to prevent race conditions
  * - Logs all XP awards for audit trail
  * - Validates XP amount and reason
  *
  * POST /api/gamify/xp
  * Body: { userId: string, amount: number, reason: string }
- * Requires: Valid session cookie (__session) from authenticated user
+ * Requires: Valid Supabase session from authenticated user
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb, awardXpServer } from '@/lib/firebase.admin';
+import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: Verify session cookie exists
-    const sessionCookie = (await cookies()).get('__session')?.value;
-    if (!sessionCookie) {
-      logger.warn('[gamify/xp] Unauthorized: No session cookie');
+    // SECURITY: Get Supabase client and verify session
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      logger.warn('[gamify/xp] Unauthorized: No valid session');
       return NextResponse.json(
         { error: 'Unauthorized: Session required' },
         { status: 401 }
       );
     }
 
-    // SECURITY: Verify and decode session token
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth().verifySessionCookie(sessionCookie, true);
-    } catch (tokenError) {
-      logger.warn('[gamify/xp] Invalid session token:', tokenError);
-      return NextResponse.json(
-        { error: 'Unauthorized: Invalid or expired session' },
-        { status: 401 }
-      );
-    }
+    const requesterId = user.id;
 
-    const requesterId = decodedToken.uid;
+    // SECURITY: Fetch role from Supabase (not token - tokens can be stale)
+    const { data: requesterProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', requesterId)
+      .single<{ role: string }>();
 
-    // SECURITY: Fetch role from Firestore (not token - tokens can be stale)
-    const requesterDoc = await adminDb().collection('users').doc(requesterId).get();
-    if (!requesterDoc.exists) {
-      logger.warn('[gamify/xp] Requester user document not found');
+    if (profileError || !requesterProfile) {
+      logger.warn('[gamify/xp] Requester user profile not found');
       return NextResponse.json(
         { error: 'Unauthorized: User profile not found' },
         { status: 401 }
       );
     }
-    const requesterRole = requesterDoc.data()?.role || 'student';
+    const requesterRole = requesterProfile.role || 'student';
 
     // Parse request body
     let body;
@@ -115,12 +109,24 @@ export async function POST(request: NextRequest) {
     // (This would require additional logic to check institution/class membership)
     // For now, admins and devs can award to anyone, teachers are trusted
 
-    // Award XP using atomic transaction
-    const result = await awardXpServer(userId, amount, reason);
+    // Award XP using Supabase RPC function (atomic PostgreSQL transaction)
+    const { data: result, error: xpError } = await (supabase as any).rpc('award_xp', {
+      target_user_id: userId,
+      xp_amount: amount,
+      xp_reason: reason,
+    });
+
+    if (xpError) {
+      logger.error('[gamify/xp] Failed to award XP:', xpError);
+      throw xpError;
+    }
+
+    const newXp = result?.[0]?.new_xp || 0;
+    const newLevel = result?.[0]?.new_level || 1;
 
     // Log successful award
     logger.log(
-      `[gamify/xp] SUCCESS: ${requesterId} awarded ${amount} XP to ${userId}: ${reason} (total: ${result.newXp}, level: ${result.newLevel})`
+      `[gamify/xp] SUCCESS: ${requesterId} awarded ${amount} XP to ${userId}: ${reason} (total: ${newXp}, level: ${newLevel})`
     );
 
     return NextResponse.json(
@@ -131,8 +137,8 @@ export async function POST(request: NextRequest) {
           userId,
           xpAwarded: amount,
           reason,
-          newXp: result.newXp,
-          newLevel: result.newLevel,
+          newXp,
+          newLevel,
         },
       },
       { status: 200 }

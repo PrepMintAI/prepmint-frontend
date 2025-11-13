@@ -4,23 +4,22 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { GraduationCap, AlertCircle } from 'lucide-react';
-import { where } from 'firebase/firestore';
 import TableManager, { ColumnDef } from '@/components/admin/TableManager';
 import UserFormModal, { UserFormData } from '@/components/admin/UserFormModal';
-import { useFirestoreCRUD, FirestoreDocument } from '@/hooks/useFirestoreCRUD';
+import { useSupabaseCRUD, SupabaseDocument } from '@/hooks/useSupabaseCRUD';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/context/AuthContext';
 
-interface StudentDocument extends FirestoreDocument {
+interface StudentDocument extends SupabaseDocument {
   email: string;
-  displayName: string;
+  display_name: string;
   role: 'student';
   xp?: number;
   level?: number;
-  institutionId?: string;
+  institution_id?: string;
   streak?: number;
   badges?: string[];
-  createdAt: any;
+  created_at: string;
 }
 
 export default function StudentsManagementClient() {
@@ -39,13 +38,13 @@ export default function StudentsManagementClient() {
     loadMore,
     refresh,
     search,
-  } = useFirestoreCRUD<StudentDocument>({
-    collectionName: 'users',
+  } = useSupabaseCRUD<StudentDocument>({
+    tableName: 'users',
     pageSize: 20,
     orderByField: 'xp',
     orderDirection: 'desc',
     realtime: true,
-    filters: [where('role', '==', 'student')],
+    filters: [{ column: 'role', operator: 'eq', value: 'student' }],
   });
 
   // Show loading while auth is loading
@@ -79,7 +78,7 @@ export default function StudentsManagementClient() {
 
   const columns: ColumnDef<StudentDocument>[] = [
     {
-      key: 'displayName',
+      key: 'display_name',
       label: 'Name',
       sortable: true,
       render: (value, row) => (
@@ -133,7 +132,7 @@ export default function StudentsManagementClient() {
       ),
     },
     {
-      key: 'institutionId',
+      key: 'institution_id',
       label: 'Institution',
       render: (value) => (
         <span className="text-sm text-gray-600">{value || 'Individual'}</span>
@@ -147,12 +146,12 @@ export default function StudentsManagementClient() {
   };
 
   const handleDelete = async (row: StudentDocument) => {
-    if (!confirm(`Are you sure you want to delete ${row.displayName}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${row.display_name}?`)) return;
 
     try {
       await deleteDocument(row.id);
 
-      // Also delete from Firebase Auth
+      // Also delete from Supabase Auth
       await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,12 +172,12 @@ export default function StudentsManagementClient() {
     try {
       if (editingStudent) {
         const updateData: any = {
-          displayName: data.displayName,
+          display_name: data.displayName,
         };
 
-        // Only include institutionId if it has a value
+        // Only include institution_id if it has a value
         if (data.institutionId) {
-          updateData.institutionId = data.institutionId;
+          updateData.institution_id = data.institutionId;
         }
 
         await updateDocument(editingStudent.id, updateData);
@@ -209,14 +208,14 @@ export default function StudentsManagementClient() {
     const csv = [
       ['Name', 'Email', 'XP', 'Level', 'Streak', 'Badges', 'Institution', 'Created'],
       ...students.map((s) => [
-        s.displayName,
+        s.display_name,
         s.email,
         s.xp || 0,
         s.level || 1,
         s.streak || 0,
         s.badges?.length || 0,
-        s.institutionId || '',
-        s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString() : '',
+        s.institution_id || '',
+        s.created_at ? new Date(s.created_at).toLocaleDateString() : '',
       ]),
     ]
       .map((row) => row.join(','))
@@ -291,7 +290,7 @@ export default function StudentsManagementClient() {
           onBulkDelete={bulkDelete}
           onExport={handleExport}
           onRefresh={refresh}
-          onSearch={(term) => search(term, ['displayName', 'email'])}
+          onSearch={(term) => search(term, ['display_name', 'email'])}
           onRowClick={handleEdit}
           hasMore={hasMore}
           onLoadMore={loadMore}

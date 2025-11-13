@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 import Card, { CardHeader, CardBody, StatCard } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -39,33 +38,33 @@ import {
 // ===== Types =====
 
 interface UserData {
-  uid: string;
+  id: string;
   role: 'student' | 'teacher' | 'admin' | 'institution';
-  displayName: string;
+  display_name: string;
   email: string;
   xp?: number;
   level?: number;
-  institutionId?: string;
-  createdAt?: any;
-  lastLoginAt?: any;
+  institution_id?: string;
+  created_at?: any;
+  last_login_at?: any;
 }
 
 interface InstitutionData {
   id: string;
   name: string;
-  studentCount?: number;
-  teacherCount?: number;
-  createdAt?: any;
+  student_count?: number;
+  teacher_count?: number;
+  created_at?: any;
 }
 
 interface EvaluationData {
   id: string;
   status: 'pending' | 'completed' | 'failed';
-  userId: string;
-  institutionId?: string;
-  createdAt: any;
+  user_id: string;
+  institution_id?: string;
+  created_at: any;
   score?: number;
-  totalScore?: number;
+  total_marks?: number;
 }
 
 interface PlatformStats {
@@ -108,33 +107,30 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
         setError(null);
 
         // Fetch all users
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const usersData = usersSnapshot.docs.map((doc) => ({
-          uid: doc.id,
-          ...doc.data(),
-        })) as UserData[];
-        setUsers(usersData);
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('*');
+
+        if (usersError) throw usersError;
+        setUsers((usersData || []) as any);
 
         // Fetch all institutions
-        const institutionsSnapshot = await getDocs(collection(db, 'institutions'));
-        const institutionsData = institutionsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as InstitutionData[];
-        setInstitutions(institutionsData);
+        const { data: institutionsData, error: institutionsError } = await supabase
+          .from('institutions')
+          .select('*');
+
+        if (institutionsError) throw institutionsError;
+        setInstitutions((institutionsData || []) as any);
 
         // Fetch evaluations (last 1000)
-        const evaluationsQuery = query(
-          collection(db, 'evaluations'),
-          orderBy('createdAt', 'desc'),
-          limit(1000)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as EvaluationData[];
-        setEvaluations(evaluationsData);
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+
+        if (evaluationsError) throw evaluationsError;
+        setEvaluations((evaluationsData || []) as any);
 
         setLoading(false);
       } catch (err) {
@@ -158,13 +154,13 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
 
     // Calculate average score
     const completedWithScores = evaluations.filter(
-      (e) => e.status === 'completed' && e.score !== undefined && e.totalScore !== undefined
+      (e) => e.status === 'completed' && e.score !== undefined && e.total_marks !== undefined
     );
     const avgScore =
       completedWithScores.length > 0
         ? Math.round(
             completedWithScores.reduce(
-              (sum, e) => sum + ((e.score || 0) / (e.totalScore || 1)) * 100,
+              (sum, e) => sum + ((e.score || 0) / (e.total_marks || 1)) * 100,
               0
             ) / completedWithScores.length
           )
@@ -174,11 +170,8 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUsersLast7Days = users.filter((u) => {
-      if (!u.lastLoginAt) return false;
-      const lastLogin =
-        u.lastLoginAt instanceof Timestamp
-          ? u.lastLoginAt.toDate()
-          : new Date(u.lastLoginAt);
+      if (!u.last_login_at) return false;
+      const lastLogin = new Date(u.last_login_at);
       return lastLogin >= sevenDaysAgo;
     }).length;
 
@@ -221,9 +214,9 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     return institutions
       .map((inst) => ({
         ...inst,
-        studentCount: users.filter((u) => u.institutionId === inst.id && u.role === 'student')
+        studentCount: users.filter((u) => u.institution_id === inst.id && u.role === 'student')
           .length,
-        teacherCount: users.filter((u) => u.institutionId === inst.id && u.role === 'teacher')
+        teacherCount: users.filter((u) => u.institution_id === inst.id && u.role === 'teacher')
           .length,
       }))
       .sort((a, b) => b.studentCount - a.studentCount)
@@ -238,10 +231,9 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
     const dateMap: Record<string, { completed: number; failed: number; pending: number }> = {};
 
     evaluations.forEach((evaluation) => {
-      const date =
-        evaluation.createdAt instanceof Timestamp
-          ? evaluation.createdAt.toDate()
-          : new Date(evaluation.createdAt);
+      const date = evaluation.created_at
+          ? new Date(evaluation.created_at)
+          : new Date();
 
       if (date >= thirtyDaysAgo) {
         const dateStr = date.toLocaleDateString('en-US');
@@ -274,27 +266,20 @@ export default function AdminAnalytics({ userId, userName }: AdminAnalyticsProps
   const recentActivity = useMemo(() => {
     return evaluations
       .sort((a, b) => {
-        const aTime =
-          a.createdAt instanceof Timestamp
-            ? a.createdAt.toMillis()
-            : new Date(a.createdAt).getTime();
-        const bTime =
-          b.createdAt instanceof Timestamp
-            ? b.createdAt.toMillis()
-            : new Date(b.createdAt).getTime();
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bTime - aTime;
       })
       .slice(0, 10)
       .map((evaluation) => {
-        const user = users.find((u) => u.uid === evaluation.userId);
-        const date =
-          evaluation.createdAt instanceof Timestamp
-            ? evaluation.createdAt.toDate()
-            : new Date(evaluation.createdAt);
+        const user = users.find((u) => u.id === evaluation.user_id);
+        const date = evaluation.created_at
+            ? new Date(evaluation.created_at)
+            : new Date();
 
         return {
           id: evaluation.id,
-          userName: user?.displayName || 'Unknown User',
+          userName: user?.display_name || 'Unknown User',
           status: evaluation.status,
           date,
         };

@@ -1,12 +1,10 @@
 // src/components/auth/ProtectedRoute.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
+import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/lib/logger';
-import { doc, getDoc } from 'firebase/firestore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,66 +12,40 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
-export default function ProtectedRoute({ 
-  children, 
+export default function ProtectedRoute({
+  children,
   allowedRoles,
-  redirectTo = '/login' 
+  redirectTo = '/login'
 }: ProtectedRouteProps) {
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    if (loading) return;
+
     logger.log('[ProtectedRoute] Checking authentication...');
+    logger.log('[ProtectedRoute] Auth state:', user?.email || 'No user');
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      logger.log('[ProtectedRoute] Auth state:', user?.email || 'No user');
+    if (!user) {
+      logger.log('[ProtectedRoute] No user found, redirecting to:', redirectTo);
+      router.replace(redirectTo);
+      return;
+    }
 
-      if (!user) {
-        logger.log('[ProtectedRoute] No user found, redirecting to:', redirectTo);
-        router.replace(redirectTo);
-        setIsChecking(false);
-        return;
-      }
+    const userRole = user.role || 'student';
+    logger.log('[ProtectedRoute] User role:', userRole);
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        
-        if (!userDoc.exists()) {
-          logger.error('[ProtectedRoute] User profile not found in Firestore');
-          router.replace(redirectTo);
-          setIsChecking(false);
-          return;
-        }
+    // Check if user has required role
+    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+      logger.warn('[ProtectedRoute] User role not authorized, redirecting to correct dashboard');
+      router.replace(`/dashboard/${userRole}`);
+      return;
+    }
 
-        const userData = userDoc.data();
-        logger.log('[ProtectedRoute] User role:', userData.role);
+    logger.log('[ProtectedRoute] User authorized!');
+  }, [user, loading, router, redirectTo, allowedRoles]);
 
-        // Check if user has required role
-        if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(userData.role)) {
-          logger.warn('[ProtectedRoute] User role not authorized, redirecting to correct dashboard');
-          router.replace(`/dashboard/${userData.role}`);
-          setIsChecking(false);
-          return;
-        }
-
-        logger.log('[ProtectedRoute] User authorized!');
-        setIsAuthorized(true);
-        setIsChecking(false);
-      } catch (error) {
-        logger.error('[ProtectedRoute] Error checking auth:', error);
-        router.replace(redirectTo);
-        setIsChecking(false);
-      }
-    });
-
-    return () => {
-      logger.log('[ProtectedRoute] Cleanup');
-      unsubscribe();
-    };
-  }, [router, redirectTo, allowedRoles]);
-
-  if (isChecking) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617]">
         <div className="flex flex-col items-center gap-4">
@@ -84,7 +56,7 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!isAuthorized) {
+  if (!user) {
     return null;
   }
 

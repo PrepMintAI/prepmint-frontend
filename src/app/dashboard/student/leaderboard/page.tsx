@@ -6,11 +6,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, Zap, Target, Users, Globe } from 'lucide-react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 import { fetchLeaderboard, type LeaderboardEntry } from '@/lib/studentData';
 import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
 interface LeaderboardUser {
   rank: number;
@@ -24,6 +23,7 @@ interface LeaderboardUser {
 }
 
 export default function LeaderboardPage() {
+  const { user, loading: authLoading } = useAuth();
   const [currentUser, setCurrentUser] = useState<LeaderboardUser | null>(null);
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'alltime'>('alltime');
   const [scopeFilter, setScopeFilter] = useState<'global' | 'school'>('global');
@@ -33,34 +33,30 @@ export default function LeaderboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUserSchool(userData.institutionName || null);
-            setUserInstitutionId(userData.institutionId || null);
-            setCurrentUser({
-              rank: 0, // Will be calculated from leaderboard
-              name: userData.displayName || 'You',
-              xp: userData.xp || 0,
-              level: Math.floor(Math.sqrt((userData.xp || 0) / 100)) + 1,
-              school: userData.institutionName || 'No School',
-              avatar: '🎮',
-              streak: userData.streak || 0,
-              badge: '',
-            });
-          }
-        } catch (error) {
-          logger.error('Error fetching user data:', error);
-        }
-      }
-      setIsLoading(false);
-    });
+    if (authLoading) return;
 
-    return () => unsubscribe();
-  }, []);
+    if (user) {
+      try {
+        const institutionId = user.institutionId || user.institution_id;
+
+        setUserSchool(institutionId || null);
+        setUserInstitutionId(institutionId || null);
+        setCurrentUser({
+          rank: 0, // Will be calculated from leaderboard
+          name: user.displayName || user.display_name || 'You',
+          xp: user.xp || 0,
+          level: user.level || (Math.floor(Math.sqrt((user.xp || 0) / 100)) + 1),
+          school: institutionId || 'No School',
+          avatar: '🎮',
+          streak: user.streak || 0,
+          badge: '',
+        });
+      } catch (error) {
+        logger.error('Error setting user data:', error);
+      }
+    }
+    setIsLoading(false);
+  }, [user, authLoading]);
 
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -96,14 +92,12 @@ export default function LeaderboardPage() {
     return { icon: `#${rank}`, color: 'from-gray-200 to-gray-300', glow: '' };
   };
 
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        </div>
-      </AppLayout>
-    );
+  if (authLoading || isLoading) {
+    return <Spinner fullScreen label="Loading leaderboard..." />;
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (

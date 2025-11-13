@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { db } from '@/lib/firebase.client';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
 import Card, { StatCard } from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -61,7 +60,7 @@ interface EvaluationData {
   score?: number;
   totalMarks?: number;
   status: string;
-  createdAt: Timestamp | Date;
+  createdAt: string | Date;
 }
 
 interface SubjectPerformance {
@@ -642,8 +641,8 @@ const StudentView = ({ students, evaluations, filters }: StudentViewProps) => {
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {studentEvaluations
                 .sort((a, b) => {
-                  const aTime = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : (a.createdAt instanceof Date ? a.createdAt.getTime() : 0);
-                  const bTime = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : (b.createdAt instanceof Date ? b.createdAt.getTime() : 0);
+                  const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                  const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                   return bTime - aTime;
                 })
                 .slice(0, 10)
@@ -704,30 +703,44 @@ export function InstitutionAnalyticsView({ institutionId }: AnalyticsClientProps
         setIsLoading(true);
 
         // Fetch all students
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
+        const { data: studentsData, error: studentsError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student');
+
+        if (studentsError) throw studentsError;
+
+        const students = ((studentsData || []) as any[]).map(doc => ({
           uid: doc.id,
           id: doc.id,
-          ...doc.data(),
+          displayName: doc.display_name || doc.email || '',
+          email: doc.email,
+          class: doc.class,
+          section: doc.section,
+          xp: doc.xp,
+          level: doc.level,
         })) as StudentData[];
-        setStudents(studentsData);
+        setStudents(students);
 
         // Fetch all evaluations
-        const evaluationsQuery = query(
-          collection(db, 'evaluations'),
-          where('institutionId', '==', institutionId)
-        );
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const evaluationsData = evaluationsSnapshot.docs.map(doc => ({
+        const { data: evaluationsData, error: evaluationsError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .eq('institution_id', institutionId);
+
+        if (evaluationsError) throw evaluationsError;
+
+        const evaluations = ((evaluationsData || []) as any[]).map(doc => ({
           id: doc.id,
-          ...doc.data(),
+          userId: doc.user_id,
+          subject: doc.subject,
+          score: doc.score,
+          totalMarks: doc.total_marks,
+          status: doc.status,
+          createdAt: doc.created_at,
         })) as EvaluationData[];
-        setEvaluations(evaluationsData);
+        setEvaluations(evaluations);
       } catch (error) {
         logger.error('InstitutionAnalyticsView - Error fetching data:', error);
       } finally {

@@ -3,26 +3,28 @@
 
 import { useState, useRef, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '@/lib/logger';
+import { AuthError } from '@supabase/supabase-js';
 
-const getFirebaseErrorMessage = (errorCode: string): string => {
-  const errorMessages: Record<string, string> = {
-    'auth/user-not-found': 'No account found with this email. Please sign up first.',
-    'auth/wrong-password': 'Incorrect password. Please try again.',
-    'auth/invalid-email': 'Please enter a valid email address.',
-    'auth/user-disabled': 'This account has been disabled. Contact support for help.',
-    'auth/too-many-requests': 'Too many failed attempts. Please try again later or reset your password.',
-    'auth/network-request-failed': 'Network error. Please check your connection and try again.',
-    'auth/invalid-credential': 'Invalid email or password. Please check your credentials.',
-    'auth/operation-not-allowed': 'Email/password sign-in is currently disabled. Contact support.',
-  };
-
-  return errorMessages[errorCode] || 'Login failed. Please try again.';
+const getSupabaseErrorMessage = (error: AuthError | Error): string => {
+  if ('status' in error) {
+    // Supabase AuthError
+    const authError = error as AuthError;
+    switch (authError.message) {
+      case 'Invalid login credentials':
+        return 'Invalid email or password. Please check your credentials.';
+      case 'Email not confirmed':
+        return 'Please verify your email address before logging in.';
+      case 'User not found':
+        return 'No account found with this email. Please sign up first.';
+      default:
+        return authError.message || 'Login failed. Please try again.';
+    }
+  }
+  return 'Login failed. Please try again.';
 };
 
 interface FormErrors {
@@ -36,9 +38,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({ email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [firebaseError, setFirebaseError] = useState('');
+  const [authError, setAuthError] = useState('');
   const [touched, setTouched] = useState({ email: false, password: false });
-  
+
   const router = useRouter();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -70,7 +72,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setFirebaseError('');
+    setAuthError('');
 
     if (isSubmitting) return;
 
@@ -86,45 +88,39 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      logger.log('[Login] Attempting login...');
-      
-      // Step 1: Sign in with Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Step 2: Get ID token
-      const idToken = await userCredential.user.getIdToken();
-      
-      // Step 3: Create session cookie via API
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ idToken }),
+      logger.log('[Login] Attempting login with Supabase...');
+
+      // Sign in with Supabase (handles session automatically)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (error) throw error;
 
-        // Check for Firebase Admin configuration error
-        if (errorData.code === 'FIREBASE_ADMIN_NOT_CONFIGURED') {
-          setFirebaseError(
-            'Server configuration error: Firebase Admin SDK is not configured. ' +
-            'Please contact the administrator to configure Firebase Admin credentials.'
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
-        throw new Error(errorData.details || 'Failed to create session');
+      if (!data.user) {
+        throw new Error('No user returned from login');
       }
 
-      const { role } = await response.json();
+      logger.log('[Login] Login successful!');
+
+      // Fetch user profile to get role
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single<{ role: string }>();
+
+      if (profileError) {
+        logger.warn('[Login] Could not fetch profile, using default role');
+      }
+
+      const role = (profile?.role || data.user.user_metadata?.role || 'student') as string;
 
       // Dev role uses /dashboard (router will handle redirect to student)
       const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
 
-      logger.log('[Login] Session created! Redirecting to:', dashboardPath);
+      logger.log('[Login] Redirecting to:', dashboardPath);
 
       // Clear form
       setEmail('');
@@ -132,82 +128,47 @@ export default function LoginPage() {
 
       // Redirect to dashboard
       router.push(dashboardPath);
-      
+
     } catch (err) {
       logger.error('[Login] Error:', err);
 
-      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
-      const errorMessage = getFirebaseErrorMessage(errorCode);
-      setFirebaseError(errorMessage);
-      
+      const errorMessage = getSupabaseErrorMessage(err as AuthError);
+      setAuthError(errorMessage);
+
       setPassword('');
-      
+
       if (passwordRef.current) {
         passwordRef.current.focus();
       }
-      
+
       setIsSubmitting(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setFirebaseError('');
-    
+    setAuthError('');
+
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
 
     try {
       logger.log('[Login] Attempting Google login...');
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      
-      // Get ID token
-      const idToken = await result.user.getIdToken();
-      
-      // Create session cookie
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
-        body: JSON.stringify({ idToken }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create session');
-      }
+      if (error) throw error;
 
-      await response.json();
-      
-      // Check if user profile exists
-      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+      // OAuth redirects automatically, no need to handle redirect here
 
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const role = userData?.role || 'student';
-
-        // Dev role uses /dashboard (router will handle redirect to student)
-        const dashboardPath = role === 'dev' ? '/dashboard' : `/dashboard/${role}`;
-
-        router.push(dashboardPath);
-      } else {
-        router.push('/dashboard/student');
-      }
-      
     } catch (err) {
       logger.error('[Login] Google error:', err);
-
-      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
-
-      if (errorCode === 'auth/popup-closed-by-user') {
-        setFirebaseError('Sign-in cancelled. Please try again.');
-      } else if (errorCode === 'auth/popup-blocked') {
-        setFirebaseError('Pop-up blocked. Please enable pop-ups for this site.');
-      } else {
-        setFirebaseError(getFirebaseErrorMessage(errorCode));
-      }
-      
+      setAuthError(getSupabaseErrorMessage(err as AuthError));
       setIsSubmitting(false);
     }
   };
@@ -258,9 +219,9 @@ export default function LoginPage() {
           Log in to continue your learning journey 🚀
         </p>
 
-        {/* Firebase Error Banner */}
+        {/* Error Banner */}
         <AnimatePresence mode="wait">
-          {firebaseError && (
+          {authError && (
             <motion.div
               {...fadeIn}
               role="alert"
@@ -280,7 +241,7 @@ export default function LoginPage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <p className="text-red-300 text-sm flex-1">{firebaseError}</p>
+                <p className="text-red-300 text-sm flex-1">{authError}</p>
               </div>
             </motion.div>
           )}
@@ -314,7 +275,7 @@ export default function LoginPage() {
                 aria-required="true"
                 aria-invalid={!!(errors.email && touched.email)}
                 aria-describedby={errors.email && touched.email ? 'email-error' : undefined}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-400
                   focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                   ${
                     errors.email && touched.email
@@ -380,7 +341,7 @@ export default function LoginPage() {
                   aria-required="true"
                   aria-invalid={!!(errors.password && touched.password)}
                   aria-describedby={errors.password && touched.password ? 'password-error' : undefined}
-                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400 
+                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl text-white placeholder-gray-400
                     focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                     ${
                       errors.password && touched.password
@@ -392,8 +353,8 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={isSubmitting}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white 
-                    transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white
+                    transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none
                     focus:ring-2 focus:ring-cyan-400 rounded p-1"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -508,8 +469,8 @@ export default function LoginPage() {
           onClick={handleGoogleLogin}
           disabled={isSubmitting}
           type="button"
-          className="w-full flex items-center justify-center gap-3 py-3 border border-white/20 bg-white/5 
-            text-white rounded-xl hover:bg-white/10 transition font-medium disabled:opacity-50 
+          className="w-full flex items-center justify-center gap-3 py-3 border border-white/20 bg-white/5
+            text-white rounded-xl hover:bg-white/10 transition font-medium disabled:opacity-50
             disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-400"
         >
           <Image

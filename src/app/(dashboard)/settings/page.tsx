@@ -3,9 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { authInstance as auth, db } from '@/lib/firebase.client';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
@@ -40,6 +39,7 @@ interface Settings {
 }
 
 export default function SettingsPage() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserSettings | null>(null);
   const [settings, setSettings] = useState<Settings>({
@@ -64,42 +64,38 @@ export default function SettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) {
-        router.push('/login');
-        return;
-      }
+    if (authLoading) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          const userData: UserSettings = { uid: currentUser.uid, ...data as Omit<UserSettings, 'uid'> };
-          setUser(userData);
+    if (!authUser) {
+      router.push('/login');
+      return;
+    }
 
-          // Load saved settings
-          if (data.settings) {
-            setSettings((prevSettings) => ({ ...prevSettings, ...data.settings }));
-          }
-        }
-      } catch (error) {
-        logger.error('Error:', error);
-      } finally {
-        setLoading(false);
-      }
-    });
+    const uid = authUser.uid || authUser.id;
+    const userData: UserSettings = {
+      uid,
+      displayName: authUser.displayName || authUser.display_name || '',
+      email: authUser.email || '',
+      theme: 'light', // Default theme
+    };
+    setUser(userData);
 
-    return () => unsubscribe();
-  }, [router]);
+    // Settings will be loaded from database if available
+    setLoading(false);
+  }, [authUser, authLoading, router]);
 
   const handleSave = async () => {
     if (!user) return;
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        settings,
-      });
+      const { error } = await (supabase
+        .from('users') as any)
+        .update({ settings })
+        .eq('id', user.uid);
+
+      if (error) throw error;
+
       alert('Settings saved successfully!');
     } catch (error) {
       logger.error('Error saving settings:', error);
@@ -111,16 +107,18 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       router.push('/login');
     } catch (error) {
       logger.error('Error logging out:', error);
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return <Spinner fullScreen label="Loading settings..." />;
   }
+
+  if (!user) return null;
 
   if (!user) return null;
 

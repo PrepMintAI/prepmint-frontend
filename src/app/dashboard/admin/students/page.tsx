@@ -1,48 +1,42 @@
 // src/app/dashboard/admin/students/page.tsx
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
-import FirebaseAdminNotConfigured from '@/components/admin/FirebaseAdminCheck';
 import StudentsManagementClient from './StudentsManagementClient';
-import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
-export default async function AdminStudentsPage() {
-  const sessionCookie = (await cookies()).get('__session')?.value;
+export default function AdminStudentsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
 
-    // Fetch user role from Firestore and verify admin access
-    const userDoc = await adminDb().collection('users').doc(decoded.uid).get();
-    const userData = userDoc.data();
-    const userRole = userData?.role || 'student';
-
+    const userRole = user.role || 'student';
     if (userRole !== 'admin' && userRole !== 'dev') {
-      redirect('/dashboard');
+      router.replace('/dashboard');
     }
+  }, [user, loading, router]);
 
-    return (
-      <AppLayout>
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          <StudentsManagementClient />
-        </div>
-      </AppLayout>
-    );
-  } catch (error) {
-    logger.error('[Admin Students] Session verification failed:', error);
-
-    // Check if the error is due to Firebase Admin not being initialized
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
-      logger.error('[Admin Students] Firebase Admin SDK not configured');
-      return <FirebaseAdminNotConfigured />;
-    }
-
-    redirect('/login');
+  if (loading) {
+    return <Spinner fullScreen label="Loading students..." />;
   }
+
+  if (!user) return null;
+
+  return (
+    <AppLayout>
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <StudentsManagementClient />
+      </div>
+    </AppLayout>
+  );
 }

@@ -1,35 +1,43 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+// src/app/dashboard/institution/reports/page.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { ReportsClient } from './ReportsClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function ReportsPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function ReportsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    return redirect('/login');
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    const userRole = user.role || 'student';
+    if (userRole !== 'institution' && userRole !== 'dev') {
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading reports..." />;
   }
 
-  // Validate user role
-  let userId: string, userRole: string;
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-    if (!userDoc.exists) redirect('/login');
-    const userData = userDoc.data();
-    userRole = userData?.role;
-    if (userRole !== 'institution' && userRole !== 'dev') redirect(`/dashboard/${userRole}`);
-  } catch {
-    return redirect('/login');
-  }
+  if (!user) return null;
+
+  const institutionId = user.institutionId || user.institution_id || 'inst_001';
 
   return (
     <AppLayout>
       <div className="p-6">
-        <ReportsClient institutionId="inst_001" />
+        <ReportsClient institutionId={institutionId} />
       </div>
     </AppLayout>
   );

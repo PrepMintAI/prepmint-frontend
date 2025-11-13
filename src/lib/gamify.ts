@@ -1,45 +1,30 @@
 // src/lib/gamify.ts
-import { db } from '@/lib/firebase.client';
-import {
-  doc,
-  updateDoc,
-  increment,
-  arrayUnion,
-  serverTimestamp,
-  getDoc
-} from 'firebase/firestore';
+import { supabase } from '@/lib/supabase/client';
 import { awardXp as apiAwardXp, awardBadge as apiAwardBadge } from '@/lib/api';
 import { logger } from '@/lib/logger';
 
 // ===== XP Management =====
 
 /**
- * Award XP to a user (Firestore direct write)
+ * Award XP to a user (Supabase RPC call)
  * Use this for client-side gamification or when backend isn't handling it
+ * Uses Supabase RPC function for transaction safety
  */
 export async function awardXpLocal(
   userId: string,
   amount: number,
   reason: string = ''
 ): Promise<void> {
-  if (!db) {
-    throw new Error('Firestore not initialized - cannot award XP locally');
-  }
-
   try {
-    const userRef = doc(db, 'users', userId);
-
-    await updateDoc(userRef, {
-      xp: increment(amount),
-      xpLog: arrayUnion({
-        amount,
-        reason,
-        timestamp: serverTimestamp(),
-      }),
-      lastXpAwardedAt: serverTimestamp(),
+    const { data, error } = await (supabase as any).rpc('award_xp', {
+      target_user_id: userId,
+      xp_amount: amount,
+      xp_reason: reason,
     });
 
-    logger.log(`Awarded ${amount} XP to ${userId}: ${reason}`);
+    if (error) throw error;
+
+    logger.log(`Awarded ${amount} XP to ${userId}: ${reason}. New XP: ${data?.[0]?.new_xp}, Level: ${data?.[0]?.new_level}`);
   } catch (error) {
     logger.error('Failed to award XP locally:', error);
     throw error;
@@ -51,8 +36,8 @@ export async function awardXpLocal(
  * Backend can validate, prevent cheating, and handle complex logic
  */
 export async function awardXpBackend(
-  userId: string, 
-  amount: number, 
+  userId: string,
+  amount: number,
   reason: string
 ): Promise<void> {
   try {
@@ -69,12 +54,12 @@ export async function awardXpBackend(
  * Set USE_BACKEND_GAMIFY to true in production
  */
 export async function awardXp(
-  userId: string, 
-  amount: number, 
+  userId: string,
+  amount: number,
   reason: string = ''
 ): Promise<void> {
   const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_GAMIFY === 'true';
-  
+
   if (useBackend) {
     return awardXpBackend(userId, amount, reason);
   } else {
@@ -84,17 +69,12 @@ export async function awardXp(
 
 // ===== Badge Management =====
 
-type FirebaseTimestamp = {
-  seconds: number;
-  nanoseconds: number;
-};
-
 export type Badge = {
   id: string;
   name: string;
   description: string;
   icon: string;
-  awardedAt: FirebaseTimestamp | Date | string;
+  awardedAt: string | Date;
 };
 
 /**
@@ -125,51 +105,28 @@ export async function awardBadge(
 }
 
 /**
- * DEPRECATED: Direct Firestore writes for badges
+ * Award badge using Supabase RPC function (transaction-safe)
+ * Use this for client-side gamification or when backend isn't handling it
  *
- * WARNING: This function is not transaction-safe and can result in:
- * - Duplicate badges in concurrent scenarios
- * - Race conditions in the read-check-write pattern
- * - Inconsistent state if multiple clients award simultaneously
- *
- * Use awardBadge() instead, which goes through the backend API
- * where transaction safety is guaranteed.
- *
- * This function is kept for backward compatibility only.
+ * Supabase RPC function prevents duplicate badge awards automatically
  */
 export async function awardBadgeLocal(
   userId: string,
   badgeId: string
 ): Promise<void> {
-  if (!db) {
-    throw new Error('Firestore not initialized - cannot award badge locally');
-  }
-
   try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      throw new Error('User not found');
-    }
-
-    const currentBadges = userSnap.data()?.badges || [];
-
-    // Prevent duplicate badges (note: not atomic, may have race condition)
-    if (currentBadges.includes(badgeId)) {
-      logger.warn(`User ${userId} already has badge ${badgeId}`);
-      return;
-    }
-
-    await updateDoc(userRef, {
-      badges: arrayUnion(badgeId),
-      badgeLog: arrayUnion({
-        badgeId,
-        awardedAt: serverTimestamp(),
-      }),
+    const { data, error } = await (supabase as any).rpc('award_badge', {
+      target_user_id: userId,
+      target_badge_id: badgeId,
     });
 
-    logger.log(`Awarded badge ${badgeId} to ${userId} (local - non-transactional)`);
+    if (error) throw error;
+
+    if (data) {
+      logger.log(`Awarded badge ${badgeId} to ${userId}`);
+    } else {
+      logger.warn(`User ${userId} already has badge ${badgeId}`);
+    }
   } catch (error) {
     logger.error('Failed to award badge locally:', error);
     throw error;
@@ -178,24 +135,54 @@ export async function awardBadgeLocal(
 
 /**
  * Get all badges for a user
+ * Returns badge IDs with their award dates
  */
 export async function getUserBadges(userId: string): Promise<string[]> {
-  if (!db) {
-    logger.warn('Firestore not initialized - cannot get user badges');
-    return [];
-  }
-
   try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const { data, error } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId);
 
-    if (!userSnap.exists()) {
-      return [];
-    }
+    if (error) throw error;
 
-    return userSnap.data()?.badges || [];
+    return ((data || []) as any[]).map(row => row.badge_id);
   } catch (error) {
     logger.error('Failed to get user badges:', error);
+    return [];
+  }
+}
+
+/**
+ * Get detailed badge information for a user
+ * Returns full badge details with award dates
+ */
+export async function getUserBadgesDetailed(userId: string): Promise<Badge[]> {
+  try {
+    const { data, error } = await supabase
+      .from('user_badges')
+      .select(`
+        awarded_at,
+        badges:badge_id (
+          id,
+          name,
+          description,
+          icon
+        )
+      `)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return ((data || []) as any[]).map(row => ({
+      id: row.badges.id,
+      name: row.badges.name,
+      description: row.badges.description,
+      icon: row.badges.icon,
+      awardedAt: row.awarded_at,
+    }));
+  } catch (error) {
+    logger.error('Failed to get detailed user badges:', error);
     return [];
   }
 }

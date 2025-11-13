@@ -3,9 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth, db } from '@/lib/firebase.client';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
 import Card, { StatCard, CardHeader, CardBody, CardFooter } from '@/components/common/Card';
 import Spinner from '@/components/common/Spinner';
@@ -67,6 +66,9 @@ interface AdminDashboardClientProps {
 }
 
 export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
+  // Use AuthContext instead of Firebase auth
+  const { user: authUser, loading: authLoading } = useAuth();
+
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
@@ -84,79 +86,78 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'suspended' | 'pending'>('all');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            await fetchDashboardData();
-          }
-        } catch (error) {
-          logger.error('Error loading user data:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
+    async function loadDashboard() {
+      if (authLoading) return; // Wait for auth to complete
+
+      if (!authUser) {
+        router.replace('/login');
+        return;
+      }
+
+      try {
+        await fetchDashboardData();
+      } catch (error) {
+        logger.error('Error loading dashboard data:', error);
+      } finally {
         setIsLoading(false);
       }
-    });
+    }
 
-    return () => unsubscribe();
-  }, []);
+    loadDashboard();
+  }, [authLoading, authUser, router]);
 
   const fetchDashboardData = async () => {
     try {
       // Fetch all users
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const usersData: User[] = [];
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, display_name, email, role, status, institution_id, created_at, last_active, last_login_at');
 
-      usersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        usersData.push({
-          id: doc.id,
-          name: data.displayName || data.email || 'Unknown',
-          email: data.email || '',
-          role: data.role || 'student',
-          status: data.status || 'active',
-          institutionId: data.institutionId,
-          institutionName: data.institutionName,
-          createdAt: data.createdAt,
-          lastActive: data.lastActive || data.lastLoginAt,
-        });
-      });
+      if (usersError) throw usersError;
+
+      const users: User[] = ((usersData || []) as any[]).map(data => ({
+        id: data.id,
+        name: data.display_name || data.email || 'Unknown',
+        email: data.email || '',
+        role: data.role || 'student',
+        status: data.status || 'active',
+        institutionId: data.institution_id,
+        institutionName: undefined, // Would need to join with institutions table
+        createdAt: data.created_at,
+        lastActive: data.last_active || data.last_login_at,
+      }));
 
       // Fetch institutions
-      const institutionsSnapshot = await getDocs(collection(db, 'institutions'));
-      const institutionsData: Institution[] = [];
+      const { data: institutionsData, error: institutionsError } = await supabase
+        .from('institutions')
+        .select('id, name, type, location, student_count, teacher_count, status, created_at');
 
-      institutionsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        institutionsData.push({
-          id: doc.id,
-          name: data.name || 'Unnamed Institution',
-          type: data.type || 'school',
-          location: data.location,
-          studentCount: data.studentCount || 0,
-          teacherCount: data.teacherCount || 0,
-          status: data.status || 'active',
-          createdAt: data.createdAt,
-        });
-      });
+      if (institutionsError) throw institutionsError;
+
+      const institutions: Institution[] = ((institutionsData || []) as any[]).map(data => ({
+        id: data.id,
+        name: data.name || 'Unnamed Institution',
+        type: data.type || 'school',
+        location: data.location,
+        studentCount: data.student_count || 0,
+        teacherCount: data.teacher_count || 0,
+        status: data.status || 'active',
+        createdAt: data.created_at,
+      }));
 
       // Fetch today's evaluations
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const evaluationsQuery = query(
-        collection(db, 'evaluations'),
-        where('createdAt', '>=', today)
-      );
-      const evaluationsSnapshot = await getDocs(evaluationsQuery);
+      const { data: evaluationsData, error: evaluationsError } = await supabase
+        .from('evaluations')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', today.toISOString());
 
       // Calculate stats
-      const totalUsers = usersData.length;
-      const activeUsers = usersData.filter(u => u.status === 'active').length;
-      const totalInstitutions = institutionsData.length;
-      const evaluationsToday = evaluationsSnapshot.size;
+      const totalUsers = users.length;
+      const activeUsers = users.filter(u => u.status === 'active').length;
+      const totalInstitutions = institutions.length;
+      const evaluationsToday = evaluationsError ? 0 : (evaluationsData as any)?.count || 0;
 
       setStats({
         totalUsers,
@@ -167,14 +168,14 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
       });
 
       // Get recent users (last 10)
-      const sortedUsers = usersData.sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || new Date(0);
+      const sortedUsers = users.sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0);
+        const bTime = new Date(b.createdAt || 0);
         return bTime.getTime() - aTime.getTime();
       }).slice(0, 10);
 
       setRecentUsers(sortedUsers);
-      setInstitutions(institutionsData);
+      setInstitutions(institutions);
 
     } catch (error) {
       logger.error('Error fetching dashboard data:', error);
@@ -189,8 +190,16 @@ export function AdminDashboardClient({ userId }: AdminDashboardClientProps) {
     return true;
   });
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return <Spinner fullScreen label="Loading admin dashboard..." />;
+  }
+
+  if (!authUser) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Please log in to access the admin dashboard</p>
+      </div>
+    );
   }
 
   const getStatusColor = (status: string) => {

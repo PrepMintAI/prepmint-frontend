@@ -2,8 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { authInstance as auth } from '@/lib/firebase.client';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { supabase } from '@/lib/supabase/client';
 import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { logger } from '@/lib/logger';
@@ -34,27 +33,30 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+
+      if (resetError) throw resetError;
+
       setSuccess(true);
       logger.log('[ForgotPassword] Password reset email sent to:', email);
     } catch (err) {
       logger.error('[ForgotPassword] Error:', err);
 
-      // Handle Firebase errors
-      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+      // Handle Supabase errors
+      const errorMessage = err && typeof err === 'object' && 'message' in err
+        ? (err as { message: string }).message
+        : '';
 
-      switch (errorCode) {
-        case 'auth/user-not-found':
-          setError('No account found with this email address');
-          break;
-        case 'auth/invalid-email':
-          setError('Invalid email address');
-          break;
-        case 'auth/too-many-requests':
-          setError('Too many requests. Please try again later.');
-          break;
-        default:
-          setError('Failed to send reset email. Please try again.');
+      if (errorMessage.includes('not found') || errorMessage.includes('User')) {
+        // Supabase doesn't reveal if user exists for security (same behavior for all emails)
+        // Show success anyway to prevent email enumeration
+        setSuccess(true);
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
+        setError('Too many requests. Please try again later.');
+      } else {
+        setError('Failed to send reset email. Please try again.');
       }
     } finally {
       setLoading(false);

@@ -1,34 +1,39 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+// src/app/dashboard/institution/students/page.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { StudentsClient } from './StudentsClient';
+import Spinner from '@/components/common/Spinner';
 
-export default async function StudentsPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function StudentsPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    // SSR redirect for unauthenticated
-    return redirect('/login');
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    const userRole = user.role || 'student';
+    if (userRole !== 'institution' && userRole !== 'dev') {
+      router.replace(`/dashboard/${userRole}`);
+    }
+  }, [user, loading, router]);
+
+  if (loading) {
+    return <Spinner fullScreen label="Loading students..." />;
   }
 
-  // Authz: validate user
-  let userId: string, userRole: string, institutionId: string | undefined;
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-    if (!userDoc.exists) redirect('/login');
-    const userData = userDoc.data();
-    userRole = userData?.role;
-    institutionId = userData?.institutionId;
-    if (userRole !== 'institution' && userRole !== 'dev') redirect(`/dashboard/${userRole}`);
-  } catch {
-    return redirect('/login');
-  }
+  if (!user) return null;
 
-  // Pass real institutionId from user data
+  const institutionId = user.institutionId || user.institution_id;
+
   return (
     <AppLayout>
       <div className="p-6">

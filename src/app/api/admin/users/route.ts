@@ -1,6 +1,6 @@
 // src/app/api/admin/users/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import {
   isValidEmail,
@@ -12,23 +12,29 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get('__session')?.value;
+    // Verify session and check admin role
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (!sessionCookie) {
+    if (error || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify session and check admin role
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    const userDoc = await adminDb().collection('users').doc(decoded.uid).get();
-    const userData = userDoc.data();
+    // Check if user has admin role
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single<{ role: string }>();
 
-    if (!userData || userData.role !== 'admin') {
+    if (!userProfile || userProfile.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const { action, data } = body;
+
+    const adminSupabase = createAdminClient();
 
     switch (action) {
       case 'create': {
@@ -54,48 +60,66 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
 
-        // Create Firebase Auth user
-        const userRecord = await adminAuth().createUser({
+        // Create Supabase Auth user
+        const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
           email: data.email,
           password: password,
-          displayName: sanitizedName,
-          emailVerified: false,
+          email_confirm: false, // Admin creates unverified users
+          user_metadata: {
+            display_name: sanitizedName,
+            role: data.role || 'student',
+          },
         });
 
-        // Create Firestore user profile
-        await adminDb()
-          .collection('users')
-          .doc(userRecord.uid)
-          .set({
-            uid: userRecord.uid,
+        if (authError || !authData.user) {
+          logger.error('Failed to create auth user:', authError);
+          throw authError;
+        }
+
+        // Create user profile (database trigger should handle this, but we'll do it manually for control)
+        const { error: profileError } = await adminSupabase
+          .from('users')
+          // @ts-ignore - Type inference issue with Supabase admin client
+          .insert([{
+            id: authData.user.id,
             email: data.email,
-            displayName: sanitizedName,
+            display_name: sanitizedName,
             role: data.role || 'student',
             xp: 0,
             level: 1,
-            badges: [],
             streak: 0,
-            institutionId: data.institutionId || null,
-            accountType: data.accountType || 'individual',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
+            institution_id: data.institutionId || null,
+            account_type: data.accountType || 'individual',
+          }]);
 
-        logger.log('User created:', userRecord.uid);
-        return NextResponse.json({ success: true, userId: userRecord.uid });
+        if (profileError) {
+          logger.error('Failed to create user profile:', profileError);
+          // Clean up auth user if profile creation fails
+          await adminSupabase.auth.admin.deleteUser(authData.user.id);
+          throw profileError;
+        }
+
+        logger.log('User created:', authData.user.id);
+        return NextResponse.json({ success: true, userId: authData.user.id });
       }
 
       case 'resetPassword': {
-        await adminAuth().updateUser(data.userId, {
-          password: data.newPassword,
-        });
+        const { error: resetError } = await adminSupabase.auth.admin.updateUserById(
+          data.userId,
+          { password: data.newPassword }
+        );
+
+        if (resetError) throw resetError;
 
         logger.log('Password reset for user:', data.userId);
         return NextResponse.json({ success: true });
       }
 
       case 'deleteAuth': {
-        await adminAuth().deleteUser(data.userId);
+        const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(data.userId);
+
+        if (deleteError) throw deleteError;
+
         logger.log('Auth user deleted:', data.userId);
         return NextResponse.json({ success: true });
       }
@@ -106,33 +130,43 @@ export async function POST(request: NextRequest) {
         for (const user of data.users) {
           try {
             // Create Auth user
-            const userRecord = await adminAuth().createUser({
+            const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
               email: user.email,
               password: user.password || 'TempPassword123!',
-              displayName: user.displayName,
-              emailVerified: false,
+              email_confirm: false,
+              user_metadata: {
+                display_name: user.displayName,
+                role: user.role || 'student',
+              },
             });
 
-            // Create Firestore profile
-            await adminDb()
-              .collection('users')
-              .doc(userRecord.uid)
-              .set({
-                uid: userRecord.uid,
+            if (authError || !authData.user) {
+              throw authError || new Error('Failed to create auth user');
+            }
+
+            // Create user profile
+            const { error: profileError } = await adminSupabase
+              .from('users')
+              // @ts-ignore - Type inference issue with Supabase admin client
+              .insert([{
+                id: authData.user.id,
                 email: user.email,
-                displayName: user.displayName,
+                display_name: user.displayName,
                 role: user.role || 'student',
                 xp: 0,
                 level: 1,
-                badges: [],
                 streak: 0,
-                institutionId: user.institutionId || null,
-                accountType: user.accountType || 'individual',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
+                institution_id: user.institutionId || null,
+                account_type: user.accountType || 'individual',
+              }]);
 
-            results.push({ success: true, email: user.email, uid: userRecord.uid });
+            if (profileError) {
+              // Clean up auth user if profile creation fails
+              await adminSupabase.auth.admin.deleteUser(authData.user.id);
+              throw profileError;
+            }
+
+            results.push({ success: true, email: user.email, uid: authData.user.id });
           } catch (error) {
             results.push({
               success: false,

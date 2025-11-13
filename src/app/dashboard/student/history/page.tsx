@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { authInstance as auth } from '@/lib/firebase.client';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import Card from '@/components/common/Card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 import { fetchStudentEvaluations, type StudentEvaluation } from '@/lib/studentData';
 import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
 interface HistoryEvaluation extends StudentEvaluation {
   status: 'perfect' | 'excellent' | 'good' | 'average';
@@ -22,6 +22,7 @@ interface HistoryEvaluation extends StudentEvaluation {
 }
 
 export default function HistoryPage() {
+  const { user, loading: authLoading } = useAuth();
   const [evaluations, setEvaluations] = useState<HistoryEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterSubject, setFilterSubject] = useState('all');
@@ -30,15 +31,19 @@ export default function HistoryPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    async function loadEvaluations() {
+      if (authLoading) return;
+
       if (!user) {
         router.replace('/login');
         return;
       }
 
       try {
+        const uid = user.uid || user.id;
+
         // Fetch all evaluations
-        const evals = await fetchStudentEvaluations(user.uid, 100);
+        const evals = await fetchStudentEvaluations(uid, 100);
 
         // Map evaluations to history format with status and badge
         const historyEvals: HistoryEvaluation[] = evals.map(evaluation => {
@@ -73,10 +78,10 @@ export default function HistoryPage() {
       } finally {
         setIsLoading(false);
       }
-    });
+    }
 
-    return () => unsubscribe();
-  }, [router]);
+    loadEvaluations();
+  }, [user, authLoading, router]);
 
   const filteredHistory = evaluations.filter(test => {
     const matchesSubject = filterSubject === 'all' || test.subject === filterSubject;
@@ -104,14 +109,12 @@ export default function HistoryPage() {
     return 'from-gray-400 to-gray-500';
   };
 
-  if (isLoading) {
-    return (
-      <AppLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        </div>
-      </AppLayout>
-    );
+  if (authLoading || isLoading) {
+    return <Spinner fullScreen label="Loading history..." />;
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (

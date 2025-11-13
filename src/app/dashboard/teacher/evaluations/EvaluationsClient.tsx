@@ -12,9 +12,8 @@ import {
   Search, Calendar, AlertCircle, Eye,
   TrendingUp, Award, Plus, Zap
 } from 'lucide-react';
-import { db } from '@/lib/firebase.client';
+import { supabase } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
-import { collection, query, where, getDocs, orderBy, limit as firestoreLimit } from 'firebase/firestore';
 
 interface EvaluationsClientProps {
   userId: string;
@@ -53,42 +52,38 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
         setIsLoading(true);
 
         // Fetch teacher's institution ID first
-        const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', userId), firestoreLimit(1)));
-        let institutionId = '';
-        if (!userDoc.empty) {
-          const userData = userDoc.docs[0].data();
-          institutionId = userData.institutionId || '';
-          setTeacherInstitutionId(institutionId);
-        }
+        const { data: userData } = await supabase
+          .from('users')
+          .select('institution_id')
+          .eq('id', userId)
+          .single();
+
+        const institutionId = (userData as any)?.institution_id || '';
+        setTeacherInstitutionId(institutionId);
 
         // Fetch evaluations
-        let evaluationsQuery;
+        let evaluationsQuery = supabase
+          .from('evaluations')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
         if (userRole === 'teacher' && institutionId) {
-          evaluationsQuery = query(
-            collection(db, 'evaluations'),
-            where('institutionId', '==', institutionId),
-            orderBy('createdAt', 'desc'),
-            firestoreLimit(100)
-          );
-        } else {
-          // Admin or institution - show all
-          evaluationsQuery = query(
-            collection(db, 'evaluations'),
-            orderBy('createdAt', 'desc'),
-            firestoreLimit(100)
-          );
+          evaluationsQuery = evaluationsQuery.eq('institution_id', institutionId);
         }
 
-        const evaluationsSnapshot = await getDocs(evaluationsQuery);
-        const fetchedEvaluations: EvaluationData[] = evaluationsSnapshot.docs.map(doc => {
-          const data = doc.data();
+        const { data: evaluationsData, error } = await evaluationsQuery;
+
+        if (error) throw error;
+
+        const fetchedEvaluations: EvaluationData[] = ((evaluationsData || []) as any[]).map(data => {
           // Mock some fields that might not exist yet
           const totalSubs = 30;
           const mockEvaluated = data.status === 'completed' ? totalSubs :
                                 data.status === 'in-progress' ? Math.floor(totalSubs / 2) : 0;
 
           return {
-            id: doc.id,
+            id: data.id,
             title: data.title || 'Evaluation',
             subject: data.subject || 'N/A',
             class: data.class ? `Class ${data.class}${data.section || ''}` : 'N/A',
@@ -97,11 +92,11 @@ export function EvaluationsClient({ userId, userRole }: EvaluationsClientProps) 
             totalSubmissions: totalSubs,
             evaluated: mockEvaluated,
             pending: totalSubs - mockEvaluated,
-            createdAt: data.createdAt,
-            dueDate: data.dueDate || data.createdAt,
+            createdAt: data.created_at,
+            dueDate: data.due_date || data.created_at,
             status: data.status || 'pending',
             avgScore: data.status === 'completed' ? Math.floor(70 + Math.random() * 20) : 0,
-            institutionId: data.institutionId
+            institutionId: data.institution_id
           };
         });
 

@@ -18,7 +18,7 @@ import {
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
-import { FirestoreDocument } from '@/hooks/useFirestoreCRUD';
+import { SupabaseDocument } from '@/hooks/useSupabaseCRUD';
 
 export interface ColumnDef<T> {
   key: keyof T | string;
@@ -28,7 +28,7 @@ export interface ColumnDef<T> {
   width?: string;
 }
 
-export interface TableManagerProps<T extends FirestoreDocument> {
+export interface TableManagerProps<T extends SupabaseDocument> {
   title: string;
   data: T[];
   columns: ColumnDef<T>[];
@@ -59,7 +59,7 @@ export interface TableManagerProps<T extends FirestoreDocument> {
   enableRefresh?: boolean;
 }
 
-export default function TableManager<T extends FirestoreDocument>({
+export default function TableManager<T extends SupabaseDocument>({
   title,
   data,
   columns,

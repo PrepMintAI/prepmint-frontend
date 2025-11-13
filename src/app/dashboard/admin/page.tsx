@@ -1,61 +1,45 @@
 // src/app/dashboard/admin/page.tsx
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { adminAuth, adminDb } from '@/lib/firebase.admin';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { AdminDashboardClient } from './DashboardClient';
-import FirebaseAdminNotConfigured from '@/components/admin/FirebaseAdminCheck';
 import { logger } from '@/lib/logger';
+import Spinner from '@/components/common/Spinner';
 
-export default async function AdminDashboardPage() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('__session')?.value;
+export default function AdminDashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!sessionCookie) {
-    redirect('/login');
-  }
+  useEffect(() => {
+    if (loading) return;
 
-  let userId: string;
-  let userRole: string;
-
-  try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    userId = decoded.uid;
-
-    const userDoc = await adminDb().collection('users').doc(userId).get();
-
-    if (!userDoc.exists) {
-      logger.error('[Admin Dashboard] User document not found');
-      redirect('/login');
+    if (!user) {
+      logger.log('[Admin Dashboard] No user, redirecting to login');
+      router.replace('/login');
+      return;
     }
 
-    const userData = userDoc.data();
-    userRole = userData?.role || 'student';
+    const userRole = user.role || 'student';
 
-    logger.log('[Admin Dashboard] User role:', userRole);
-  } catch (error) {
-    logger.error('[Admin Dashboard] Session verification failed:', error);
-
-    // Check if the error is due to Firebase Admin not being initialized
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes('Not initialized') || errorMessage.includes('FIREBASE_ADMIN')) {
-      logger.error('[Admin Dashboard] Firebase Admin SDK not configured - showing configuration page');
-      return <FirebaseAdminNotConfigured />;
+    // Check role (allow both admin and dev)
+    if (userRole !== 'admin' && userRole !== 'dev') {
+      logger.log('[Admin Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
+      router.replace(`/dashboard/${userRole}`);
     }
+  }, [user, loading, router]);
 
-    // For other errors, redirect to login
-    redirect('/login');
+  if (loading || !user) {
+    return <Spinner fullScreen label="Loading dashboard..." />;
   }
 
-  // Check role OUTSIDE try-catch (allow both admin and dev)
-  if (userRole !== 'admin' && userRole !== 'dev') {
-    logger.log('[Admin Dashboard] Wrong role, redirecting to:', `/dashboard/${userRole}`);
-    redirect(`/dashboard/${userRole}`);
-  }
+  const userId = user.uid || user.id;
 
   return (
     <AppLayout>
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="p-6">
         <AdminDashboardClient userId={userId} />
       </div>
     </AppLayout>

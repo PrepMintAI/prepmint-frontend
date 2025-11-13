@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { db } from '@/lib/firebase.client';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase/client';
 import Card from '@/components/common/Card';
 import Button from '@/components/common/Button';
 import Spinner from '@/components/common/Spinner';
@@ -44,15 +43,30 @@ export function StudentsClient({ institutionId }: { institutionId?: string }) {
 
       try {
         setIsLoading(true);
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('institutionId', '==', institutionId),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const studentsData = studentsSnapshot.docs.map(doc => ({
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .eq('role', 'student');
+
+        if (error) throw error;
+
+        const studentsData = ((data || []) as any[]).map(doc => ({
           uid: doc.id,
-          ...doc.data()
+          email: doc.email,
+          displayName: doc.display_name,
+          role: doc.role,
+          institutionId: doc.institution_id,
+          class: doc.class,
+          section: doc.section,
+          rollNo: doc.roll_no,
+          xp: doc.xp,
+          level: doc.level,
+          performance: {
+            overallPercentage: doc.overall_percentage || 0,
+            rank: doc.rank,
+            attendance: doc.attendance,
+          }
         })) as UserData[];
         setStudents(studentsData);
       } catch (error) {
