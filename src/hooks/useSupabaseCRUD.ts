@@ -177,12 +177,11 @@ export function useSupabaseCRUD<T extends SupabaseDocument>(
     setRealtimeChannel(channel);
 
     return () => {
-      if (realtimeChannel) {
-        logger.log(`Unsubscribing from ${tableName} realtime`);
-        supabase.removeChannel(realtimeChannel);
-      }
+      logger.log(`Unsubscribing from ${tableName} realtime`);
+      supabase.removeChannel(channel);
     };
-  }, [tableName, filters, orderByField, orderDirection, pageSize, realtime, select, fetchDocuments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableName, JSON.stringify(filters), orderByField, orderDirection, pageSize, realtime, select]);
 
   // Add document
   const addDocument = async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
