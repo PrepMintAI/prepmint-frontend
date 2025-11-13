@@ -11,7 +11,8 @@ import {
   Home, User, Settings, Award, TrendingUp,
   BookOpen, Users, BarChart, Menu, X, LogOut,
   Bell, HelpCircle, Search, Clock, ChevronDown,
-  Upload, CheckCircle, AlertCircle, Info, GraduationCap
+  Upload, CheckCircle, AlertCircle, Info, GraduationCap,
+  Building
 } from 'lucide-react';
 import Link from 'next/link';
 import Spinner from '@/components/common/Spinner';
@@ -32,7 +33,7 @@ const roleBasedNavigation = {
     { name: 'Dashboard', href: '/dashboard/student', icon: Home },
     { name: 'Get Score ⚡', href: '/dashboard/student/score-check', icon: Upload },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
-    { name: 'Rewards', href: '/rewards', icon: Award },
+    { name: 'Rewards (Coming Soon)', href: '#', icon: Award, disabled: true },
     { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
     { name: 'My Journey', href: '/dashboard/student/history', icon: Clock },
     { name: 'Profile', href: '/profile', icon: User },
@@ -54,9 +55,10 @@ const roleBasedNavigation = {
     { name: 'All Users', href: '/dashboard/admin/users', icon: Users },
     { name: 'Students', href: '/dashboard/admin/students', icon: GraduationCap },
     { name: 'Teachers', href: '/dashboard/admin/teachers', icon: BookOpen },
+    { name: 'Institutions', href: '/dashboard/admin/institutions', icon: Building },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart },
     { name: 'Send Notification', href: '/dashboard/admin/notifications', icon: Bell },
-    { name: 'Rewards', href: '/rewards', icon: Award },
+    { name: 'Rewards (Coming Soon)', href: '#', icon: Award, disabled: true },
     { name: 'Settings', href: '/settings', icon: Settings },
     { name: 'Help', href: '/help', icon: HelpCircle },
   ],
@@ -84,7 +86,7 @@ const roleBasedNavigation = {
     { name: 'Analytics (Institution)', href: '/dashboard/institution/analytics', icon: BarChart },
     { name: 'Leaderboard', href: '/dashboard/student/leaderboard', icon: TrendingUp },
     { name: 'My Journey', href: '/dashboard/student/history', icon: Clock },
-    { name: 'Rewards', href: '/rewards', icon: Award },
+    { name: 'Rewards (Coming Soon)', href: '#', icon: Award, disabled: true },
     { name: 'Users', href: '/dashboard/institution/users', icon: Users },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -525,6 +527,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const isDisabled = (item as any).disabled;
+
+            if (isDisabled) {
+              return (
+                <div
+                  key={item.name}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg opacity-50 cursor-not-allowed text-gray-500"
+                >
+                  <Icon size={20} className="text-gray-400" />
+                  <span className="font-medium">{item.name}</span>
+                </div>
+              );
+            }
 
             return (
               <Link

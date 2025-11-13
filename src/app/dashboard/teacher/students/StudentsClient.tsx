@@ -156,6 +156,49 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
     return 'bg-orange-100 text-orange-700 border-orange-200';
   };
 
+  const handleExport = () => {
+    try {
+      // Create CSV content
+      const headers = ['Name', 'Roll No', 'Email', 'Class', 'XP', 'Level', 'Performance', 'Attendance'];
+      const csvRows = [headers.join(',')];
+
+      filteredStudents.forEach(student => {
+        const row = [
+          `"${student.displayName}"`,
+          student.rollNo || 'N/A',
+          student.email,
+          `${student.class}${student.section}`,
+          student.xp,
+          student.level,
+          `${Math.min(95, Math.floor(60 + student.xp / 10))}%`,
+          `${Math.min(95, Math.floor(80 + student.xp / 100))}%`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `students_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      logger.log('Students data exported successfully');
+    } catch (error) {
+      logger.error('Error exporting students:', error);
+      alert('Failed to export students data');
+    }
+  };
+
+  const handleSendMessage = () => {
+    router.push('/dashboard/teacher/notifications');
+  };
+
   if (isLoading) {
     return <Spinner fullScreen label="Loading students..." />;
   }
@@ -179,6 +222,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
               variant="outline"
               size="sm"
               leftIcon={<Download size={18} />}
+              onClick={handleExport}
             >
               Export
             </Button>
@@ -186,6 +230,7 @@ export function StudentsClient({ userId, userRole }: StudentsClientProps) {
               variant="outline"
               size="sm"
               leftIcon={<Mail size={18} />}
+              onClick={handleSendMessage}
             >
               Send Message
             </Button>

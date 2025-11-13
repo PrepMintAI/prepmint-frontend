@@ -55,6 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileCache, setProfileCache] = useState<Map<string, { profile: UserProfile; timestamp: number }>>(new Map());
+
+  // Cache TTL: 5 minutes
+  const CACHE_TTL = 5 * 60 * 1000;
 
   useEffect(() => {
     logger.log('[AuthContext] Initializing Supabase auth listener...');
@@ -145,6 +149,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
+        // Check cache first
+        const cached = profileCache.get(currentUser.id);
+        const now = Date.now();
+
+        if (cached && (now - cached.timestamp) < CACHE_TTL) {
+          logger.log('[AuthContext] Using cached profile for:', currentUser.id);
+          setUser(cached.profile);
+          setSupabaseUser(currentUser);
+          setLoading(false);
+          return;
+        }
+
         logger.log('[AuthContext] Fetching user profile for:', currentUser.id);
 
         // Fetch user profile from database
@@ -162,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             logger.warn('[AuthContext] No profile found for user:', currentUser.id);
 
             // Keep user signed in with basic auth data
-            setUser({
+            const basicUser: UserProfile = {
               id: currentUser.id,
               uid: currentUser.id,
               email: currentUser.email || null,
@@ -172,7 +188,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               photoURL: currentUser.user_metadata?.avatar_url || null,
               photo_url: currentUser.user_metadata?.avatar_url || null,
               role: currentUser.user_metadata?.role || 'student',
-            });
+            };
+            setUser(basicUser);
             setSupabaseUser(currentUser);
             setLoading(false);
             return;
@@ -186,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           // Merge auth data with profile data
           // Provide both camelCase and snake_case for compatibility
-          setUser({
+          const mergedProfile: UserProfile = {
             id: currentUser.id,
             uid: currentUser.id, // Backward compatibility
             email: currentUser.email || null,
@@ -212,7 +229,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             updated_at: profile.updated_at,
             lastLoginAt: profile.last_login_at,
             last_login_at: profile.last_login_at,
+          };
+
+          // Cache the profile
+          setProfileCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(currentUser.id, { profile: mergedProfile, timestamp: now });
+            return newCache;
           });
+
+          setUser(mergedProfile);
           setSupabaseUser(currentUser);
         }
       } catch (error) {
