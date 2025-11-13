@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Building, AlertCircle, Eye, Edit, Trash2 } from 'lucide-react';
 import TableManager, { ColumnDef } from '@/components/admin/TableManager';
+import InstitutionFormModal, { InstitutionFormData } from '@/components/admin/InstitutionFormModal';
+import InstitutionActionsModal from '@/components/admin/InstitutionActionsModal';
 import ImportModal from '@/components/admin/ImportModal';
 import { useSupabaseCRUD, SupabaseDocument } from '@/hooks/useSupabaseCRUD';
 import { supabase } from '@/lib/supabase/client';
@@ -29,7 +31,12 @@ interface InstitutionDocument extends SupabaseDocument {
 
 export default function InstitutionsManagementClient() {
   const { user, loading: authLoading } = useAuth();
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedInstitution, setSelectedInstitution] = useState<InstitutionDocument | null>(null);
+  const [actionType, setActionType] = useState<'view' | 'edit' | 'delete'>('view');
+  const [editingInstitution, setEditingInstitution] = useState<InstitutionDocument | null>(null);
 
   const {
     documents: institutions,
@@ -42,6 +49,7 @@ export default function InstitutionsManagementClient() {
     loadMore,
     refresh,
     search,
+    addDocument,
   } = useSupabaseCRUD<InstitutionDocument>({
     tableName: 'institutions',
     pageSize: 20,
@@ -169,27 +177,65 @@ export default function InstitutionsManagementClient() {
     },
   ];
 
+  const handleAdd = () => {
+    setEditingInstitution(null);
+    setIsFormModalOpen(true);
+  };
+
   const handleView = (row: InstitutionDocument) => {
-    // For now, just log - can be expanded with a detailed view modal
-    logger.log('View institution:', row);
-    alert(`Institution: ${row.name}\nType: ${row.type}\nLocation: ${row.location || 'N/A'}\nStudents: ${row.student_count || 0}\nTeachers: ${row.teacher_count || 0}`);
+    setSelectedInstitution(row);
+    setActionType('view');
+    setIsActionModalOpen(true);
   };
 
   const handleEdit = (row: InstitutionDocument) => {
-    // For now, just log - can be expanded with edit modal
-    logger.log('Edit institution:', row);
-    alert('Edit functionality coming soon! This would open an edit modal.');
+    setSelectedInstitution(row);
+    setActionType('edit');
+    setIsActionModalOpen(true);
   };
 
-  const handleDelete = async (row: InstitutionDocument) => {
-    if (!confirm(`Are you sure you want to delete ${row.name}? This will affect all associated users.`)) return;
+  const handleDelete = (row: InstitutionDocument) => {
+    setSelectedInstitution(row);
+    setActionType('delete');
+    setIsActionModalOpen(true);
+  };
 
+  const handleActionConfirm = async (action: 'view' | 'edit' | 'delete', data?: any) => {
     try {
-      await deleteDocument(row.id);
-      logger.log('Institution deleted:', row.id);
+      switch (action) {
+        case 'edit':
+          if (data?.institutionId) {
+            const { institutionId, ...updateData } = data;
+            await updateDocument(institutionId, updateData);
+          }
+          break;
+
+        case 'delete':
+          if (data?.institutionId) {
+            await deleteDocument(data.institutionId);
+          }
+          break;
+      }
+
+      await refresh();
     } catch (err) {
-      logger.error('Error deleting institution:', err);
-      alert('Failed to delete institution');
+      logger.error(`Error ${action}ing institution:`, err);
+      throw err;
+    }
+  };
+
+  const handleSubmit = async (data: InstitutionFormData) => {
+    try {
+      if (editingInstitution) {
+        await updateDocument(editingInstitution.id, data);
+      } else {
+        // Create new institution
+        await addDocument(data as any);
+      }
+      await refresh();
+    } catch (err) {
+      logger.error('Error saving institution:', err);
+      throw err;
     }
   };
 
@@ -306,7 +352,7 @@ export default function InstitutionsManagementClient() {
           loading={loading}
           error={error}
           searchPlaceholder="Search institutions..."
-          onAdd={() => alert('Add functionality coming soon! This would open a form modal.')}
+          onAdd={handleAdd}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onBulkDelete={bulkDelete}
@@ -356,11 +402,27 @@ export default function InstitutionsManagementClient() {
               Delete Institution
             </Button>
           </div>
-          <p className="text-xs text-gray-600 mt-2">
-            Note: Full edit and detail modals will be added in future updates
-          </p>
         </div>
       </motion.div>
+
+      {/* Form Modal */}
+      <InstitutionFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        onSubmit={handleSubmit}
+        initialData={editingInstitution || {}}
+        mode={editingInstitution ? 'edit' : 'add'}
+        title={editingInstitution ? 'Edit Institution' : 'Add New Institution'}
+      />
+
+      {/* Institution Actions Modal */}
+      <InstitutionActionsModal
+        isOpen={isActionModalOpen}
+        onClose={() => setIsActionModalOpen(false)}
+        institution={selectedInstitution}
+        action={actionType}
+        onConfirm={handleActionConfirm}
+      />
 
       {/* Import Modal */}
       <ImportModal
