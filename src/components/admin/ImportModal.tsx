@@ -210,16 +210,17 @@ export default function ImportModal({
                 <p className="text-gray-600 mb-6">
                   Upload your filled Excel or CSV file
                 </p>
-                <label className="inline-block">
+                <label className="inline-block cursor-pointer">
                   <input
                     type="file"
                     accept=".csv,.xlsx"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <Button variant="primary" leftIcon={<Upload size={18} />} as="span">
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg">
+                    <Upload size={18} />
                     Select File
-                  </Button>
+                  </span>
                 </label>
                 {file && (
                   <div className="mt-4 text-sm text-gray-600">
