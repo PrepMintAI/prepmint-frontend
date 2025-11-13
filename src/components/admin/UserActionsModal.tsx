@@ -1,7 +1,7 @@
 // src/components/admin/UserActionsModal.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -58,6 +58,20 @@ export default function UserActionsModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Initialize form data when modal opens or user changes
+  useEffect(() => {
+    if (user && action === 'edit') {
+      setFormData({
+        display_name: user.display_name,
+        email: user.email,
+        role: user.role,
+        status: user.status || 'active',
+        account_type: user.account_type,
+        institution_id: user.institution_id,
+      });
+    }
+  }, [user, action]);
+
   if (!isOpen || !user) return null;
 
   const handleSubmit = async () => {
@@ -69,8 +83,20 @@ export default function UserActionsModal({
       if (action === 'reset-password') {
         if (!newPassword || newPassword.length < 6) {
           setError('Password must be at least 6 characters');
+          setLoading(false);
           return;
         }
+
+        // Confirmation before resetting password
+        const confirmed = window.confirm(
+          `Are you sure you want to reset the password for ${user.display_name}?\n\nThis will immediately change their password and they will need to use the new password to log in.`
+        );
+
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+
         await onConfirm(action, { userId: user.id, newPassword });
         setSuccess('Password reset successfully!');
       } else if (action === 'edit') {
@@ -305,9 +331,9 @@ export default function UserActionsModal({
                   </label>
                   <input
                     type="text"
-                    defaultValue={user.display_name}
+                    value={formData.display_name || ''}
                     onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
                   />
                 </div>
 
@@ -317,9 +343,9 @@ export default function UserActionsModal({
                   </label>
                   <input
                     type="email"
-                    defaultValue={user.email}
+                    value={formData.email || ''}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
                   />
                 </div>
 
@@ -328,9 +354,9 @@ export default function UserActionsModal({
                     Role
                   </label>
                   <select
-                    defaultValue={user.role}
+                    value={formData.role || user.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
                   >
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
@@ -344,9 +370,9 @@ export default function UserActionsModal({
                     Status
                   </label>
                   <select
-                    defaultValue={user.status || 'active'}
+                    value={formData.status || 'active'}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
                   >
                     <option value="active">Active</option>
                     <option value="suspended">Suspended</option>

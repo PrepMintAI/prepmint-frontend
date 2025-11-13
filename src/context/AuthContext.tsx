@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase, onAuthStateChange } from '@/lib/supabase/client';
 import { logger } from '@/lib/logger';
@@ -55,7 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileCache, setProfileCache] = useState<Map<string, { profile: UserProfile; timestamp: number }>>(new Map());
+
+  // Use ref instead of state to avoid stale closures
+  const profileCacheRef = useRef<Map<string, { profile: UserProfile; timestamp: number }>>(new Map());
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cache TTL: 5 minutes
   const CACHE_TTL = 5 * 60 * 1000;
@@ -63,45 +66,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     logger.log('[AuthContext] Initializing Supabase auth listener...');
 
+    // Clear any existing safety timeout
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+    }
+
     // Add a safety timeout in case Supabase never responds
-    const safetyTimeout = setTimeout(() => {
+    safetyTimeoutRef.current = setTimeout(() => {
       logger.warn('[AuthContext] Safety timeout reached - forcing loading to false');
       setLoading(false);
     }, 5000); // 5 second safety net
 
-    // Check for existing session on mount
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          logger.error('[AuthContext] Error getting session:', error);
-          clearTimeout(safetyTimeout);
-          setLoading(false);
-          return;
-        }
-
-        if (session?.user) {
-          logger.log('[AuthContext] Existing session found:', session.user.email);
-          await handleAuthChange(session.user);
-        } else {
-          logger.log('[AuthContext] No existing session');
-          clearTimeout(safetyTimeout);
-          setLoading(false);
-        }
-      } catch (error) {
-        logger.error('[AuthContext] Error initializing auth:', error);
-        clearTimeout(safetyTimeout);
-        setLoading(false);
-      }
-    };
-
-    // Initialize auth
-    initializeAuth();
-
     // Handle auth state changes
     const handleAuthChange = async (currentUser: SupabaseUser | null) => {
-      clearTimeout(safetyTimeout);
+      // Clear safety timeout
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+
       logger.log('[AuthContext] Auth state changed:', currentUser?.email || 'No user');
 
       if (!currentUser) {
@@ -150,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Check cache first
-        const cached = profileCache.get(currentUser.id);
+        const cached = profileCacheRef.current.get(currentUser.id);
         const now = Date.now();
 
         if (cached && (now - cached.timestamp) < CACHE_TTL) {
@@ -232,11 +215,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           };
 
           // Cache the profile
-          setProfileCache(prev => {
-            const newCache = new Map(prev);
-            newCache.set(currentUser.id, { profile: mergedProfile, timestamp: now });
-            return newCache;
-          });
+          profileCacheRef.current.set(currentUser.id, { profile: mergedProfile, timestamp: now });
 
           setUser(mergedProfile);
           setSupabaseUser(currentUser);
@@ -264,6 +243,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+    // Check for existing session on mount
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          logger.error('[AuthContext] Error getting session:', error);
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          logger.log('[AuthContext] Existing session found:', session.user.email);
+          await handleAuthChange(session.user);
+        } else {
+          logger.log('[AuthContext] No existing session');
+          if (safetyTimeoutRef.current) {
+            clearTimeout(safetyTimeoutRef.current);
+            safetyTimeoutRef.current = null;
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        logger.error('[AuthContext] Error initializing auth:', error);
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+        setLoading(false);
+      }
+    };
+
+    // Initialize auth
+    initializeAuth();
+
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChange(async (event, session) => {
       logger.log('[AuthContext] Auth event:', event);
@@ -272,7 +290,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       logger.log('[AuthContext] Cleaning up auth listener');
-      clearTimeout(safetyTimeout);
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
       unsubscribe();
     };
   }, []);
