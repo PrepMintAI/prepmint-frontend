@@ -77,12 +77,20 @@ export default function ProfilePage() {
 
       if (error) throw error;
 
-      setUser({ ...user, ...formData });
+      // Update local state
+      setUser({ ...user, displayName: formData.displayName });
       setIsEditing(false);
+
+      // Show success message
+      alert('Profile updated successfully!');
+
+      // Reload the page to refresh AuthContext with new data
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       logger.error('Error updating profile:', error);
       alert('Failed to update profile');
-    } finally {
       setSaving(false);
     }
   };

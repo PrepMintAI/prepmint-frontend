@@ -73,10 +73,43 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
 
         setEvaluations(evals);
         setActivityData(activity);
-        setStats(studentStats);
+
+        // Use fallback stats if fetchStudentStats returns null
+        if (studentStats) {
+          setStats(studentStats);
+        } else {
+          logger.warn('fetchStudentStats returned null, using fallback stats');
+          // Create default stats from authUser data
+          const xp = authUser.xp || 0;
+          const level = authUser.level || Math.floor(Math.sqrt(xp / 100)) + 1;
+          setStats({
+            xp,
+            level,
+            streak: authUser.streak || 0,
+            testsCompleted: evals.length,
+            avgScore: evals.length > 0
+              ? Math.round(evals.reduce((sum, e) => sum + e.percentage, 0) / evals.length)
+              : 0,
+            attendance: 0,
+            rank: authUser.rank || 0,
+          });
+        }
+
         setUpcomingTests(tests);
       } catch (error) {
         logger.error('Error loading dashboard data:', error);
+        // Set fallback stats even on error
+        const xp = authUser?.xp || 0;
+        const level = authUser?.level || Math.floor(Math.sqrt(xp / 100)) + 1;
+        setStats({
+          xp,
+          level,
+          streak: authUser?.streak || 0,
+          testsCompleted: 0,
+          avgScore: 0,
+          attendance: 0,
+          rank: authUser?.rank || 0,
+        });
       } finally {
         setIsLoading(false);
       }
@@ -86,7 +119,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
   }, [authLoading, authUser, router]);
 
   // Show loading spinner while data is being fetched
-  if (authLoading || isLoading || !authUser || !stats) {
+  if (authLoading || isLoading || !authUser) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -94,8 +127,19 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
     );
   }
 
-  const currentXp = stats.xp;
-  const currentLevel = stats.level;
+  // Use default stats if still not set
+  const currentStats = stats || {
+    xp: authUser.xp || 0,
+    level: authUser.level || 1,
+    streak: authUser.streak || 0,
+    testsCompleted: 0,
+    avgScore: 0,
+    attendance: 0,
+    rank: authUser.rank || 0,
+  };
+
+  const currentXp = currentStats.xp;
+  const currentLevel = currentStats.level;
   const nextLevelXp = xpForNextLevel(currentLevel);
   const xpProgress = ((currentXp % 1000) / 1000) * 100;
 
@@ -208,21 +252,21 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
 
         <StatCard
           label="Class Rank"
-          value={`#${stats.rank || 'N/A'}`}
+          value={`#${currentStats.rank || 'N/A'}`}
           icon={<TrendingUp size={24} />}
           variant="gradient"
         />
 
         <StatCard
           label="Streak Fire"
-          value={`${stats.streak} 🔥`}
+          value={`${currentStats.streak} 🔥`}
           icon={<Flame size={24} />}
           variant="gradient"
         />
 
         <StatCard
           label="Tests Done"
-          value={stats.testsCompleted}
+          value={currentStats.testsCompleted}
           icon={<Target size={24} />}
           variant="gradient"
         />
@@ -244,14 +288,14 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             <div>
               <p className="text-sm text-gray-600">Overall Score</p>
               <p className="text-2xl font-bold text-gray-900">
-                {stats.avgScore}%
+                {currentStats.avgScore}%
               </p>
             </div>
           </div>
           <div className="w-full bg-blue-200 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${stats.avgScore}%` }}
+              style={{ width: `${currentStats.avgScore}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 mt-2">Keep pushing! 💪</p>
@@ -264,17 +308,17 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             </div>
             <div>
               <p className="text-sm text-gray-600">Daily Streak</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.streak} days</p>
+              <p className="text-2xl font-bold text-gray-900">{currentStats.streak} days</p>
             </div>
           </div>
           <div className="w-full bg-orange-200 rounded-full h-2">
             <div
               className="bg-orange-600 h-2 rounded-full"
-              style={{ width: `${Math.min((stats.streak / 30) * 100, 100)}%` }}
+              style={{ width: `${Math.min((currentStats.streak / 30) * 100, 100)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600 mt-2">
-            {stats.streak >= 30 ? '🎉 30-day milestone reached!' : `${30 - stats.streak} days to 30-day milestone!`}
+            {currentStats.streak >= 30 ? '🎉 30-day milestone reached!' : `${30 - currentStats.streak} days to 30-day milestone!`}
           </p>
         </Card>
 
@@ -285,14 +329,14 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
             </div>
             <div>
               <p className="text-sm text-gray-600">Attendance</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.attendance}%</p>
+              <p className="text-2xl font-bold text-gray-900">{currentStats.attendance}%</p>
             </div>
           </div>
           <div className="w-full bg-green-200 rounded-full h-2">
-            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${stats.attendance}%` }} />
+            <div className="bg-green-600 h-2 rounded-full" style={{ width: `${currentStats.attendance}%` }} />
           </div>
           <p className="text-xs text-gray-600 mt-2">
-            {stats.attendance >= 90 ? 'Excellent attendance! ⭐' : 'Keep it up! 💪'}
+            {currentStats.attendance >= 90 ? 'Excellent attendance! ⭐' : 'Keep it up! 💪'}
           </p>
         </Card>
       </motion.div>
@@ -453,7 +497,7 @@ export function StudentDashboardClient({ userId }: StudentDashboardClientProps) 
               <div>
                 <h3 className="text-xl font-bold mb-2 text-white">Climb the Ranks! 🏆</h3>
                 <p className="text-white/90 text-sm mb-4">
-                  {stats.rank ? `You're rank #${stats.rank}. Beat your classmates!` : 'Compete with your classmates!'}
+                  {currentStats.rank ? `You're rank #${currentStats.rank}. Beat your classmates!` : 'Compete with your classmates!'}
                 </p>
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-white text-orange-600 hover:bg-gray-50 font-semibold rounded-lg transition-colors">
                   View Leaderboard →
