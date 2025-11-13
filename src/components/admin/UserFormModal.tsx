@@ -148,7 +148,7 @@ export default function UserFormModal({
                         onChange={handleChange}
                         required
                         disabled={mode === 'edit'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 text-gray-900 bg-white"
                       />
                     </div>
 
@@ -163,7 +163,7 @@ export default function UserFormModal({
                         value={formData.displayName}
                         onChange={handleChange}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                       />
                     </div>
 
@@ -177,7 +177,7 @@ export default function UserFormModal({
                         value={formData.role}
                         onChange={handleChange}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                       >
                         <option value="student">Student</option>
                         <option value="teacher">Teacher</option>
@@ -195,7 +195,7 @@ export default function UserFormModal({
                         name="accountType"
                         value={formData.accountType}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                       >
                         <option value="individual">Individual</option>
                         <option value="institution">Institution</option>
@@ -213,7 +213,7 @@ export default function UserFormModal({
                         value={formData.institutionId}
                         onChange={handleChange}
                         placeholder="Optional"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                       />
                     </div>
 
@@ -229,7 +229,7 @@ export default function UserFormModal({
                           value={formData.password}
                           onChange={handleChange}
                           placeholder="Leave empty for default"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                         />
                         <p className="text-xs text-gray-500 mt-1">
                           Default: TempPassword123!
