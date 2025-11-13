@@ -3,10 +3,13 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { GraduationCap, AlertCircle } from 'lucide-react';
+import { GraduationCap, AlertCircle, Eye, Edit, Key, Trash2 } from 'lucide-react';
 import TableManager, { ColumnDef } from '@/components/admin/TableManager';
 import UserFormModal, { UserFormData } from '@/components/admin/UserFormModal';
+import UserActionsModal from '@/components/admin/UserActionsModal';
+import ImportModal from '@/components/admin/ImportModal';
 import { useSupabaseCRUD, SupabaseDocument } from '@/hooks/useSupabaseCRUD';
+import Button from '@/components/common/Button';
 import { logger } from '@/lib/logger';
 import { useAuth } from '@/context/AuthContext';
 
@@ -17,14 +20,21 @@ interface StudentDocument extends SupabaseDocument {
   xp?: number;
   level?: number;
   institution_id?: string;
+  account_type?: 'individual' | 'institution';
   streak?: number;
   badges?: string[];
   created_at: string;
+  last_active?: string;
+  status?: 'active' | 'suspended' | 'pending';
 }
 
 export default function StudentsManagementClient() {
   const { user, loading: authLoading } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<StudentDocument | null>(null);
+  const [actionType, setActionType] = useState<'view' | 'edit' | 'delete' | 'reset-password'>('view');
   const [editingStudent, setEditingStudent] = useState<StudentDocument | null>(null);
 
   const {
@@ -123,13 +133,21 @@ export default function StudentsManagementClient() {
       ),
     },
     {
-      key: 'badges',
-      label: 'Badges',
-      render: (value) => (
-        <span className="text-sm font-medium text-gray-900">
-          {Array.isArray(value) ? value.length : 0}
-        </span>
-      ),
+      key: 'status',
+      label: 'Status',
+      render: (value) => {
+        const colors = {
+          active: 'bg-green-100 text-green-700',
+          suspended: 'bg-red-100 text-red-700',
+          pending: 'bg-yellow-100 text-yellow-700',
+        };
+        const status = value || 'active';
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status as keyof typeof colors]}`}>
+            {status}
+          </span>
+        );
+      },
     },
     {
       key: 'institution_id',
@@ -140,31 +158,83 @@ export default function StudentsManagementClient() {
     },
   ];
 
-  const handleEdit = (row: StudentDocument) => {
-    setEditingStudent(row);
-    setIsModalOpen(true);
+  const handleAdd = () => {
+    setEditingStudent(null);
+    setIsFormModalOpen(true);
   };
 
-  const handleDelete = async (row: StudentDocument) => {
-    if (!confirm(`Are you sure you want to delete ${row.display_name}?`)) return;
+  const handleView = (row: StudentDocument) => {
+    setSelectedStudent(row);
+    setActionType('view');
+    setIsActionModalOpen(true);
+  };
 
+  const handleEdit = (row: StudentDocument) => {
+    setSelectedStudent(row);
+    setActionType('edit');
+    setIsActionModalOpen(true);
+  };
+
+  const handleDelete = (row: StudentDocument) => {
+    setSelectedStudent(row);
+    setActionType('delete');
+    setIsActionModalOpen(true);
+  };
+
+  const handleResetPassword = (row: StudentDocument) => {
+    setSelectedStudent(row);
+    setActionType('reset-password');
+    setIsActionModalOpen(true);
+  };
+
+  const handleActionConfirm = async (action: 'view' | 'edit' | 'delete' | 'reset-password', data?: any) => {
     try {
-      await deleteDocument(row.id);
+      switch (action) {
+        case 'edit':
+          if (data?.userId) {
+            const { userId, ...updateData } = data;
+            await updateDocument(userId, updateData);
+          }
+          break;
 
-      // Also delete from Supabase Auth
-      await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'deleteAuth',
-          data: { userId: row.id },
-        }),
-      });
+        case 'delete':
+          if (data?.userId) {
+            await deleteDocument(data.userId);
 
-      logger.log('Student deleted:', row.id);
+            // Delete from Supabase Auth via API
+            await fetch('/api/admin/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'deleteAuth',
+                data: { userId: data.userId },
+              }),
+            });
+          }
+          break;
+
+        case 'reset-password':
+          if (data?.userId && data?.newPassword) {
+            const response = await fetch('/api/admin/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'resetPassword',
+                data: { userId: data.userId, newPassword: data.newPassword },
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to reset password');
+            }
+          }
+          break;
+      }
+
+      await refresh();
     } catch (err) {
-      logger.error('Error deleting student:', err);
-      alert('Failed to delete student');
+      logger.error(`Error ${action}ing student:`, err);
+      throw err;
     }
   };
 
@@ -206,14 +276,14 @@ export default function StudentsManagementClient() {
 
   const handleExport = () => {
     const csv = [
-      ['Name', 'Email', 'XP', 'Level', 'Streak', 'Badges', 'Institution', 'Created'],
+      ['Name', 'Email', 'XP', 'Level', 'Streak', 'Status', 'Institution', 'Created'],
       ...students.map((s) => [
         s.display_name,
         s.email,
         s.xp || 0,
         s.level || 1,
         s.streak || 0,
-        s.badges?.length || 0,
+        s.status || 'active',
         s.institution_id || '',
         s.created_at ? new Date(s.created_at).toLocaleDateString() : '',
       ]),
@@ -230,8 +300,45 @@ export default function StudentsManagementClient() {
     URL.revokeObjectURL(url);
   };
 
+  const handleImport = async (data: any[]) => {
+    try {
+      const studentsData = data.map((row) => ({
+        displayName: row['Display Name'] || row['Name'],
+        email: row['Email'],
+        role: 'student' as const,
+        password: row['Password'] || undefined,
+        accountType: row['Account Type']?.toLowerCase() || 'individual',
+        institutionId: row['Institution ID'] || undefined,
+      }));
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'bulkCreate',
+          data: { users: studentsData },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const successCount = result.results.filter((r: any) => r.success).length;
+        logger.log(`Successfully imported ${successCount} students`);
+        await refresh();
+      }
+    } catch (err) {
+      logger.error('Error importing students:', err);
+      throw err;
+    }
+  };
+
+  const handleOpenImport = () => {
+    setIsImportModalOpen(true);
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg p-6">
@@ -256,7 +363,7 @@ export default function StudentsManagementClient() {
           { label: 'Total Students', value: students.length },
           { label: 'Avg XP', value: Math.round(students.reduce((sum, s) => sum + (s.xp || 0), 0) / students.length || 0) },
           { label: 'Active Streaks', value: students.filter((s) => (s.streak || 0) > 0).length },
-          { label: 'Total Badges', value: students.reduce((sum, s) => sum + (s.badges?.length || 0), 0) },
+          { label: 'Active Students', value: students.filter((s) => s.status === 'active' || !s.status).length },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -281,31 +388,99 @@ export default function StudentsManagementClient() {
           loading={loading}
           error={error}
           searchPlaceholder="Search students..."
-          onAdd={() => {
-            setEditingStudent(null);
-            setIsModalOpen(true);
-          }}
+          onAdd={handleAdd}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onBulkDelete={bulkDelete}
           onExport={handleExport}
+          onImport={handleOpenImport}
           onRefresh={refresh}
           onSearch={(term) => search(term, ['display_name', 'email'])}
-          onRowClick={handleEdit}
+          onRowClick={handleView}
           hasMore={hasMore}
           onLoadMore={loadMore}
-          enableImport={false}
+          enableEdit={false}
+          enableDelete={false}
         />
+
+        {/* Quick Actions Info */}
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-900 mb-3 font-medium">
+            Quick Actions: Click on any student row to view details
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Eye size={16} />}
+              onClick={() => students[0] && handleView(students[0])}
+              disabled={students.length === 0}
+            >
+              View Details
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Edit size={16} />}
+              onClick={() => students[0] && handleEdit(students[0])}
+              disabled={students.length === 0}
+            >
+              Edit Student
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Key size={16} />}
+              onClick={() => students[0] && handleResetPassword(students[0])}
+              disabled={students.length === 0}
+            >
+              Reset Password
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Trash2 size={16} />}
+              onClick={() => students[0] && handleDelete(students[0])}
+              disabled={students.length === 0}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Delete Student
+            </Button>
+          </div>
+        </div>
       </motion.div>
 
       {/* Form Modal */}
       <UserFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
         onSubmit={handleSubmit}
         initialData={editingStudent ? { ...editingStudent, role: 'student' } : { role: 'student' }}
         mode={editingStudent ? 'edit' : 'add'}
         title={editingStudent ? 'Edit Student' : 'Add New Student'}
+      />
+
+      {/* User Actions Modal */}
+      <UserActionsModal
+        isOpen={isActionModalOpen}
+        onClose={() => setIsActionModalOpen(false)}
+        user={selectedStudent}
+        action={actionType}
+        onConfirm={handleActionConfirm}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImport}
+        templateHeaders={['Display Name', 'Email', 'Password', 'Account Type', 'Institution ID']}
+        templateExample={[
+          ['John Doe', 'john@example.com', 'password123', 'individual', ''],
+          ['Jane Smith', 'jane@example.com', 'password456', 'individual', 'inst_001'],
+          ['Bob Wilson', 'bob@example.com', 'password789', 'institution', 'inst_001'],
+        ]}
+        entityName="Students"
       />
     </div>
   );
