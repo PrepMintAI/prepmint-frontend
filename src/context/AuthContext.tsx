@@ -17,12 +17,14 @@ type UserProfile = {
   role?: 'student' | 'teacher' | 'admin' | 'institution' | 'dev';
   xp?: number;
   level?: number;
+  rank?: number;
   badges?: string[];
   institution_id?: string; // Supabase snake_case
   institutionId?: string; // Keep for backward compatibility
   accountType?: 'individual' | 'institution';
   account_type?: 'individual' | 'institution'; // Supabase snake_case
   streak?: number;
+  attendance?: number;
   lastActive?: string;
   last_active?: string; // Supabase snake_case
   createdAt?: string;

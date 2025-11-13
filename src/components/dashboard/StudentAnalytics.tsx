@@ -85,30 +85,52 @@ export default function StudentAnalytics({
         setLoading(true);
         setError(null);
 
-        // 1. Fetch user data
-        const { data: userData, error: userError } = await supabase
+        // Add timeout to prevent hanging queries
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 15000)
+        );
+
+        // 1. Fetch user data with timeout
+        const userPromise = supabase
           .from('users')
           .select('*')
           .eq('id', userId)
           .single();
 
+        const { data: userData, error: userError } = await Promise.race([
+          userPromise,
+          timeoutPromise
+        ]) as any;
+
         if (userError || !userData) {
-          setError('User document not found');
-          setLoading(false);
-          return;
+          logger.warn('User document not found, using default values');
+          // Set default user data instead of failing
+          const defaultUserData = {
+            id: userId,
+            xp: 0,
+            level: 1,
+            rank: 0,
+          };
+          setUserData(defaultUserData);
+          setStats((prev) => ({
+            ...prev,
+            totalXp: 0,
+            currentLevel: 1,
+            rank: 0,
+          }));
+        } else {
+          const user = userData as any;
+          const totalXp = user.xp || 0;
+          const currentLevel = calculateLevel(totalXp);
+
+          setUserData(user);
+          setStats((prev) => ({
+            ...prev,
+            totalXp,
+            currentLevel,
+            rank: user.rank || 0,
+          }));
         }
-
-        const user = userData as any;
-        const totalXp = user.xp || 0;
-        const currentLevel = calculateLevel(totalXp);
-
-        setUserData(user);
-        setStats((prev) => ({
-          ...prev,
-          totalXp,
-          currentLevel,
-          rank: user.rank || 0,
-        }));
 
         // 2. Fetch evaluations (last 50)
         const { data: evaluations, error: evalsError } = await supabase
@@ -239,16 +261,27 @@ export default function StudentAnalytics({
           testsCompleted: evaluationsData.length,
           avgScore,
         }));
-
-        setLoading(false);
       } catch (error) {
         logger.error('Error fetching analytics data:', error);
         setError('Failed to load analytics data. Please try again.');
+      } finally {
+        // Always set loading to false, even on errors
         setLoading(false);
       }
     };
 
     fetchAnalyticsData();
+
+    // Safety timeout to force loading to false after 20 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        logger.warn('Analytics loading exceeded 20s, forcing loading state to false');
+        setLoading(false);
+        setError('Loading took too long. Please refresh the page.');
+      }
+    }, 20000);
+
+    return () => clearTimeout(safetyTimeout);
   }, [userId]);
 
   // ===== RENDER STATES =====
