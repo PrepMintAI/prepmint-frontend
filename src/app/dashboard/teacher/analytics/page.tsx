@@ -1,14 +1,14 @@
 // src/app/dashboard/teacher/analytics/page.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { AnalyticsClient } from './AnalyticsClient';
 import Spinner from '@/components/common/Spinner';
 
-export default function AnalyticsPage() {
+function AnalyticsPageContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,5 +52,13 @@ export default function AnalyticsPage() {
         />
       </div>
     </AppLayout>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen label="Loading analytics..." />}>
+      <AnalyticsPageContent />
+    </Suspense>
   );
 }

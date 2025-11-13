@@ -40,6 +40,10 @@ export const supabase = createBrowserClient<Database>(
   {
     cookies: {
       get(name: string) {
+        // Check if running in browser
+        if (typeof document === 'undefined') {
+          return undefined
+        }
         // Get cookie value from document.cookie
         const value = `; ${document.cookie}`
         const parts = value.split(`; ${name}=`)
@@ -48,6 +52,10 @@ export const supabase = createBrowserClient<Database>(
         }
       },
       set(name: string, value: string, options: any) {
+        // Check if running in browser
+        if (typeof document === 'undefined') {
+          return
+        }
         // Set cookie in document.cookie
         let cookie = `${name}=${value}`
 
@@ -74,6 +82,10 @@ export const supabase = createBrowserClient<Database>(
         document.cookie = cookie
       },
       remove(name: string, options: any) {
+        // Check if running in browser
+        if (typeof document === 'undefined') {
+          return
+        }
         // Remove cookie by setting expiry to past date
         let cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC`
 
