@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import AppLayout from '@/components/layout/AppLayout';
 import NotificationsClient from './NotificationsClient';
 import Spinner from '@/components/common/Spinner';
 
@@ -30,5 +31,11 @@ export default function InstitutionNotificationsPage() {
 
   if (!user) return null;
 
-  return <NotificationsClient />;
+  return (
+    <AppLayout>
+      <div className="p-6">
+        <NotificationsClient />
+      </div>
+    </AppLayout>
+  );
 }
